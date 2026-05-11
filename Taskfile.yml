@@ -1,0 +1,65 @@
+version: "3"
+
+tasks:
+  install:
+    desc: Install dependencies (uv)
+    cmds:
+      - uv sync --all-extras
+
+  test:
+    desc: Run all tests
+    cmds:
+      - uv run pytest
+
+  test:unit:
+    desc: Run unit tests only
+    cmds:
+      - uv run pytest -m "not integration"
+
+  test:integration:
+    desc: Run integration tests (requires RUN_INTEGRATION_TESTS=1)
+    cmds:
+      - RUN_INTEGRATION_TESTS=1 uv run pytest -m "integration"
+
+  lint:
+    desc: Ruff lint
+    cmds:
+      - uv run ruff check .
+
+  format:
+    desc: Ruff format
+    cmds:
+      - uv run ruff format .
+
+  typecheck:
+    desc: mypy typecheck
+    cmds:
+      - uv run mypy .
+
+  check:
+    desc: Lint + format check + typecheck + tests
+    cmds:
+      - uv run ruff format --check .
+      - uv run ruff check .
+      - uv run mypy .
+      - uv run pytest -m "not integration"
+
+  run:
+    desc: Show CLI help
+    cmds:
+      - uv run live-transcriber --help
+
+  devices:
+    desc: List available audio sources
+    cmds:
+      - uv run live-transcriber devices
+
+  tui:
+    desc: Launch interactive terminal UI
+    cmds:
+      - uv run live-transcriber tui
+
+  docs:
+    desc: List docs
+    cmds:
+      - ls -la docs
