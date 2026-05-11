@@ -167,7 +167,9 @@ def test_meeting_session_delete_cascades_related_rows(tmp_path) -> None:
         )
         transcripts.append(seg)
         summaries.upsert(
-            Summary(session_id=s.id, summary_markdown="# Notes\n\nHello.", action_items=[], decisions=[])
+            Summary(
+                session_id=s.id, summary_markdown="# Notes\n\nHello.", action_items=[], decisions=[]
+            )
         )
         spk.replace_map(s.id, {"speaker_1": "Alice"})
 
@@ -235,4 +237,3 @@ def test_transcript_update_segment_speaker(tmp_path) -> None:
         assert upd.speaker == "speaker_2"
     finally:
         conn.close()
-

@@ -40,7 +40,9 @@ def _table_columns(conn: sqlite3.Connection, table: str) -> set[str]:
     return {str(r[1]) for r in rows}
 
 
-def _add_column_if_missing(conn: sqlite3.Connection, table: str, column: str, ddl_suffix: str) -> None:
+def _add_column_if_missing(
+    conn: sqlite3.Connection, table: str, column: str, ddl_suffix: str
+) -> None:
     cols = _table_columns(conn, table)
     if column not in cols:
         conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl_suffix}")
@@ -170,4 +172,3 @@ def dumps_json(data: object) -> str:
 
 def loads_json(raw: str) -> object:
     return json.loads(raw)
-

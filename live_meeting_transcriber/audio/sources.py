@@ -16,6 +16,9 @@ def resolve_microphone_source(
         return None
     if cli_explicit is not None and cli_explicit.strip():
         return cli_explicit.strip()
-    if settings.audio_microphone_source is not None and str(settings.audio_microphone_source).strip():
+    if (
+        settings.audio_microphone_source is not None
+        and str(settings.audio_microphone_source).strip()
+    ):
         return str(settings.audio_microphone_source).strip()
     return devices.get_default_microphone_source()

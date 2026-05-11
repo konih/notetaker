@@ -166,7 +166,9 @@ def write_dual_export(
                 captured_utc=h.captured_utc,
                 index=i,
             )
-            app_link_by_source[h.source_path] = Path(os.path.relpath(dest, app_exports_dir)).as_posix()
+            app_link_by_source[h.source_path] = Path(
+                os.path.relpath(dest, app_exports_dir)
+            ).as_posix()
 
     obs_meeting_path: Path | None = None
     if (

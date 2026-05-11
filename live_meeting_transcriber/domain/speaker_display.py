@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 
-def format_transcript_speaker_label(speaker_key: str, display_map: dict[str, str] | None = None) -> str:
+def format_transcript_speaker_label(
+    speaker_key: str, display_map: dict[str, str] | None = None
+) -> str:
     """Map internal diarization keys and aliases to display text.
 
     - ``unknown`` → "Unknown Speaker"

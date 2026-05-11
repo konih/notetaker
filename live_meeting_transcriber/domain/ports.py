@@ -123,7 +123,9 @@ class TranscriptRepository(Protocol):
 
     def update_segment_text(self, segment_id: UUID, text: str) -> TranscriptSegment | None: ...
 
-    def update_segment_speaker(self, segment_id: UUID, speaker: str) -> TranscriptSegment | None: ...
+    def update_segment_speaker(
+        self, segment_id: UUID, speaker: str
+    ) -> TranscriptSegment | None: ...
 
 
 @runtime_checkable

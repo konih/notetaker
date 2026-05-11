@@ -138,4 +138,3 @@ def test_cli_record_ctrl_c_exits_cleanly(monkeypatch, tmp_path) -> None:
 
     result = CliRunner().invoke(app, ["record", "--title", "Test"])
     assert result.exit_code == 0
-

@@ -33,4 +33,3 @@ def test_transcript_segment_validation_text_non_empty() -> None:
             ended_at=end,
             text="",
         )
-

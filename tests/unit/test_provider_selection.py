@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from live_meeting_transcriber.application.container import ProviderSelectionError, build_container
 from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.ports import SummarizationProvider, TranscriptionProvider
@@ -10,11 +11,8 @@ def test_provider_selection_requires_key(tmp_path) -> None:
         OPENAI_API_KEY=None,
         DATABASE_URL=f"sqlite:////{tmp_path}/db.sqlite3",
     )
-    try:
+    with pytest.raises(ProviderSelectionError):
         build_container(s)
-        assert False, "expected ProviderSelectionError"
-    except ProviderSelectionError:
-        pass
 
 
 def test_openai_providers_behind_ports(tmp_path) -> None:
@@ -28,4 +26,3 @@ def test_openai_providers_behind_ports(tmp_path) -> None:
         assert isinstance(c.summarizer, SummarizationProvider)
     finally:
         c.close()
-

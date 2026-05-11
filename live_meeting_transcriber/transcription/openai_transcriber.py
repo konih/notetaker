@@ -37,4 +37,3 @@ class OpenAITranscriptionProvider:
             text=text.strip(),
             metadata=ProviderMetadata(provider="openai", model=self._model, extra={}),
         )
-

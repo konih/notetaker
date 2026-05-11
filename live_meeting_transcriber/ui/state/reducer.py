@@ -220,9 +220,7 @@ def reduce(state: AppState, action: act.Action) -> AppState:
 
     if isinstance(action, act.SessionsListLoaded):
         return _touch(
-            state.model_copy(
-                update={"sessions_catalog": action.rows, "sessions_loading": False}
-            ),
+            state.model_copy(update={"sessions_catalog": action.rows, "sessions_loading": False}),
             action.at,
         )
 

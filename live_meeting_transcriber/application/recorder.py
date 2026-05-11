@@ -128,7 +128,9 @@ class Recorder:
                 log.info("transcription_started", chunk_id=str(chunk.id))
                 _emit(
                     on_application_event,
-                    TranscriptionChunkStarted(session_id=session_id, chunk_id=chunk.id, at=utc_now()),
+                    TranscriptionChunkStarted(
+                        session_id=session_id, chunk_id=chunk.id, at=utc_now()
+                    ),
                 )
                 try:
                     segment = await self.transcriber.transcribe(chunk=chunk)
@@ -153,7 +155,9 @@ class Recorder:
                 log.info("transcription_completed", chunk_id=str(chunk.id))
                 _emit(
                     on_application_event,
-                    TranscriptionChunkCompleted(session_id=session_id, chunk_id=chunk.id, at=utc_now()),
+                    TranscriptionChunkCompleted(
+                        session_id=session_id, chunk_id=chunk.id, at=utc_now()
+                    ),
                 )
 
                 diar_segments: list[DiarizationSegment] = []
@@ -218,4 +222,3 @@ class Recorder:
                 RecordingFailed(session_id=session_id, message=str(e), at=utc_now()),
             )
             raise RecorderError(str(e)) from e
-

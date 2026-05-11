@@ -90,4 +90,3 @@ class PactlAudioDeviceProvider:
         if default_source.endswith(".monitor"):
             return None
         return default_source
-

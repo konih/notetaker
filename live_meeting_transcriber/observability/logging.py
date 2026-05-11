@@ -14,7 +14,9 @@ _file_handler_lock = threading.Lock()
 _file_handler: logging.handlers.RotatingFileHandler | None = None
 
 
-def _dup_json_line_to_file(_logger: Any, _method_name: str, event_dict: dict[str, Any]) -> dict[str, Any]:
+def _dup_json_line_to_file(
+    _logger: Any, _method_name: str, event_dict: dict[str, Any]
+) -> dict[str, Any]:
     """Processor: append one JSON line per log event to the rotating file (no transcript redaction here)."""
     global _file_handler
     if _file_handler is None:

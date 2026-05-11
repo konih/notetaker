@@ -43,18 +43,21 @@ def test_create_person_note_uses_template(tmp_path) -> None:
     text = out.read_text(encoding="utf-8")
     assert "# New Person" in text
     assert "2026-05-11" in text
-    assert write_new_person_note(
-        display_name="New Person",
-        people_dir=people,
-        template_path=tpl,
-        note_date="2026-05-11",
-    ) is None
+    assert (
+        write_new_person_note(
+            display_name="New Person",
+            people_dir=people,
+            template_path=tpl,
+            note_date="2026-05-11",
+        )
+        is None
+    )
 
 
 def test_render_meeting_note(tmp_path) -> None:
     tpl = tmp_path / "Meeting.md"
     tpl.write_text(
-        "---\ntype: meeting\ndate: \"{{date}}\"\nattendees: []\n---\n\n# {{title}}\n\n"
+        '---\ntype: meeting\ndate: "{{date}}"\nattendees: []\n---\n\n# {{title}}\n\n'
         "## Notes\n- \n\n## Decisions\n- \n\n## Action items\n- [ ] \n\n## Meeting Transcript\n",
         encoding="utf-8",
     )
@@ -75,7 +78,9 @@ def test_render_meeting_note(tmp_path) -> None:
         text="Hello",
         speaker=SpeakerLabel.speaker_1,
     )
-    summary = Summary(session_id=sid, summary_markdown="## Sum\nDone", decisions=[], action_items=[])
+    summary = Summary(
+        session_id=sid, summary_markdown="## Sum\nDone", decisions=[], action_items=[]
+    )
     text = render_meeting_note(
         template_text=tpl.read_text(encoding="utf-8"),
         session=session,

@@ -71,4 +71,3 @@ class OpenAISummarizationProvider:
             action_items=[ActionItem(session_id=session.id, text=t) for t in parsed.action_items],
             metadata=ProviderMetadata(provider="openai", model=self._model, extra={}),
         )
-

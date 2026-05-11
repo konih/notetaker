@@ -11,7 +11,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # Providers
-    transcription_provider: Literal["openai"] = Field(default="openai", alias="TRANSCRIPTION_PROVIDER")
+    transcription_provider: Literal["openai"] = Field(
+        default="openai", alias="TRANSCRIPTION_PROVIDER"
+    )
     llm_provider: Literal["openai"] = Field(default="openai", alias="LLM_PROVIDER")
 
     # OpenAI

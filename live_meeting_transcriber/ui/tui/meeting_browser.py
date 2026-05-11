@@ -180,14 +180,18 @@ class MeetingBrowser(Vertical):
                     "Attendees (comma-separated; Tab completes full name when suggested)",
                     classes="dim",
                 )
-                yield TabCompletableInput(placeholder="Alice, Bob, …", id="meeting-attendees", disabled=True)
+                yield TabCompletableInput(
+                    placeholder="Alice, Bob, …", id="meeting-attendees", disabled=True
+                )
                 yield Static(
                     "Speaker labels → display names (Tab completes full name when suggested)",
                     classes="dim",
                 )
                 yield Vertical(id="meeting-speaker-area")
                 yield Static("Transcript", classes="dim")
-                yield DataTable(id="meeting-transcript-table", cursor_type="row", zebra_stripes=True)
+                yield DataTable(
+                    id="meeting-transcript-table", cursor_type="row", zebra_stripes=True
+                )
 
     def on_mount(self) -> None:
         st = self.query_one("#meeting-sessions-table", DataTable)
@@ -214,7 +218,11 @@ class MeetingBrowser(Vertical):
 
     def refresh_session_list(self, *, preserve_selection: bool = False) -> None:
         table = self.query_one("#meeting-sessions-table", DataTable)
-        selected = str(self._selected_session_id) if preserve_selection and self._selected_session_id else None
+        selected = (
+            str(self._selected_session_id)
+            if preserve_selection and self._selected_session_id
+            else None
+        )
         table.clear()
         for s in self.container.sessions.list():
             short = str(s.id)[:8] + "…"
@@ -408,7 +416,9 @@ class MeetingBrowser(Vertical):
             RecordingStatus.recording,
             RecordingStatus.stopping,
         ):
-            self.app.notify("Stop the current recording before continuing another meeting.", severity="warning")
+            self.app.notify(
+                "Stop the current recording before continuing another meeting.", severity="warning"
+            )
             return
         session = self.container.sessions.get(self._selected_session_id)
         if session is None:
@@ -422,7 +432,9 @@ class MeetingBrowser(Vertical):
                 resume_session_id=session.id,
             )
         )
-        self.app.notify(f"Recording into: {session.title}. Switch to the Live tab for the transcript.")
+        self.app.notify(
+            f"Recording into: {session.title}. Switch to the Live tab for the transcript."
+        )
         focus = getattr(self.app, "action_focus_live_tab", None)
         if callable(focus):
             focus()
@@ -455,9 +467,14 @@ class MeetingBrowser(Vertical):
             RecordingStatus.recording,
             RecordingStatus.stopping,
         ):
-            self.app.notify("Cannot delete the meeting while recording is in progress.", severity="error")
+            self.app.notify(
+                "Cannot delete the meeting while recording is in progress.", severity="error"
+            )
             return
-        title = self.query_one("#meeting-title", TabCompletableInput).value.strip() or str(sid)[:8] + "…"
+        title = (
+            self.query_one("#meeting-title", TabCompletableInput).value.strip()
+            or str(sid)[:8] + "…"
+        )
         await self.app.push_screen(
             ConfirmDeleteMeetingModal(title=title, session_id=sid),
             callback=functools.partial(self._after_delete_meeting_confirm, sid),

@@ -24,10 +24,14 @@ def test_resolve_microphone_disabled_in_settings(monkeypatch) -> None:
 
 
 def test_resolve_microphone_cli_no_mic() -> None:
-    s = Settings(OPENAI_API_KEY="x", DATABASE_URL="sqlite:////tmp/t.db", AUDIO_INCLUDE_MICROPHONE=True)
+    s = Settings(
+        OPENAI_API_KEY="x", DATABASE_URL="sqlite:////tmp/t.db", AUDIO_INCLUDE_MICROPHONE=True
+    )
     assert resolve_microphone_source(s, _Dev(), cli_no_microphone=True) is None
 
 
 def test_resolve_microphone_explicit_cli() -> None:
-    s = Settings(OPENAI_API_KEY="x", DATABASE_URL="sqlite:////tmp/t.db", AUDIO_INCLUDE_MICROPHONE=True)
+    s = Settings(
+        OPENAI_API_KEY="x", DATABASE_URL="sqlite:////tmp/t.db", AUDIO_INCLUDE_MICROPHONE=True
+    )
     assert resolve_microphone_source(s, _Dev(mic=None), cli_explicit="  my-mic  ") == "my-mic"

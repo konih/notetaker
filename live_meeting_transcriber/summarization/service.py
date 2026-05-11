@@ -36,4 +36,3 @@ def build_summary_prompt(
     lines.append("- decisions (array of strings)")
     lines.append("- action_items (array of strings)")
     return "\n".join(lines)
-

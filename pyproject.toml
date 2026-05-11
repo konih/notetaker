@@ -69,6 +69,10 @@ select = [
 ]
 ignore = [
   "E501", # line length handled by formatter
+  "RUF012", # Textual Screen/widget BINDINGS are idiomatic mutable class attrs
+  "UP042", # str+Enum used for stable string wire values with Pydantic/tests
+  "SIM105", # try/except in cleanup paths is intentional
+  "SIM110", # some loops kept for clarity over any()
 ]
 
 [tool.ruff.format]

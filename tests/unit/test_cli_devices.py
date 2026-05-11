@@ -62,4 +62,3 @@ def test_cli_devices_lists_sources(monkeypatch, tmp_path) -> None:
     assert result.exit_code == 0
     assert "* sink.monitor" in result.stdout
     assert "^ mic" in result.stdout
-

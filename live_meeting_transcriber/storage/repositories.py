@@ -50,10 +50,10 @@ class SqliteMeetingSessionRepository:
         return session
 
     def _row_to_session(self, row: Any) -> MeetingSession:
-        raw_att = row["attendees_json"] if "attendees_json" in row.keys() else "[]"
+        raw_att = row["attendees_json"] or "[]"
         attendees_raw = loads_json(raw_att) if raw_att else []
         attendees = [str(x) for x in attendees_raw] if isinstance(attendees_raw, list) else []
-        notes = row["notes"] if "notes" in row.keys() and row["notes"] is not None else ""
+        notes = row["notes"] or ""
         return MeetingSession(
             id=UUID(row["id"]),
             title=row["title"],
@@ -378,7 +378,11 @@ class SqliteSessionSpeakerNameRepository:
             (str(session_id),),
         ).fetchall()
         return [
-            SpeakerAlias(session_id=session_id, speaker_key=str(r["speaker_key"]), display_name=str(r["display_name"]))
+            SpeakerAlias(
+                session_id=session_id,
+                speaker_key=str(r["speaker_key"]),
+                display_name=str(r["display_name"]),
+            )
             for r in rows
         ]
 
@@ -388,7 +392,9 @@ class SqliteDiarizationRepository:
     conn: Any
 
     def delete_for_session(self, session_id: UUID) -> None:
-        self.conn.execute("DELETE FROM diarization_segments WHERE session_id = ?", (str(session_id),))
+        self.conn.execute(
+            "DELETE FROM diarization_segments WHERE session_id = ?", (str(session_id),)
+        )
         self.conn.commit()
 
     def replace_for_session(self, session_id: UUID, segments: list[DiarizationSegment]) -> None:

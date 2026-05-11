@@ -28,4 +28,3 @@ def test_settings_load_from_env(monkeypatch) -> None:
     assert s.audio_channels == 1
     assert s.log_level == "DEBUG"
     assert s.keep_audio_chunks is True
-

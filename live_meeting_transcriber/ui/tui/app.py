@@ -204,7 +204,9 @@ class SessionsScreen(ModalScreen[None]):
             RecordingStatus.recording,
             RecordingStatus.stopping,
         ):
-            self.app.notify("Cannot delete the session while recording is in progress.", severity="error")
+            self.app.notify(
+                "Cannot delete the session while recording is in progress.", severity="error"
+            )
             return
         row = next((r for r in st.sessions_catalog if r.id == sid_str), None)
         title = (row.title.strip() if row else "") or sid_str[:8] + "…"
@@ -351,7 +353,9 @@ class TranscriberApp(App[None]):
         self._last_segment_keys = new_keys
 
     def _render_status(self, state: AppState) -> Group:
-        log_hint = state.log_file_path[:52] + "…" if len(state.log_file_path) > 55 else state.log_file_path
+        log_hint = (
+            state.log_file_path[:52] + "…" if len(state.log_file_path) > 55 else state.log_file_path
+        )
         peak_pct = (
             f"{state.current_level_meter * 100:.0f}%"
             if state.current_level_meter is not None
@@ -422,7 +426,9 @@ class TranscriberApp(App[None]):
             browser = self.query_one("#meeting-browser", MeetingBrowser)
             sid = browser.selected_session_id
             if sid is None:
-                self.notify("Select a meeting in the Meetings tab to summarize.", severity="warning")
+                self.notify(
+                    "Select a meeting in the Meetings tab to summarize.", severity="warning"
+                )
                 return
             await self.store.dispatch_with_effects(
                 act.SummarizeSessionRequested(at=utc_now(), session_id=sid)

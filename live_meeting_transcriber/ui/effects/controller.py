@@ -59,9 +59,7 @@ class TuiController:
         try:
             sessions = self.container.sessions.list()
         except Exception as e:
-            store.dispatch(
-                act.ErrorRaised(message=f"Failed to list sessions: {e}", at=utc_now())
-            )
+            store.dispatch(act.ErrorRaised(message=f"Failed to list sessions: {e}", at=utc_now()))
             store.dispatch(act.SessionsListLoaded(rows=tuple(), at=utc_now()))
             return
         rows = tuple(
@@ -112,13 +110,17 @@ class TuiController:
                 existing = self.container.sessions.get(action.resume_session_id)
                 if existing is None:
                     store.dispatch(
-                        act.RecordingFailed(message="Session not found; cannot continue recording.", at=utc_now())
+                        act.RecordingFailed(
+                            message="Session not found; cannot continue recording.", at=utc_now()
+                        )
                     )
                     return
                 session = self.container.sessions.reopen(action.resume_session_id)
                 if session is None:
                     store.dispatch(
-                        act.RecordingFailed(message="Could not reopen session for recording.", at=utc_now())
+                        act.RecordingFailed(
+                            message="Could not reopen session for recording.", at=utc_now()
+                        )
                     )
                     return
             else:
@@ -204,7 +206,9 @@ class TuiController:
                 return
             session = self.container.sessions.get(sid)
             if session is None:
-                store.dispatch(act.ErrorRaised(message="Session not found in database.", at=utc_now()))
+                store.dispatch(
+                    act.ErrorRaised(message="Session not found in database.", at=utc_now())
+                )
                 return
             segments = self.container.transcripts.list_by_session(sid)
             summary = self.container.summaries.get_by_session(sid)
@@ -250,12 +254,18 @@ class TuiController:
             try:
                 await self._session_service.summarize_session(session_id=sid)
             except KeyError:
-                store.dispatch(act.ErrorRaised(message="Session not found in database.", at=utc_now()))
+                store.dispatch(
+                    act.ErrorRaised(message="Session not found in database.", at=utc_now())
+                )
                 return
             except Exception as e:
                 store.dispatch(act.ErrorRaised(message=f"Summarize failed: {e}", at=utc_now()))
                 return
-            store.dispatch(act.NoticeRaised(message="Summary generated and saved to the database.", at=utc_now()))
+            store.dispatch(
+                act.NoticeRaised(
+                    message="Summary generated and saved to the database.", at=utc_now()
+                )
+            )
             await self._load_sessions_catalog(store)
 
         elif isinstance(action, act.RecordingStopRequested):

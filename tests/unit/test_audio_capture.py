@@ -14,7 +14,9 @@ def _fake_run(cmd: list[str], **_kwargs: object) -> CompletedProcess[str]:
 
 def test_capture_chunk_single_input_builds_ffmpeg_without_amix(tmp_path: Path) -> None:
     cap = FfmpegPulseAudioCapture()
-    with patch("live_meeting_transcriber.audio.capture.subprocess.run", side_effect=_fake_run) as run:
+    with patch(
+        "live_meeting_transcriber.audio.capture.subprocess.run", side_effect=_fake_run
+    ) as run:
         cap.capture_chunk(
             session_id=uuid4(),
             source="sink.monitor",
@@ -32,7 +34,9 @@ def test_capture_chunk_single_input_builds_ffmpeg_without_amix(tmp_path: Path) -
 
 def test_capture_chunk_with_microphone_uses_amix(tmp_path: Path) -> None:
     cap = FfmpegPulseAudioCapture()
-    with patch("live_meeting_transcriber.audio.capture.subprocess.run", side_effect=_fake_run) as run:
+    with patch(
+        "live_meeting_transcriber.audio.capture.subprocess.run", side_effect=_fake_run
+    ) as run:
         cap.capture_chunk(
             session_id=uuid4(),
             source="sink.monitor",
@@ -52,7 +56,9 @@ def test_capture_chunk_with_microphone_uses_amix(tmp_path: Path) -> None:
 
 def test_capture_chunk_skips_duplicate_when_mic_equals_monitor(tmp_path: Path) -> None:
     cap = FfmpegPulseAudioCapture()
-    with patch("live_meeting_transcriber.audio.capture.subprocess.run", side_effect=_fake_run) as run:
+    with patch(
+        "live_meeting_transcriber.audio.capture.subprocess.run", side_effect=_fake_run
+    ) as run:
         cap.capture_chunk(
             session_id=uuid4(),
             source="same",

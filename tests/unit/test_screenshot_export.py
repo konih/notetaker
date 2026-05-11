@@ -22,10 +22,12 @@ def test_export_screenshot_basename_deterministic_index(tmp_path: Path) -> None:
     cap = datetime(2026, 5, 11, 10, 5, 0)
     sid = UUID("7aef9cf1-e33c-4598-816f-0c61a8be164f")
     assert (
-        export_screenshot_basename(sid, src, cap, 0) == "screenshot_7aef9cf1_20260511T100500_000.png"
+        export_screenshot_basename(sid, src, cap, 0)
+        == "screenshot_7aef9cf1_20260511T100500_000.png"
     )
     assert (
-        export_screenshot_basename(sid, src, cap, 12) == "screenshot_7aef9cf1_20260511T100500_012.png"
+        export_screenshot_basename(sid, src, cap, 12)
+        == "screenshot_7aef9cf1_20260511T100500_012.png"
     )
     assert " " not in export_screenshot_basename(sid, src, cap, 0)
 
@@ -38,7 +40,9 @@ def test_parse_gnome_screenshot_filename() -> None:
     assert parse_gnome_screenshot_filename("other.png") is None
 
 
-def test_list_session_screenshots_respects_window(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_list_session_screenshots_respects_window(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     monkeypatch.setattr(
         "live_meeting_transcriber.application.screenshot_export.local_naive_to_utc_naive",
         lambda dt: dt,
@@ -98,7 +102,9 @@ def test_merge_inserts_screenshot_after_segment(monkeypatch: pytest.MonkeyPatch)
     assert lines == ["LINE:one", "IMG:a.png", "LINE:two"]
 
 
-def test_write_dual_export_copies_screenshots(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_write_dual_export_copies_screenshots(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     monkeypatch.setattr(
         "live_meeting_transcriber.application.screenshot_export.local_naive_to_utc_naive",
         lambda dt: dt,

@@ -47,4 +47,3 @@ class SessionService:
             speaker_display=speaker_display,
         )
         return self.summaries.upsert(summary)
-

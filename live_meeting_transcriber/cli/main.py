@@ -16,7 +16,9 @@ from live_meeting_transcriber.diarization.labels import normalize_pyannote_speak
 from live_meeting_transcriber.observability.logging import configure_logging, get_logger
 from live_meeting_transcriber.obsidian.meeting_export import write_dual_export
 
-app = typer.Typer(add_completion=False, help="Live background meeting transcription (Ubuntu/Linux).")
+app = typer.Typer(
+    add_completion=False, help="Live background meeting transcription (Ubuntu/Linux)."
+)
 
 
 def _get_container(ctx: typer.Context) -> Container:
@@ -92,7 +94,9 @@ def sessions(ctx: typer.Context) -> None:
 def record(
     ctx: typer.Context,
     title: str = typer.Option(..., "--title", help="Meeting title"),
-    source: str | None = typer.Option(None, "--source", help="PulseAudio source name (e.g. <sink>.monitor)"),
+    source: str | None = typer.Option(
+        None, "--source", help="PulseAudio source name (e.g. <sink>.monitor)"
+    ),
     microphone_source: str | None = typer.Option(
         None,
         "--microphone-source",
@@ -103,7 +107,9 @@ def record(
         "--no-microphone",
         help="Monitor/system audio only (disable microphone mix for this run)",
     ),
-    chunk_seconds: int | None = typer.Option(None, "--chunk-seconds", help="Chunk duration in seconds"),
+    chunk_seconds: int | None = typer.Option(
+        None, "--chunk-seconds", help="Chunk duration in seconds"
+    ),
 ) -> None:
     """Capture system audio in chunks and print transcript segments to stdout."""
     c = _get_container(ctx)
@@ -111,7 +117,10 @@ def record(
 
     monitor = source or c.devices.get_default_monitor_source()
     if not monitor:
-        typer.echo("Could not auto-detect default monitor source. Use `live-transcriber devices`.", err=True)
+        typer.echo(
+            "Could not auto-detect default monitor source. Use `live-transcriber devices`.",
+            err=True,
+        )
         raise typer.Exit(code=2)
 
     mic = resolve_microphone_source(
@@ -232,7 +241,9 @@ def diarize(ctx: typer.Context, session_id: str = typer.Option(..., "--session-i
     """Re-run speaker diarization on stored chunk WAVs and update transcript speakers."""
     c = _get_container(ctx)
     if not c.settings.diarization_enabled:
-        typer.echo("Enable DIARIZATION_ENABLED and set DIARIZATION_PROVIDER (e.g. pyannote).", err=True)
+        typer.echo(
+            "Enable DIARIZATION_ENABLED and set DIARIZATION_PROVIDER (e.g. pyannote).", err=True
+        )
         raise typer.Exit(code=2)
     sid = UUID(session_id)
     if c.sessions.get(sid) is None:
@@ -290,4 +301,3 @@ def speaker_alias(
     key = normalize_pyannote_speaker_label(raw) if raw.upper().startswith("SPEAKER_") else raw
     c.session_speakers.set_alias(sid, key, name.strip())
     typer.echo(f"Saved alias {key!r} -> {name.strip()!r} for session {sid}")
-

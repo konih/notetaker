@@ -73,8 +73,12 @@ def build_diarization_provider(settings: Settings) -> DiarizationProvider:
             raise ProviderSelectionError(
                 "HF_TOKEN is required when DIARIZATION_ENABLED=true and DIARIZATION_PROVIDER=pyannote"
             )
-        return PyannoteDiarizationProvider(hf_token=settings.hf_token, model_id=settings.pyannote_model)
-    raise ProviderSelectionError(f"Unsupported diarization_provider={settings.diarization_provider!r}")
+        return PyannoteDiarizationProvider(
+            hf_token=settings.hf_token, model_id=settings.pyannote_model
+        )
+    raise ProviderSelectionError(
+        f"Unsupported diarization_provider={settings.diarization_provider!r}"
+    )
 
 
 def build_container(settings: Settings) -> Container:
@@ -93,7 +97,9 @@ def build_container(settings: Settings) -> Container:
             model=settings.transcription_model,
         )
     else:
-        raise ProviderSelectionError(f"Unsupported transcription_provider={settings.transcription_provider}")
+        raise ProviderSelectionError(
+            f"Unsupported transcription_provider={settings.transcription_provider}"
+        )
 
     if settings.llm_provider == "openai":
         summarizer: SummarizationProvider = OpenAISummarizationProvider(
@@ -130,4 +136,3 @@ def build_container(settings: Settings) -> Container:
         people=people,
         session_speakers=session_speakers,
     )
-
