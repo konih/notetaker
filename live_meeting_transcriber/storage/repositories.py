@@ -27,6 +27,11 @@ def _dt_from_str(raw: str) -> datetime:
     return datetime.fromisoformat(raw)
 
 
+def _row_read(row: Any, key: str) -> Any:
+    """Column access for sqlite3.Row (no ``.get()``) and other row-like mappings."""
+    return row[key]
+
+
 @dataclass(frozen=True)
 class SqliteMeetingSessionRepository:
     conn: Any
@@ -50,10 +55,10 @@ class SqliteMeetingSessionRepository:
         return session
 
     def _row_to_session(self, row: Any) -> MeetingSession:
-        raw_att = row["attendees_json"] or "[]"
+        raw_att = _row_read(row, "attendees_json") or "[]"
         attendees_raw = loads_json(raw_att) if raw_att else []
         attendees = [str(x) for x in attendees_raw] if isinstance(attendees_raw, list) else []
-        notes = row["notes"] or ""
+        notes = _row_read(row, "notes") or ""
         return MeetingSession(
             id=UUID(row["id"]),
             title=row["title"],
