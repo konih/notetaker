@@ -6,9 +6,15 @@ from collections import defaultdict
 from pathlib import Path
 from uuid import UUID
 
-from live_meeting_transcriber.diarization.merge_service import merge_diarization_into_transcript_segment
+from live_meeting_transcriber.diarization.merge_service import (
+    merge_diarization_into_transcript_segment,
+)
 from live_meeting_transcriber.domain.models import AudioChunk, DiarizationSegment, TranscriptSegment
-from live_meeting_transcriber.domain.ports import DiarizationProvider, DiarizationRepository, TranscriptRepository
+from live_meeting_transcriber.domain.ports import (
+    DiarizationProvider,
+    DiarizationRepository,
+    TranscriptRepository,
+)
 
 
 async def reprocess_session_diarization(

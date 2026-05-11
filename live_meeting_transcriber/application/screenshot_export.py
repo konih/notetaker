@@ -7,7 +7,7 @@ import shutil
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
@@ -37,7 +37,7 @@ def parse_gnome_screenshot_filename(name: str) -> datetime | None:
 def local_naive_to_utc_naive(naive_local: datetime) -> datetime:
     """Interpret naive datetime as local machine time; return UTC naive (matches stored session times)."""
     secs = time.mktime(naive_local.timetuple())
-    return datetime.fromtimestamp(secs, tz=timezone.utc).replace(tzinfo=None)
+    return datetime.fromtimestamp(secs, tz=UTC).replace(tzinfo=None)
 
 
 @dataclass(frozen=True)

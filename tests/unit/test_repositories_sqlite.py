@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from uuid import uuid4
+
 from live_meeting_transcriber.domain.models import (
     DiarizationSegment,
     MeetingSession,

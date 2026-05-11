@@ -7,14 +7,14 @@ from uuid import UUID
 import typer
 
 from live_meeting_transcriber.application.container import Container, build_container
-from live_meeting_transcriber.obsidian.meeting_export import write_dual_export
 from live_meeting_transcriber.application.diarization_batch import reprocess_session_diarization
 from live_meeting_transcriber.application.recorder import Recorder
-from live_meeting_transcriber.diarization.labels import normalize_pyannote_speaker_label
 from live_meeting_transcriber.application.session_service import SessionService
 from live_meeting_transcriber.audio.sources import resolve_microphone_source
 from live_meeting_transcriber.config.settings import load_settings
+from live_meeting_transcriber.diarization.labels import normalize_pyannote_speaker_label
 from live_meeting_transcriber.observability.logging import configure_logging, get_logger
+from live_meeting_transcriber.obsidian.meeting_export import write_dual_export
 
 app = typer.Typer(add_completion=False, help="Live background meeting transcription (Ubuntu/Linux).")
 

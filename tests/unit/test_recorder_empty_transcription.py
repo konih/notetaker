@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
-
 from live_meeting_transcriber.application.recorder import Recorder
 from live_meeting_transcriber.domain.exceptions import EmptyTranscriptionError
 from live_meeting_transcriber.domain.models import AudioChunk, TranscriptSegment

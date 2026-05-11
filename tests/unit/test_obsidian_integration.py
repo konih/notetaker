@@ -3,7 +3,12 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from uuid import uuid4
 
-from live_meeting_transcriber.domain.models import MeetingSession, SpeakerLabel, Summary, TranscriptSegment
+from live_meeting_transcriber.domain.models import (
+    MeetingSession,
+    SpeakerLabel,
+    Summary,
+    TranscriptSegment,
+)
 from live_meeting_transcriber.obsidian.meeting_export import render_meeting_note
 from live_meeting_transcriber.obsidian.people_files import (
     list_people_display_names,

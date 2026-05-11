@@ -65,7 +65,9 @@ def build_diarization_provider(settings: Settings) -> DiarizationProvider:
     if not settings.diarization_enabled or settings.diarization_provider.strip().lower() == "noop":
         return NoopDiarizationProvider()
     if settings.diarization_provider.strip().lower() == "pyannote":
-        from live_meeting_transcriber.diarization.pyannote_provider import PyannoteDiarizationProvider
+        from live_meeting_transcriber.diarization.pyannote_provider import (
+            PyannoteDiarizationProvider,
+        )
 
         if not settings.hf_token:
             raise ProviderSelectionError(

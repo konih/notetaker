@@ -7,7 +7,9 @@ from pathlib import Path
 from uuid import UUID
 
 from live_meeting_transcriber.audio.wav_level import peak_linear_from_wav_path
-from live_meeting_transcriber.diarization.merge_service import merge_diarization_into_transcript_segment
+from live_meeting_transcriber.diarization.merge_service import (
+    merge_diarization_into_transcript_segment,
+)
 from live_meeting_transcriber.domain.application_events import (
     ApplicationEvent,
     AudioChunkCaptured,
@@ -158,7 +160,7 @@ class Recorder:
                 if self.diarization_enabled:
                     try:
                         diar_segments = await self.diarizer.diarize_chunk(chunk=chunk)
-                    except Exception as e:  # noqa: BLE001
+                    except Exception as e:
                         log.warning("diarization_failed", chunk_id=str(chunk.id), error=str(e))
                         _emit(
                             on_application_event,

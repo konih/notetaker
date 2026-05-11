@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import pytest
-
-from live_meeting_transcriber.application.container import ProviderSelectionError, build_diarization_provider
+from live_meeting_transcriber.application.container import (
+    ProviderSelectionError,
+    build_diarization_provider,
+)
 from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.diarization.noop import NoopDiarizationProvider
 

@@ -13,7 +13,16 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
-from textual.widgets import DataTable, Footer, Header, Input, RichLog, Static, TabbedContent, TabPane
+from textual.widgets import (
+    DataTable,
+    Footer,
+    Header,
+    Input,
+    RichLog,
+    Static,
+    TabbedContent,
+    TabPane,
+)
 
 from live_meeting_transcriber.application.container import (
     Container,
@@ -33,7 +42,10 @@ from live_meeting_transcriber.ui.state.selectors import (
     select_unacknowledged_errors,
 )
 from live_meeting_transcriber.ui.state.store import Store
-from live_meeting_transcriber.ui.tui.meeting_browser import ConfirmDeleteMeetingModal, MeetingBrowser
+from live_meeting_transcriber.ui.tui.meeting_browser import (
+    ConfirmDeleteMeetingModal,
+    MeetingBrowser,
+)
 from live_meeting_transcriber.utils.time import utc_now
 
 
@@ -277,13 +289,12 @@ class TranscriberApp(App[None]):
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
         with TabbedContent(initial="tab-live"):
-            with TabPane("Live", id="tab-live"):
-                with Horizontal(id="main-row"):
-                    with Vertical(id="sidebar"):
-                        yield Static("", id="status")
-                        yield Static("", id="notices")
-                        yield Static("", id="errors")
-                    yield RichLog(id="transcript", highlight=True, markup=True)
+            with TabPane("Live", id="tab-live"), Horizontal(id="main-row"):
+                with Vertical(id="sidebar"):
+                    yield Static("", id="status")
+                    yield Static("", id="notices")
+                    yield Static("", id="errors")
+                yield RichLog(id="transcript", highlight=True, markup=True)
             with TabPane("Meetings", id="tab-meetings"):
                 yield MeetingBrowser(container=self.container, store=self.store)
         yield Footer()

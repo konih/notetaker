@@ -5,7 +5,6 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-
 from live_meeting_transcriber.domain.models import AudioChunk, TranscriptSegment
 
 

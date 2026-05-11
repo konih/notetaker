@@ -18,7 +18,10 @@ from live_meeting_transcriber.domain.speaker_display import format_transcript_sp
 from live_meeting_transcriber.ui.state import actions as act
 from live_meeting_transcriber.ui.state.model import AppState, RecordingStatus
 from live_meeting_transcriber.ui.state.store import Store
-from live_meeting_transcriber.ui.tui.people_suggesters import CommaSeparatedPeopleSuggester, PeoplePrefixSuggester
+from live_meeting_transcriber.ui.tui.people_suggesters import (
+    CommaSeparatedPeopleSuggester,
+    PeoplePrefixSuggester,
+)
 from live_meeting_transcriber.ui.tui.tab_complete_input import TabCompletableInput
 from live_meeting_transcriber.utils.time import utc_now
 
@@ -374,7 +377,7 @@ class MeetingBrowser(Vertical):
         )
         try:
             await svc.summarize_session(session_id=sid)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             self.app.notify(f"Summarize failed: {e}", severity="error")
             return
         self.app.notify("Summary saved.")

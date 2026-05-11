@@ -6,7 +6,6 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
-
 from live_meeting_transcriber.application.screenshot_export import (
     export_screenshot_basename,
     list_session_screenshots,

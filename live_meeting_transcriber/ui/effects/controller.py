@@ -5,12 +5,12 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from live_meeting_transcriber.application.container import Container
-from live_meeting_transcriber.obsidian.meeting_export import write_dual_export
 from live_meeting_transcriber.application.recorder import Recorder
 from live_meeting_transcriber.application.session_service import SessionService
 from live_meeting_transcriber.audio.sources import resolve_microphone_source
 from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.application_events import ApplicationEvent
+from live_meeting_transcriber.obsidian.meeting_export import write_dual_export
 from live_meeting_transcriber.ui.bridge import application_events_to_actions
 from live_meeting_transcriber.ui.state import actions as act
 from live_meeting_transcriber.ui.state.model import RecordingStatus, SessionRowState

@@ -5,8 +5,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from uuid import UUID
 
-from typer.testing import CliRunner
-
 from live_meeting_transcriber.application.container import Container
 from live_meeting_transcriber.cli.main import app
 from live_meeting_transcriber.config.settings import Settings
@@ -21,6 +19,7 @@ from live_meeting_transcriber.storage.repositories import (
     SqliteTranscriptRepository,
 )
 from live_meeting_transcriber.storage.sqlite import open_connection
+from typer.testing import CliRunner
 
 
 @dataclass(frozen=True)
