@@ -9,14 +9,15 @@ from live_meeting_transcriber.ui.state.model import (
     DiarizationStatus,
     RecordingStatus,
     SessionRowState,
-    TranscriptLineState,
     TranscriptionStatus,
+    TranscriptLineState,
     UiErrorState,
 )
 
 _MAX_TRANSCRIPT_LINES = 200
 _MAX_ERRORS = 40
 _MAX_WARNINGS = 30
+_MAX_NOTICES = 12
 
 
 def _touch(state: AppState, at: datetime) -> AppState:
@@ -46,6 +47,7 @@ def reduce(state: AppState, action: act.Action) -> AppState:
                     if not action.diarization_enabled
                     else DiarizationStatus.pending,
                     "log_file_path": action.log_file_resolved,
+                    "audio_include_microphone": action.audio_include_microphone,
                 }
             ),
             action.at,
@@ -70,12 +72,15 @@ def reduce(state: AppState, action: act.Action) -> AppState:
                     "current_session_id": action.session_id,
                     "session_title": action.title,
                     "audio_source": action.audio_source,
+                    "microphone_source": action.microphone_source,
                     "chunk_seconds": action.chunk_seconds,
                     "recording_status": RecordingStatus.recording,
                     "transcription_status": TranscriptionStatus.active,
                     "diarization_status": DiarizationStatus.active
                     if state.diarization_enabled
                     else DiarizationStatus.disabled,
+                    "recent_transcript_segments": (),
+                    "diarization_detected_speakers": frozenset(),
                 }
             ),
             action.at,
@@ -98,6 +103,7 @@ def reduce(state: AppState, action: act.Action) -> AppState:
                 update={
                     "recording_status": RecordingStatus.stopped,
                     "transcription_status": TranscriptionStatus.idle,
+                    "microphone_source": None,
                     "diarization_status": DiarizationStatus.disabled
                     if not state.diarization_enabled
                     else DiarizationStatus.pending,
@@ -119,6 +125,8 @@ def reduce(state: AppState, action: act.Action) -> AppState:
                 update={
                     "recording_status": RecordingStatus.failed,
                     "transcription_status": TranscriptionStatus.failed,
+                    "microphone_source": None,
+                    "current_level_meter": None,
                     "diarization_status": DiarizationStatus.failed
                     if state.diarization_enabled
                     else DiarizationStatus.disabled,
@@ -163,6 +171,19 @@ def reduce(state: AppState, action: act.Action) -> AppState:
         aliases[action.speaker_key] = action.alias
         return _touch(state.model_copy(update={"speaker_aliases": aliases}), action.at)
 
+    if isinstance(action, act.SpeakerAliasesLoaded):
+        return _touch(
+            state.model_copy(update={"speaker_aliases": dict(action.aliases)}),
+            action.at,
+        )
+
+    if isinstance(action, act.DiarizationSpeakersDetected):
+        merged = state.diarization_detected_speakers | action.speakers
+        return _touch(
+            state.model_copy(update={"diarization_detected_speakers": merged}),
+            action.at,
+        )
+
     if isinstance(action, act.ErrorRaised):
         err = UiErrorState(
             id=str(uuid.uuid4()),
@@ -183,6 +204,10 @@ def reduce(state: AppState, action: act.Action) -> AppState:
     if isinstance(action, act.WarningRaised):
         w = (*state.warnings, action.message)[-_MAX_WARNINGS:]
         return _touch(state.model_copy(update={"warnings": w}), action.at)
+
+    if isinstance(action, act.NoticeRaised):
+        n = (*state.notices, action.message)[-_MAX_NOTICES:]
+        return _touch(state.model_copy(update={"notices": n}), action.at)
 
     if isinstance(action, act.SettingsScreenOpened):
         return _touch(state.model_copy(update={"settings_screen_open": True}), action.at)

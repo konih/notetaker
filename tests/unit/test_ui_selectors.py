@@ -7,6 +7,7 @@ from live_meeting_transcriber.ui.state.selectors import (
     select_display_speaker,
     select_header_title,
     select_is_recording,
+    select_level_bar,
     select_unacknowledged_errors,
 )
 from live_meeting_transcriber.utils.time import utc_now
@@ -15,6 +16,12 @@ from live_meeting_transcriber.utils.time import utc_now
 def test_select_header_title_uses_session_title() -> None:
     s = AppState(session_title="Sync")
     assert select_header_title(s) == "Sync"
+
+
+def test_select_header_title_shows_recording_glyph() -> None:
+    s = AppState(session_title="Meet", recording_status=RecordingStatus.recording)
+    assert select_header_title(s).startswith("⏺")
+    assert "Meet" in select_header_title(s)
 
 
 def test_select_is_recording() -> None:
@@ -32,7 +39,19 @@ def test_select_unacknowledged_errors() -> None:
 def test_select_display_speaker_alias() -> None:
     s = AppState(speaker_aliases={"speaker_1": "Alice"})
     assert select_display_speaker(s, "speaker_1") == "Alice"
-    assert select_display_speaker(s, "speaker_2") == "speaker_2"
+    assert select_display_speaker(s, "speaker_2") == "Speaker 2"
+
+
+def test_select_display_speaker_unknown() -> None:
+    s = AppState()
+    assert select_display_speaker(s, "unknown") == "Unknown Speaker"
+
+
+def test_select_level_bar() -> None:
+    assert "—" in select_level_bar(AppState(current_level_meter=None))
+    b = select_level_bar(AppState(current_level_meter=0.5), width=4)
+    assert "█" in b
+    assert "░" in b
 
 
 def test_select_header_fallback_uuid_session() -> None:

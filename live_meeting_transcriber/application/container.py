@@ -11,14 +11,21 @@ from live_meeting_transcriber.domain.ports import (
     AudioCapture,
     AudioDeviceProvider,
     DiarizationProvider,
+    DiarizationRepository,
+    KnownPeopleRepository,
     MeetingSessionRepository,
+    SessionSpeakerNameRepository,
     SummarizationProvider,
     SummaryRepository,
-    TranscriptRepository,
     TranscriptionProvider,
+    TranscriptRepository,
 )
+from live_meeting_transcriber.storage.people_composite import CompositeKnownPeopleRepository
 from live_meeting_transcriber.storage.repositories import (
+    SqliteDiarizationRepository,
+    SqliteKnownPeopleRepository,
     SqliteMeetingSessionRepository,
+    SqliteSessionSpeakerNameRepository,
     SqliteSummaryRepository,
     SqliteTranscriptRepository,
 )
@@ -40,15 +47,32 @@ class Container:
     transcriber: TranscriptionProvider
     summarizer: SummarizationProvider
     diarizer: DiarizationProvider
+    diarization_segments: DiarizationRepository
     sessions: MeetingSessionRepository
     transcripts: TranscriptRepository
     summaries: SummaryRepository
+    people: KnownPeopleRepository
+    session_speakers: SessionSpeakerNameRepository
 
     def close(self) -> None:
         try:
             self._conn.close()
         except Exception:
             pass
+
+
+def build_diarization_provider(settings: Settings) -> DiarizationProvider:
+    if not settings.diarization_enabled or settings.diarization_provider.strip().lower() == "noop":
+        return NoopDiarizationProvider()
+    if settings.diarization_provider.strip().lower() == "pyannote":
+        from live_meeting_transcriber.diarization.pyannote_provider import PyannoteDiarizationProvider
+
+        if not settings.hf_token:
+            raise ProviderSelectionError(
+                "HF_TOKEN is required when DIARIZATION_ENABLED=true and DIARIZATION_PROVIDER=pyannote"
+            )
+        return PyannoteDiarizationProvider(hf_token=settings.hf_token, model_id=settings.pyannote_model)
+    raise ProviderSelectionError(f"Unsupported diarization_provider={settings.diarization_provider!r}")
 
 
 def build_container(settings: Settings) -> Container:
@@ -59,7 +83,7 @@ def build_container(settings: Settings) -> Container:
 
     devices: AudioDeviceProvider = PactlAudioDeviceProvider()
     audio: AudioCapture = FfmpegPulseAudioCapture()
-    diarizer: DiarizationProvider = NoopDiarizationProvider()
+    diarizer: DiarizationProvider = build_diarization_provider(settings)
 
     if settings.transcription_provider == "openai":
         transcriber: TranscriptionProvider = OpenAITranscriptionProvider(
@@ -81,6 +105,13 @@ def build_container(settings: Settings) -> Container:
     sessions: MeetingSessionRepository = SqliteMeetingSessionRepository(conn)
     transcripts: TranscriptRepository = SqliteTranscriptRepository(conn)
     summaries: SummaryRepository = SqliteSummaryRepository(conn)
+    people: KnownPeopleRepository = CompositeKnownPeopleRepository(
+        inner=SqliteKnownPeopleRepository(conn),
+        people_dir=settings.obsidian_people_dir,
+        person_template=settings.obsidian_person_template,
+    )
+    session_speakers: SessionSpeakerNameRepository = SqliteSessionSpeakerNameRepository(conn)
+    diarization_segments: DiarizationRepository = SqliteDiarizationRepository(conn)
 
     return Container(
         settings=settings,
@@ -90,8 +121,11 @@ def build_container(settings: Settings) -> Container:
         transcriber=transcriber,
         summarizer=summarizer,
         diarizer=diarizer,
+        diarization_segments=diarization_segments,
         sessions=sessions,
         transcripts=transcripts,
         summaries=summaries,
+        people=people,
+        session_speakers=session_speakers,
     )
 

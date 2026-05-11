@@ -4,7 +4,11 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
-from live_meeting_transcriber.ui.state.model import DiarizationStatus, SessionRowState, TranscriptionStatus
+from live_meeting_transcriber.ui.state.model import (
+    DiarizationStatus,
+    SessionRowState,
+    TranscriptionStatus,
+)
 
 # --- Actions (typed, immutable dataclasses) ---
 
@@ -27,14 +31,18 @@ class SettingsLoaded:
     diarization_enabled: bool
     diarization_provider: str
     log_file_resolved: str
+    audio_include_microphone: bool
     at: datetime
 
 
 @dataclass(frozen=True)
 class RecordingStartRequested:
+    """Start capture. If ``resume_session_id`` is set, append to that meeting instead of creating one."""
+
     title: str
     audio_source: str | None
     at: datetime
+    resume_session_id: UUID | None = None
 
 
 @dataclass(frozen=True)
@@ -42,6 +50,7 @@ class RecordingStarted:
     session_id: UUID
     title: str
     audio_source: str
+    microphone_source: str | None
     chunk_seconds: int
     at: datetime
 
@@ -96,6 +105,22 @@ class SpeakerAliasUpdated:
 
 
 @dataclass(frozen=True)
+class SpeakerAliasesLoaded:
+    """Replace in-session alias map (e.g. from SQLite when recording starts)."""
+
+    aliases: dict[str, str]
+    at: datetime
+
+
+@dataclass(frozen=True)
+class DiarizationSpeakersDetected:
+    """Union of diarization speaker keys seen so far in the live session."""
+
+    speakers: frozenset[str]
+    at: datetime
+
+
+@dataclass(frozen=True)
 class ErrorRaised:
     message: str
     at: datetime
@@ -111,6 +136,36 @@ class ErrorAcknowledged:
 class WarningRaised:
     message: str
     at: datetime
+
+
+@dataclass(frozen=True)
+class NoticeRaised:
+    """Non-error status for the UI (export path, summary done, etc.)."""
+
+    message: str
+    at: datetime
+
+
+@dataclass(frozen=True)
+class ExportMarkdownRequested:
+    """Write session markdown to data_dir/exports (and Obsidian when configured).
+
+    ``session_id`` None means the live recording session from UI state.
+    """
+
+    at: datetime
+    session_id: UUID | None = None
+
+
+@dataclass(frozen=True)
+class SummarizeSessionRequested:
+    """Run summarization for a session and store in DB.
+
+    ``session_id`` None means the live recording session from UI state.
+    """
+
+    at: datetime
+    session_id: UUID | None = None
 
 
 @dataclass(frozen=True)
@@ -190,9 +245,14 @@ Action = (
     | TranscriptSegmentReceived
     | DiarizationSegmentReceived
     | SpeakerAliasUpdated
+    | SpeakerAliasesLoaded
+    | DiarizationSpeakersDetected
     | ErrorRaised
     | ErrorAcknowledged
     | WarningRaised
+    | NoticeRaised
+    | ExportMarkdownRequested
+    | SummarizeSessionRequested
     | SettingsScreenOpened
     | SettingsScreenClosed
     | SessionsRefreshRequested

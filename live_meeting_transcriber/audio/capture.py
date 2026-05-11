@@ -16,8 +16,8 @@ class FfmpegPulseAudioCapture:
     """
     Captures audio from PipeWire/PulseAudio sources using ffmpeg.
 
-    This is Linux-first and intentionally avoids in-process audio backends, which
-    tend to be brittle across desktop configurations.
+    When ``microphone_source`` is set (and distinct from ``source``), records
+    system/monitor and microphone together via ``amix`` into one chunk.
     """
 
     def capture_chunk(
@@ -25,6 +25,7 @@ class FfmpegPulseAudioCapture:
         *,
         session_id: UUID,
         source: str,
+        microphone_source: str | None = None,
         chunk_seconds: int,
         sample_rate_hz: int,
         channels: int,
@@ -35,25 +36,64 @@ class FfmpegPulseAudioCapture:
         chunk_id = uuid4()
         started_at = datetime.utcnow()
         out_path = output_dir / f"{chunk_id}.wav"
-        cmd = [
-            "ffmpeg",
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-f",
-            "pulse",
-            "-i",
-            source,
-            "-t",
-            str(chunk_seconds),
-            "-ac",
-            str(channels),
-            "-ar",
-            str(sample_rate_hz),
-            "-acodec",
-            "pcm_s16le",
-            str(out_path),
-        ]
+
+        mic = microphone_source if microphone_source and microphone_source != source else None
+
+        if mic is None:
+            cmd: list[str] = [
+                "ffmpeg",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-f",
+                "pulse",
+                "-i",
+                source,
+                "-t",
+                str(chunk_seconds),
+                "-ac",
+                str(channels),
+                "-ar",
+                str(sample_rate_hz),
+                "-acodec",
+                "pcm_s16le",
+                str(out_path),
+            ]
+        else:
+            cmd = [
+                "ffmpeg",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-f",
+                "pulse",
+                "-thread_queue_size",
+                "4096",
+                "-i",
+                source,
+                "-f",
+                "pulse",
+                "-thread_queue_size",
+                "4096",
+                "-i",
+                mic,
+                "-filter_complex",
+                # aresample async=1 reduces drift when one Pulse source is idle while the other
+                # is active (common monitor+mic amix issue: mic appears only when system audio plays).
+                "[0:a]aresample=async=1[a0];[1:a]aresample=async=1[a1];"
+                "[a0][a1]amix=inputs=2:duration=longest:dropout_transition=0:normalize=0[aout]",
+                "-map",
+                "[aout]",
+                "-t",
+                str(chunk_seconds),
+                "-ac",
+                str(channels),
+                "-ar",
+                str(sample_rate_hz),
+                "-acodec",
+                "pcm_s16le",
+                str(out_path),
+            ]
 
         try:
             subprocess.run(cmd, check=True, capture_output=True, text=True)
@@ -72,4 +112,3 @@ class FfmpegPulseAudioCapture:
             sample_rate_hz=sample_rate_hz,
             channels=channels,
         )
-

@@ -28,3 +28,15 @@ def test_build_summary_prompt_contains_segments() -> None:
     assert "Meeting title: Weekly" in prompt
     assert "First line" in prompt
     assert "Second line" in prompt
+
+    p2 = build_summary_prompt(
+        session=session,
+        segments=segs,
+        speaker_display={"unknown": "Frederik"},
+    )
+    assert "Frederik" in p2
+
+    s2 = MeetingSession(title="T", attendees=["Alice"], notes="Room A")
+    p3 = build_summary_prompt(session=s2, segments=segs)
+    assert "Alice" in p3
+    assert "Room A" in p3

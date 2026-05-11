@@ -35,6 +35,7 @@ def test_settings_loaded_updates_config_fields() -> None:
             diarization_enabled=True,
             diarization_provider="noop",
             log_file_resolved="/tmp/app.log",
+            audio_include_microphone=True,
             at=_t(),
         ),
     )
@@ -63,6 +64,7 @@ def test_recording_lifecycle() -> None:
             session_id=sid,
             title="T",
             audio_source="sink.monitor",
+            microphone_source="mic",
             chunk_seconds=10,
             at=_t(),
         ),
@@ -70,6 +72,8 @@ def test_recording_lifecycle() -> None:
     assert s2.recording_status == RecordingStatus.recording
     assert s2.transcription_status == TranscriptionStatus.active
     assert s2.current_session_id == sid
+    assert s2.microphone_source == "mic"
+    assert s2.recent_transcript_segments == ()
 
     s3 = reduce(s2, act.RecordingStopRequested(at=_t()))
     assert s3.recording_status == RecordingStatus.stopping
@@ -182,6 +186,12 @@ def test_session_title_updated() -> None:
     s1 = reduce(s0, act.SessionTitleUpdated(session_id=sid, title="New", at=_t()))
     assert s1.sessions_catalog[0].title == "New"
     assert s1.session_title == "New"
+
+
+def test_notice_raised_appends() -> None:
+    s0 = initial_app_state()
+    s1 = reduce(s0, act.NoticeRaised(message="Exported to /tmp/x.md", at=_t()))
+    assert s1.notices[-1] == "Exported to /tmp/x.md"
 
 
 def test_settings_screen_toggle() -> None:

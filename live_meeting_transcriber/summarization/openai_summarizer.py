@@ -32,8 +32,16 @@ class OpenAISummarizationProvider:
         self._client = AsyncOpenAI(api_key=api_key)
         self._model = model
 
-    async def summarize(self, *, session: MeetingSession, segments: Iterable[TranscriptSegment]) -> Summary:
-        prompt = build_summary_prompt(session=session, segments=segments)
+    async def summarize(
+        self,
+        *,
+        session: MeetingSession,
+        segments: Iterable[TranscriptSegment],
+        speaker_display: dict[str, str] | None = None,
+    ) -> Summary:
+        prompt = build_summary_prompt(
+            session=session, segments=segments, speaker_display=speaker_display
+        )
         try:
             resp = await self._client.chat.completions.create(
                 model=self._model,
@@ -43,7 +51,7 @@ class OpenAISummarizationProvider:
                 ],
                 temperature=0.2,
             )
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             raise OpenAISummarizationError(str(e)) from e
 
         content = resp.choices[0].message.content if resp.choices else None

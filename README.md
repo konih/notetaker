@@ -22,6 +22,14 @@ Local, extensible background transcription for browser/Teams meetings on **Ubunt
 uv sync --all-extras
 ```
 
+Optional **speaker diarization** (pyannote / PyTorch — large download):
+
+```bash
+uv sync --extra diarization
+```
+
+Accept the **pyannote** and model license(s) on Hugging Face, then set `HF_TOKEN` in `.env`.
+
 ### Configuration
 
 Copy `.env.example` to `.env` and edit:
@@ -34,7 +42,7 @@ Copy `.env.example` to `.env` and edit:
 
 ### Ubuntu audio setup (PipeWire/PulseAudio)
 
-This project captures **system output audio** using a *monitor source*.
+This project captures **system output audio** using a *monitor source*, and by default **also mixes in your default microphone** so your side of the conversation is transcribed. Disable with `AUDIO_INCLUDE_MICROPHONE=false` or `live-transcriber record --no-microphone`.
 
 - List sources:
 
@@ -78,6 +86,16 @@ Export Markdown:
 uv run live-transcriber export --session-id <id> --format markdown
 ```
 
+Exports can **attach screenshots** from `~/Pictures/Screenshots` when filenames look like `Screenshot from 2026-05-11 09-24-01.png`: they are copied next to the export and, if Obsidian paths are configured, into `Images/Screenshots` with embeds placed after the transcript line for that time range. See `docs/configuration.md` (`SCREENSHOTS_*`, `OBSIDIAN_SCREENSHOTS_DIR`).
+
+Speaker diarization (after enabling `DIARIZATION_*` in `.env`; see `docs/configuration.md`):
+
+```bash
+uv run live-transcriber speakers --session-id <id>
+uv run live-transcriber speaker-alias --session-id <id> --speaker speaker_1 --name "Konrad"
+uv run live-transcriber diarize --session-id <id>
+```
+
 ### Developer workflow (Taskfile)
 
 ```bash
@@ -96,7 +114,8 @@ task typecheck
 ### Known limitations (current)
 
 - Uses **chunked transcription** (not low-latency streaming yet).
-- Diarization is stubbed (noop).
+- Diarization is **optional** (pyannote): extra install, GPU recommended, model access via Hugging Face; chunk processing adds latency.
+- Diarization labels **clusters**, not legal identities — use aliases for real names.
 - Terminal UI is local-only; a web/desktop shell can reuse the same store/effects pattern later.
 
 ### Roadmap

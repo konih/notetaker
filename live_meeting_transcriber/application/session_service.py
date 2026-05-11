@@ -6,6 +6,7 @@ from uuid import UUID
 from live_meeting_transcriber.domain.models import MeetingSession, Summary
 from live_meeting_transcriber.domain.ports import (
     MeetingSessionRepository,
+    SessionSpeakerNameRepository,
     SummarizationProvider,
     SummaryRepository,
     TranscriptRepository,
@@ -18,6 +19,7 @@ class SessionService:
     transcripts: TranscriptRepository
     summaries: SummaryRepository
     summarizer: SummarizationProvider
+    session_speakers: SessionSpeakerNameRepository | None = None
 
     def create_session(self, *, title: str) -> MeetingSession:
         session = MeetingSession(title=title)
@@ -35,6 +37,14 @@ class SessionService:
     async def summarize_session(self, *, session_id: UUID) -> Summary:
         session = self.get_session(session_id)
         segments = self.transcripts.list_by_session(session_id)
-        summary = await self.summarizer.summarize(session=session, segments=segments)
+        speaker_display: dict[str, str] | None = None
+        if self.session_speakers is not None:
+            m = self.session_speakers.get_map(session_id)
+            speaker_display = m if m else None
+        summary = await self.summarizer.summarize(
+            session=session,
+            segments=segments,
+            speaker_display=speaker_display,
+        )
         return self.summaries.upsert(summary)
 

@@ -11,8 +11,12 @@ from live_meeting_transcriber.application.container import Container
 from live_meeting_transcriber.cli.main import app
 from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.models import TranscriptSegment
+from live_meeting_transcriber.storage.people_composite import CompositeKnownPeopleRepository
 from live_meeting_transcriber.storage.repositories import (
+    SqliteDiarizationRepository,
+    SqliteKnownPeopleRepository,
     SqliteMeetingSessionRepository,
+    SqliteSessionSpeakerNameRepository,
     SqliteSummaryRepository,
     SqliteTranscriptRepository,
 )
@@ -31,6 +35,9 @@ class _FakeDevices:
     def get_default_monitor_source(self) -> str | None:
         return "sink.monitor"
 
+    def get_default_microphone_source(self) -> str | None:
+        return "alsa_input.fake"
+
 
 class _FakeRecorder:
     def __init__(self, **_kwargs) -> None:
@@ -41,6 +48,7 @@ class _FakeRecorder:
         *,
         session_id: UUID,
         source: str,
+        microphone_source: str | None = None,
         chunk_seconds: int,
         sample_rate_hz: int,
         channels: int,
@@ -76,9 +84,16 @@ def test_cli_record_uses_mocked_recorder(monkeypatch, tmp_path) -> None:
         transcriber=None,  # type: ignore[arg-type]
         summarizer=None,  # type: ignore[arg-type]
         diarizer=None,  # type: ignore[arg-type]
+        diarization_segments=SqliteDiarizationRepository(conn),
         sessions=SqliteMeetingSessionRepository(conn),
         transcripts=SqliteTranscriptRepository(conn),
         summaries=SqliteSummaryRepository(conn),
+        people=CompositeKnownPeopleRepository(
+            inner=SqliteKnownPeopleRepository(conn),
+            people_dir=None,
+            person_template=None,
+        ),
+        session_speakers=SqliteSessionSpeakerNameRepository(conn),
     )
 
     monkeypatch.setattr("live_meeting_transcriber.cli.main.load_settings", lambda: settings)
@@ -106,9 +121,16 @@ def test_cli_record_ctrl_c_exits_cleanly(monkeypatch, tmp_path) -> None:
         transcriber=None,  # type: ignore[arg-type]
         summarizer=None,  # type: ignore[arg-type]
         diarizer=None,  # type: ignore[arg-type]
+        diarization_segments=SqliteDiarizationRepository(conn),
         sessions=SqliteMeetingSessionRepository(conn),
         transcripts=SqliteTranscriptRepository(conn),
         summaries=SqliteSummaryRepository(conn),
+        people=CompositeKnownPeopleRepository(
+            inner=SqliteKnownPeopleRepository(conn),
+            people_dir=None,
+            person_template=None,
+        ),
+        session_speakers=SqliteSessionSpeakerNameRepository(conn),
     )
 
     monkeypatch.setattr("live_meeting_transcriber.cli.main.load_settings", lambda: settings)

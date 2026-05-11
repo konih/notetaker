@@ -63,3 +63,31 @@ class PactlAudioDeviceProvider:
         names = {s.name for s in self.list_sources()}
         return candidate if candidate in names else None
 
+    def get_default_microphone_source(self) -> str | None:
+        """Default capture source (microphone), from ``Default Source`` in ``pactl info``."""
+        try:
+            info = subprocess.run(
+                ["pactl", "info"],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout
+        except Exception:
+            return None
+
+        default_source: str | None = None
+        for line in info.splitlines():
+            if line.startswith("Default Source:"):
+                default_source = line.split(":", 1)[1].strip()
+                break
+        if not default_source:
+            return None
+
+        names = {s.name for s in self.list_sources()}
+        if default_source not in names:
+            return None
+        # Avoid mixing monitor with itself if misconfigured as default source.
+        if default_source.endswith(".monitor"):
+            return None
+        return default_source
+

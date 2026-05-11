@@ -33,6 +33,7 @@ class RecordingLoopEntered:
     session_id: UUID
     audio_source: str
     chunk_seconds: int
+    microphone_source: str | None
     at: datetime
 
 
@@ -40,6 +41,16 @@ class RecordingLoopEntered:
 class AudioChunkCaptured:
     session_id: UUID
     chunk_id: UUID
+    at: datetime
+
+
+@dataclass(frozen=True)
+class AudioChunkLevelMeasured:
+    """Peak level (0..1) from the captured WAV after each chunk (not real-time)."""
+
+    session_id: UUID
+    chunk_id: UUID
+    peak_linear: float
     at: datetime
 
 
@@ -58,6 +69,15 @@ class TranscriptionChunkCompleted:
 
 
 @dataclass(frozen=True)
+class TranscriptionChunkEmpty:
+    """API returned no text for this chunk; segment was skipped (recording continues)."""
+
+    session_id: UUID
+    chunk_id: UUID
+    at: datetime
+
+
+@dataclass(frozen=True)
 class TranscriptSegmentPersisted:
     segment: TranscriptSegment
     at: datetime
@@ -68,6 +88,17 @@ class DiarizationChunkCompleted:
     """Fired after diarization runs on a segment (noop or real)."""
 
     segment: TranscriptSegment
+    detected_speakers: frozenset[str]
+    at: datetime
+
+
+@dataclass(frozen=True)
+class DiarizationFailed:
+    """Non-fatal diarization error (recording continues with unknown / prior speaker)."""
+
+    session_id: UUID
+    chunk_id: UUID | None
+    message: str
     at: datetime
 
 
@@ -95,10 +126,13 @@ ApplicationEvent = (
     | RecordingPrepareStarted
     | RecordingLoopEntered
     | AudioChunkCaptured
+    | AudioChunkLevelMeasured
     | TranscriptionChunkStarted
     | TranscriptionChunkCompleted
+    | TranscriptionChunkEmpty
     | TranscriptSegmentPersisted
     | DiarizationChunkCompleted
+    | DiarizationFailed
     | RecordingStopRequested
     | RecordingStopped
     | RecordingFailed

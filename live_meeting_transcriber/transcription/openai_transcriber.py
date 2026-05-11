@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from openai import AsyncOpenAI
 
-from live_meeting_transcriber.domain.models import ProviderMetadata, TranscriptSegment
-from live_meeting_transcriber.domain.models import AudioChunk
+from live_meeting_transcriber.domain.exceptions import EmptyTranscriptionError
+from live_meeting_transcriber.domain.models import AudioChunk, ProviderMetadata, TranscriptSegment
 
 
 class OpenAITranscriptionError(RuntimeError):
@@ -22,12 +22,12 @@ class OpenAITranscriptionProvider:
                     model=self._model,
                     file=f,
                 )
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             raise OpenAITranscriptionError(str(e)) from e
 
         text = getattr(resp, "text", None)
         if not isinstance(text, str) or not text.strip():
-            raise OpenAITranscriptionError("OpenAI transcription returned empty text")
+            raise EmptyTranscriptionError("OpenAI transcription returned empty text")
 
         return TranscriptSegment(
             session_id=chunk.session_id,

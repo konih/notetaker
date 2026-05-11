@@ -1,3 +1,5 @@
+"""Diarization provider contracts (see ``domain.ports.DiarizationProvider``)."""
+
 from __future__ import annotations
 
-# Placeholder for future diarization implementations.
+__all__: list[str] = []

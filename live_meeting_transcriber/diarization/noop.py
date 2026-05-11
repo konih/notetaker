@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from live_meeting_transcriber.domain.models import TranscriptSegment
+from live_meeting_transcriber.domain.models import AudioChunk, DiarizationSegment
 
 
 class NoopDiarizationProvider:
-    async def diarize(self, *, segment: TranscriptSegment) -> TranscriptSegment:
-        return segment
-
+    async def diarize_chunk(self, *, chunk: AudioChunk) -> list[DiarizationSegment]:
+        return []

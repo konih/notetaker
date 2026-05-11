@@ -17,7 +17,13 @@ def _t() -> datetime:
 def test_bridge_recording_loop_enters_transcription_active() -> None:
     sid = uuid4()
     actions = application_events_to_actions(
-        ev.RecordingLoopEntered(session_id=sid, audio_source="x.monitor", chunk_seconds=10, at=_t())
+        ev.RecordingLoopEntered(
+            session_id=sid,
+            audio_source="x.monitor",
+            chunk_seconds=10,
+            microphone_source="mic",
+            at=_t(),
+        )
     )
     kinds = [type(a) for a in actions]
     assert act.AudioSourceChanged in kinds
@@ -47,3 +53,14 @@ def test_bridge_recording_failed_maps_to_ui_failure() -> None:
         ev.RecordingFailed(session_id=None, message="x", at=_t())
     )
     assert any(isinstance(a, act.RecordingFailed) for a in actions)
+
+
+def test_bridge_audio_chunk_level_maps_to_meter() -> None:
+    sid = uuid4()
+    cid = uuid4()
+    actions = application_events_to_actions(
+        ev.AudioChunkLevelMeasured(session_id=sid, chunk_id=cid, peak_linear=0.42, at=_t())
+    )
+    assert len(actions) == 1
+    assert isinstance(actions[0], act.AudioLevelUpdated)
+    assert actions[0].level == 0.42

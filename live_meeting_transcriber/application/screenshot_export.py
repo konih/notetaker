@@ -1,0 +1,175 @@
+"""Match GNOME-style screenshot files to meeting time ranges and prepare export assets."""
+
+from __future__ import annotations
+
+import re
+import shutil
+import time
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+from uuid import UUID
+
+from live_meeting_transcriber.domain.models import MeetingSession, TranscriptSegment
+
+# e.g. "Screenshot From 2026-05-11 09-24-01.png" / "Screenshot from 2026-05-11 09-24-01 (1).png"
+_SCREENSHOT_NAME_RE = re.compile(
+    r"^screenshot\s+from\s+(\d{4}-\d{2}-\d{2})\s+(\d{2})-(\d{2})-(\d{2})(?:\s*\(\d+\))?\.(png|jpe?g)$",
+    re.IGNORECASE,
+)
+
+
+def parse_gnome_screenshot_filename(name: str) -> datetime | None:
+    """Parse wall-clock time from a GNOME Screenshots-style filename; returns naive local datetime."""
+    m = _SCREENSHOT_NAME_RE.match(name.strip())
+    if not m:
+        return None
+    date_part = m.group(1)
+    y, mo, d = int(date_part[0:4]), int(date_part[5:7]), int(date_part[8:10])
+    h, mi, s = int(m.group(2)), int(m.group(3)), int(m.group(4))
+    try:
+        return datetime(y, mo, d, h, mi, s)
+    except ValueError:
+        return None
+
+
+def local_naive_to_utc_naive(naive_local: datetime) -> datetime:
+    """Interpret naive datetime as local machine time; return UTC naive (matches stored session times)."""
+    secs = time.mktime(naive_local.timetuple())
+    return datetime.fromtimestamp(secs, tz=timezone.utc).replace(tzinfo=None)
+
+
+@dataclass(frozen=True)
+class ScreenshotHit:
+    """One screenshot file whose capture time falls inside the session window (UTC naive)."""
+
+    captured_utc: datetime
+    source_path: Path
+
+
+def _session_time_bounds(
+    session: MeetingSession, segments: list[TranscriptSegment]
+) -> tuple[datetime, datetime]:
+    start = session.started_at
+    end = session.ended_at
+    if end is None and segments:
+        end = max(s.ended_at for s in segments)
+    if end is None:
+        end = start
+    return start, end
+
+
+def list_session_screenshots(
+    source_dir: Path | None,
+    session: MeetingSession,
+    segments: list[TranscriptSegment],
+) -> list[ScreenshotHit]:
+    """Find image files in ``source_dir`` whose embedded timestamp falls in ``[session.start, session.end]``."""
+    if source_dir is None or not source_dir.is_dir():
+        return []
+    t0, t1 = _session_time_bounds(session, segments)
+    hits: list[ScreenshotHit] = []
+    for path in sorted(source_dir.iterdir()):
+        if not path.is_file():
+            continue
+        local_naive = parse_gnome_screenshot_filename(path.name)
+        if local_naive is None:
+            continue
+        utc_naive = local_naive_to_utc_naive(local_naive)
+        if t0 <= utc_naive <= t1:
+            hits.append(ScreenshotHit(captured_utc=utc_naive, source_path=path.resolve()))
+    hits.sort(key=lambda h: (h.captured_utc, str(h.source_path)))
+    return hits
+
+
+def _normalized_image_suffix(src: Path) -> str:
+    ext = (src.suffix or ".png").lower()
+    if ext == ".jpeg":
+        ext = ".jpg"
+    if ext not in (".png", ".jpg", ".webp"):
+        ext = ".png"
+    return ext
+
+
+def export_screenshot_basename(
+    session_id: UUID,
+    src: Path,
+    captured_utc: datetime,
+    index: int,
+) -> str:
+    """Deterministic, Obsidian-friendly name (re-export overwrites the same path).
+
+    Includes a short session id so a shared Obsidian Screenshots folder does not collide
+    across meetings. ``index`` is the 0-based position in the session's sorted list.
+    """
+    ext = _normalized_image_suffix(src)
+    ts = captured_utc.strftime("%Y%m%dT%H%M%S")
+    sid = str(session_id).replace("-", "")[:8]
+    return f"screenshot_{sid}_{ts}_{index:03d}{ext}"
+
+
+def copy_screenshot_for_export(
+    src: Path,
+    dest_dir: Path,
+    *,
+    session_id: UUID,
+    captured_utc: datetime,
+    index: int,
+) -> Path:
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    base = export_screenshot_basename(session_id, src, captured_utc, index)
+    dest = dest_dir / base
+    shutil.copy2(src, dest)
+    return dest.resolve()
+
+
+def markdown_image_line(*, alt: str, relative_link: str) -> str:
+    return f"  - ![{alt}]({relative_link})"
+
+
+def merge_transcript_lines_with_screenshots(
+    segments: list[TranscriptSegment],
+    speaker_line_fn: Callable[[TranscriptSegment], str],
+    screenshot_md_fn: Callable[[ScreenshotHit], str],
+    *,
+    session: MeetingSession,
+    shots: list[ScreenshotHit],
+) -> list[str]:
+    """Place screenshots after the transcript line for the segment that contains their capture time."""
+    segs = sorted(segments, key=lambda s: s.started_at)
+    lines: list[str] = []
+    used_paths: set[Path] = set()
+
+    if not segs:
+        for h in shots:
+            lines.append(screenshot_md_fn(h))
+        return lines
+
+    # Before first segment (still in session)
+    first_lo = segs[0].started_at
+    for h in shots:
+        if h.captured_utc < first_lo:
+            lines.append(screenshot_md_fn(h))
+            used_paths.add(h.source_path)
+
+    for seg in segs:
+        lines.append(speaker_line_fn(seg))
+        lo, hi = seg.started_at, seg.ended_at
+        for h in shots:
+            if h.source_path in used_paths:
+                continue
+            if lo <= h.captured_utc <= hi:
+                lines.append(screenshot_md_fn(h))
+                used_paths.add(h.source_path)
+
+    t_end = session.ended_at or (segs[-1].ended_at if segs else session.started_at)
+    last_hi = segs[-1].ended_at
+    for h in shots:
+        if h.source_path in used_paths:
+            continue
+        if last_hi < h.captured_utc <= t_end:
+            lines.append(screenshot_md_fn(h))
+            used_paths.add(h.source_path)
+
+    return lines

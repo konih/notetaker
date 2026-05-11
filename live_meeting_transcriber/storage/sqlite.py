@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator
 
 
 class StorageError(RuntimeError):
@@ -35,6 +35,17 @@ def connect(database_url: str) -> sqlite3.Connection:
     return conn
 
 
+def _table_columns(conn: sqlite3.Connection, table: str) -> set[str]:
+    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+    return {str(r[1]) for r in rows}
+
+
+def _add_column_if_missing(conn: sqlite3.Connection, table: str, column: str, ddl_suffix: str) -> None:
+    cols = _table_columns(conn, table)
+    if column not in cols:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl_suffix}")
+
+
 def migrate(conn: sqlite3.Connection) -> None:
     conn.execute(
         """
@@ -46,6 +57,8 @@ def migrate(conn: sqlite3.Connection) -> None:
         )
         """
     )
+    _add_column_if_missing(conn, "meeting_sessions", "notes", "TEXT NOT NULL DEFAULT ''")
+    _add_column_if_missing(conn, "meeting_sessions", "attendees_json", "TEXT NOT NULL DEFAULT '[]'")
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS transcript_segments (
@@ -83,6 +96,54 @@ def migrate(conn: sqlite3.Connection) -> None:
           metadata_json TEXT,
           FOREIGN KEY(session_id) REFERENCES meeting_sessions(id)
         )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS known_people (
+          id TEXT PRIMARY KEY,
+          display_name TEXT NOT NULL COLLATE NOCASE,
+          source TEXT NOT NULL DEFAULT 'local',
+          created_at TEXT NOT NULL,
+          last_used_at TEXT NOT NULL,
+          UNIQUE(display_name)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_known_people_display_name
+        ON known_people(display_name COLLATE NOCASE)
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS session_speaker_names (
+          session_id TEXT NOT NULL,
+          speaker_key TEXT NOT NULL,
+          display_name TEXT NOT NULL,
+          PRIMARY KEY (session_id, speaker_key),
+          FOREIGN KEY(session_id) REFERENCES meeting_sessions(id)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS diarization_segments (
+          id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL,
+          chunk_id TEXT,
+          started_at TEXT NOT NULL,
+          ended_at TEXT NOT NULL,
+          speaker_key TEXT NOT NULL,
+          FOREIGN KEY(session_id) REFERENCES meeting_sessions(id)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_diarization_segments_session_id
+        ON diarization_segments(session_id)
         """
     )
     conn.commit()

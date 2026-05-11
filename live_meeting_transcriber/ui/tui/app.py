@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import functools
+import shutil
 from collections.abc import Callable
 from datetime import datetime
 from uuid import UUID
@@ -11,21 +13,27 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
-from textual.widgets import DataTable, Footer, Header, Input, RichLog, Static
+from textual.widgets import DataTable, Footer, Header, Input, RichLog, Static, TabbedContent, TabPane
 
-from live_meeting_transcriber.application.container import Container, ProviderSelectionError, build_container
+from live_meeting_transcriber.application.container import (
+    Container,
+    ProviderSelectionError,
+    build_container,
+)
 from live_meeting_transcriber.config.settings import Settings, load_settings
 from live_meeting_transcriber.observability.logging import configure_logging
 from live_meeting_transcriber.ui.effects.controller import TuiController
 from live_meeting_transcriber.ui.state import actions as act
-from live_meeting_transcriber.ui.state.model import AppState
+from live_meeting_transcriber.ui.state.model import AppState, RecordingStatus, TranscriptLineState
 from live_meeting_transcriber.ui.state.selectors import (
     select_display_speaker,
     select_header_title,
+    select_level_bar,
     select_status_line,
     select_unacknowledged_errors,
 )
 from live_meeting_transcriber.ui.state.store import Store
+from live_meeting_transcriber.ui.tui.meeting_browser import ConfirmDeleteMeetingModal, MeetingBrowser
 from live_meeting_transcriber.utils.time import utc_now
 
 
@@ -45,6 +53,7 @@ class SettingsScreen(ModalScreen[None]):
             f"Log file: {s.log_file_path or '—'}",
             f"Audio chunk (s): {s.chunk_seconds}  rate: {s.audio_sample_rate}  ch: {s.audio_channels}",
             f"Diarization: enabled={s.diarization_enabled} provider={s.diarization_provider}",
+            f"Mic mix: {'on' if s.audio_include_microphone else 'off'}",
         ]
         yield Vertical(
             Static("Settings (read-only)", classes="settings-title"),
@@ -103,6 +112,7 @@ class SessionsScreen(ModalScreen[None]):
         Binding("escape", "close", "Close", show=True),
         Binding("r", "refresh", "Refresh", show=True),
         Binding("e", "edit_title", "Edit title", show=True),
+        Binding("d", "delete_selected", "Delete", show=True, priority=True),
     ]
 
     def __init__(self) -> None:
@@ -114,7 +124,10 @@ class SessionsScreen(ModalScreen[None]):
         yield Vertical(
             Static("Sessions (local SQLite)", classes="settings-title"),
             DataTable(id="sessions-table", cursor_type="row", zebra_stripes=True),
-            Static("r: refresh   e: edit title of selected row   esc: close", classes="hint"),
+            Static(
+                "r: refresh   e: rename   d: delete selected   esc: close",
+                classes="hint",
+            ),
             classes="settings-dialog",
         )
 
@@ -163,6 +176,49 @@ class SessionsScreen(ModalScreen[None]):
             return
         self.app.push_screen(EditSessionTitleScreen(sid, row.title))
 
+    async def action_delete_selected(self) -> None:
+        table = self.query_one("#sessions-table", DataTable)
+        coord = table.cursor_coordinate
+        if coord is None or coord.row < 0 or coord.row >= len(self._row_ids):
+            self.app.notify("Select a session row first.", severity="warning")
+            return
+        sid_str = self._row_ids[coord.row]
+        sid = UUID(sid_str)
+        app = self.app
+        assert isinstance(app, TranscriberApp)
+        st = app.store.get_state()
+        if st.current_session_id == sid and st.recording_status in (
+            RecordingStatus.starting,
+            RecordingStatus.recording,
+            RecordingStatus.stopping,
+        ):
+            self.app.notify("Cannot delete the session while recording is in progress.", severity="error")
+            return
+        row = next((r for r in st.sessions_catalog if r.id == sid_str), None)
+        title = (row.title.strip() if row else "") or sid_str[:8] + "…"
+        await self.app.push_screen(
+            ConfirmDeleteMeetingModal(title=title, session_id=sid),
+            callback=functools.partial(self._after_sessions_delete_confirm, sid),
+        )
+
+    def _after_sessions_delete_confirm(self, sid: UUID, confirmed: bool | None) -> None:
+        if not confirmed:
+            return
+        self.run_worker(self._execute_sessions_delete(sid), exclusive=True)
+
+    async def _execute_sessions_delete(self, sid: UUID) -> None:
+        app = self.app
+        assert isinstance(app, TranscriberApp)
+        removed = app.container.sessions.delete(sid)
+        if removed:
+            chunk_dir = app.container.settings.ensure_data_dir() / "chunks" / str(sid)
+            if chunk_dir.is_dir():
+                shutil.rmtree(chunk_dir, ignore_errors=True)
+            self.app.notify("Session deleted.")
+        else:
+            self.app.notify("Session was already removed.", severity="warning")
+        await app.store.dispatch_with_effects(act.SessionsRefreshRequested(at=utc_now()))
+
     def action_close(self) -> None:
         app = self.app
         assert isinstance(app, TranscriberApp)
@@ -178,35 +234,65 @@ class TranscriberApp(App[None]):
         Binding("q", "quit", "Quit", show=True),
         Binding("r", "record", "Record", show=True),
         Binding("x", "stop", "Stop", show=True),
+        Binding("w", "export_md", "Export", show=True, priority=True),
+        Binding("k", "summarize", "Summarize", show=True, priority=True),
         Binding("s", "settings", "Settings", show=True),
         Binding("m", "sessions", "Sessions", show=True),
         Binding("c", "ack_errors", "Ack errors", show=True),
+        Binding("ctrl+1", "focus_live_tab", "Live tab", show=True),
+        Binding("ctrl+2", "focus_meetings_tab", "Meetings tab", show=True),
     ]
 
     CSS = """
-    #main-row { height: 1fr; }
+    TabbedContent { height: 1fr; }
+    TabPane { height: 1fr; }
+    #tab-live #main-row { height: 1fr; }
     #sidebar { width: 38; min-width: 38; border: solid $primary; }
     #transcript { border: solid $accent; min-width: 40; }
     #status { height: auto; padding: 0 1; }
+    #notices { height: auto; padding: 0 1; border-top: solid $boost; text-style: italic; color: $success; }
     #errors { height: 1fr; padding: 0 1; border-top: solid $boost; }
+    #meeting-browser { height: 1fr; }
+    #meeting-browser-split { height: 1fr; min-height: 8; }
+    #meeting-sessions-table { width: 38; min-width: 28; }
+    #meeting-browser-detail { height: 1fr; min-height: 8; }
+    #meeting-notes { height: 7; min-height: 4; max-height: 12; }
+    #meeting-summary { height: 10; min-height: 5; max-height: 18; }
+    #meeting-transcript-table { height: 1fr; min-height: 6; }
+    .spk-row { height: auto; margin-bottom: 1; }
+    .spk-label { width: 14; }
+    .dim { text-style: dim; }
     .settings-dialog { padding: 1 2; width: 90; height: auto; max-height: 90%; background: $surface; border: thick $accent; }
     .settings-title { text-style: bold; }
     .hint { padding-top: 1; text-style: dim; }
     #sessions-table { height: 20; min-height: 8; }
     """
 
-    def __init__(self, *, store: Store) -> None:
+    def __init__(self, *, store: Store, container: Container) -> None:
         super().__init__()
         self.store = store
+        self.container = container
+        self._last_segment_keys: tuple[tuple[str, str, str], ...] | None = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
-        with Horizontal(id="main-row"):
-            with Vertical(id="sidebar"):
-                yield Static("", id="status")
-                yield Static("", id="errors")
-            yield RichLog(id="transcript", highlight=True, markup=True)
+        with TabbedContent(initial="tab-live"):
+            with TabPane("Live", id="tab-live"):
+                with Horizontal(id="main-row"):
+                    with Vertical(id="sidebar"):
+                        yield Static("", id="status")
+                        yield Static("", id="notices")
+                        yield Static("", id="errors")
+                    yield RichLog(id="transcript", highlight=True, markup=True)
+            with TabPane("Meetings", id="tab-meetings"):
+                yield MeetingBrowser(container=self.container, store=self.store)
         yield Footer()
+
+    def action_focus_live_tab(self) -> None:
+        self.query_one(TabbedContent).active = "tab-live"
+
+    def action_focus_meetings_tab(self) -> None:
+        self.query_one(TabbedContent).active = "tab-meetings"
 
     async def on_mount(self) -> None:
         self.store.subscribe(self._on_state)
@@ -215,29 +301,67 @@ class TranscriberApp(App[None]):
     def _on_state(self, state: AppState) -> None:
         self.sub_title = select_header_title(state)
         status = self.query_one("#status", Static)
+        notices = self.query_one("#notices", Static)
         err_panel = self.query_one("#errors", Static)
         log = self.query_one("#transcript", RichLog)
 
         status.update(self._render_status(state))
+        if state.notices:
+            notices.update(
+                Text.from_markup(
+                    "[bold]Last actions[/]\n" + "\n".join(f"• {n}" for n in state.notices[-4:])
+                )
+            )
+        else:
+            notices.update(Text.from_markup("[dim]w: export markdown · k: summarize[/]"))
         err_panel.update(self._render_errors(state))
 
-        log.clear()
-        for line in state.recent_transcript_segments:
-            sp = select_display_speaker(state, line.speaker)
-            ts = f"{line.started_at.isoformat()} → {line.ended_at.isoformat()}"
-            log.write(Text.from_markup(f"[dim]{ts}[/] [bold]{sp}[/]\n{line.text}"))
+        def _seg_key(seg: TranscriptLineState) -> tuple[str, str, str]:
+            return (seg.id, seg.speaker, seg.text)
+
+        new_keys = tuple(_seg_key(s) for s in state.recent_transcript_segments)
+        old_keys = self._last_segment_keys
+
+        if (
+            old_keys is not None
+            and len(new_keys) > len(old_keys)
+            and new_keys[: len(old_keys)] == old_keys
+        ):
+            for line in state.recent_transcript_segments[len(old_keys) :]:
+                sp = select_display_speaker(state, line.speaker)
+                ts = f"{line.started_at.isoformat()} → {line.ended_at.isoformat()}"
+                log.write(Text.from_markup(f"[dim]{ts}[/] [bold]{sp}[/]\n{line.text}"))
+        elif old_keys != new_keys:
+            log.clear()
+            for line in state.recent_transcript_segments:
+                sp = select_display_speaker(state, line.speaker)
+                ts = f"{line.started_at.isoformat()} → {line.ended_at.isoformat()}"
+                log.write(Text.from_markup(f"[dim]{ts}[/] [bold]{sp}[/]\n{line.text}"))
+        self._last_segment_keys = new_keys
 
     def _render_status(self, state: AppState) -> Group:
         log_hint = state.log_file_path[:52] + "…" if len(state.log_file_path) > 55 else state.log_file_path
+        peak_pct = (
+            f"{state.current_level_meter * 100:.0f}%"
+            if state.current_level_meter is not None
+            else "—"
+        )
         lines = [
             f"[bold]Session[/] {state.current_session_id or '—'}",
             f"[bold]Title[/] {state.session_title or '—'}",
             f"[bold]Status[/] {select_status_line(state)}",
+            f"[bold]Level[/] [{select_level_bar(state)}] {peak_pct} [dim](per chunk)[/]",
             f"[bold]Chunk[/] {state.chunk_seconds}s",
+            f"[bold]Mic[/] {state.microphone_source or ('—' if not state.audio_include_microphone else 'none (monitor only)')}",
             f"[bold]Log[/] {log_hint or '—'}",
             f"[bold]Sessions[/] {len(state.sessions_catalog)} in DB"
             + (" (loading…)" if state.sessions_loading else ""),
-            f"[bold]Level[/] {state.current_level_meter if state.current_level_meter is not None else '—'}",
+            f"[bold]Diarization[/] provider={state.diarization_provider}"
+            + (
+                f" · seen: {', '.join(sorted(state.diarization_detected_speakers))}"
+                if state.diarization_detected_speakers
+                else ""
+            ),
         ]
         return Group(*[Text.from_markup(x) for x in lines])
 
@@ -266,6 +390,34 @@ class TranscriberApp(App[None]):
 
     async def action_stop(self) -> None:
         await self.store.dispatch_with_effects(act.RecordingStopRequested(at=utc_now()))
+
+    async def action_export_md(self) -> None:
+        tabs = self.query_one(TabbedContent)
+        if tabs.active == "tab-meetings":
+            browser = self.query_one("#meeting-browser", MeetingBrowser)
+            sid = browser.selected_session_id
+            if sid is None:
+                self.notify("Select a meeting in the Meetings tab to export.", severity="warning")
+                return
+            await self.store.dispatch_with_effects(
+                act.ExportMarkdownRequested(at=utc_now(), session_id=sid)
+            )
+            return
+        await self.store.dispatch_with_effects(act.ExportMarkdownRequested(at=utc_now()))
+
+    async def action_summarize(self) -> None:
+        tabs = self.query_one(TabbedContent)
+        if tabs.active == "tab-meetings":
+            browser = self.query_one("#meeting-browser", MeetingBrowser)
+            sid = browser.selected_session_id
+            if sid is None:
+                self.notify("Select a meeting in the Meetings tab to summarize.", severity="warning")
+                return
+            await self.store.dispatch_with_effects(
+                act.SummarizeSessionRequested(at=utc_now(), session_id=sid)
+            )
+            return
+        await self.store.dispatch_with_effects(act.SummarizeSessionRequested(at=utc_now()))
 
     def action_settings(self) -> None:
         self.store.dispatch(act.SettingsScreenOpened(at=utc_now()))
@@ -307,7 +459,7 @@ def run_tui_attached(
     store = Store()
     controller = TuiController(store=store, container=container, settings=settings)
     store.register_effects(controller.handle)
-    TranscriberApp(store=store).run()
+    TranscriberApp(store=store, container=container).run()
 
 
 def run_tui() -> None:

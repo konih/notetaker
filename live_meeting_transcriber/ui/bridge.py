@@ -16,10 +16,14 @@ def application_events_to_actions(event: ev.ApplicationEvent) -> tuple[act.Actio
     elif isinstance(event, ev.AudioChunkCaptured):
         pass
 
-    elif isinstance(event, ev.TranscriptionChunkStarted):
+    elif isinstance(event, ev.AudioChunkLevelMeasured):
+        out.append(act.AudioLevelUpdated(level=event.peak_linear, at=event.at))
+
+    elif isinstance(event, (ev.TranscriptionChunkStarted, ev.TranscriptionChunkCompleted)):
         out.append(act.TranscriptionStatusChanged(status=TranscriptionStatus.active, at=event.at))
 
-    elif isinstance(event, ev.TranscriptionChunkCompleted):
+    elif isinstance(event, ev.TranscriptionChunkEmpty):
+        # Silent in UI (not an error); recorder already logs. Keep transcription status active.
         out.append(act.TranscriptionStatusChanged(status=TranscriptionStatus.active, at=event.at))
 
     elif isinstance(event, ev.DiarizationChunkCompleted):
@@ -27,10 +31,16 @@ def application_events_to_actions(event: ev.ApplicationEvent) -> tuple[act.Actio
         out.append(
             act.DiarizationSegmentReceived(
                 segment_id=str(seg.id),
-                speaker=seg.speaker.value,
+                speaker=seg.speaker,
                 at=event.at,
             )
         )
+        clean = frozenset(s for s in event.detected_speakers if s and s != "unknown")
+        if clean:
+            out.append(act.DiarizationSpeakersDetected(speakers=clean, at=event.at))
+
+    elif isinstance(event, ev.DiarizationFailed):
+        out.append(act.WarningRaised(message=f"Diarization: {event.message}", at=event.at))
 
     elif isinstance(event, ev.TranscriptSegmentPersisted):
         seg = event.segment
@@ -41,7 +51,7 @@ def application_events_to_actions(event: ev.ApplicationEvent) -> tuple[act.Actio
                 started_at=seg.started_at,
                 ended_at=seg.ended_at,
                 text=seg.text,
-                speaker=seg.speaker.value,
+                speaker=seg.speaker,
                 at=event.at,
             )
         )

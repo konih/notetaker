@@ -75,6 +75,8 @@ class AppState(BaseModel):
     transcription_status: TranscriptionStatus = TranscriptionStatus.idle
     diarization_status: DiarizationStatus = DiarizationStatus.disabled
     audio_source: str | None = None
+    microphone_source: str | None = None
+    audio_include_microphone: bool = True
     chunk_seconds: int = 10
     transcription_provider: str = "openai"
     transcription_model: str = ""
@@ -91,7 +93,9 @@ class AppState(BaseModel):
     recent_transcript_segments: tuple[TranscriptLineState, ...] = Field(default_factory=tuple)
     recent_errors: tuple[UiErrorState, ...] = Field(default_factory=tuple)
     warnings: tuple[str, ...] = Field(default_factory=tuple)
+    notices: tuple[str, ...] = Field(default_factory=tuple)
     speaker_aliases: dict[str, str] = Field(default_factory=dict)
+    diarization_detected_speakers: frozenset[str] = frozenset()
     current_level_meter: float | None = None
     last_updated_at: datetime | None = None
     settings_screen_open: bool = False

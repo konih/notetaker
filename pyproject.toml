@@ -20,6 +20,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+diarization = [
+  "pyannote.audio>=3.1.0",
+  "torch>=2.1",
+  "torchaudio>=2.1",
+]
 dev = [
   "pytest>=8.0",
   "pytest-asyncio>=0.23",

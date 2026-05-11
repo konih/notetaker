@@ -10,6 +10,8 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class SpeakerLabel(str, Enum):
+    """Legacy enum for tests and static references; transcript storage uses string keys."""
+
     unknown = "unknown"
     speaker_1 = "speaker_1"
     speaker_2 = "speaker_2"
@@ -28,6 +30,8 @@ class MeetingSession(BaseModel):
     title: str
     started_at: datetime = Field(default_factory=lambda: datetime.utcnow())
     ended_at: datetime | None = None
+    notes: str = ""
+    attendees: list[str] = Field(default_factory=list)
 
 
 class AudioChunk(BaseModel):
@@ -52,6 +56,33 @@ class AudioChunk(BaseModel):
         return (self.ended_at - self.started_at).total_seconds()
 
 
+class DiarizationSegment(BaseModel):
+    """One speaker-homogeneous interval from a diarization run (absolute timestamps)."""
+
+    started_at: datetime
+    ended_at: datetime
+    speaker_key: str = Field(min_length=1)
+    chunk_id: UUID | None = None
+
+    @field_validator("ended_at")
+    @classmethod
+    def _diar_end_after_start(cls, v: datetime, info: Any) -> datetime:
+        started_at = info.data.get("started_at")
+        if isinstance(started_at, datetime) and v <= started_at:
+            raise ValueError("ended_at must be after started_at")
+        return v
+
+
+class SpeakerAlias(BaseModel):
+    """Display name for a diarization speaker key within one session."""
+
+    model_config = {"frozen": True}
+
+    session_id: UUID
+    speaker_key: str = Field(min_length=1)
+    display_name: str = Field(min_length=1)
+
+
 class TranscriptSegment(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     session_id: UUID
@@ -59,8 +90,16 @@ class TranscriptSegment(BaseModel):
     started_at: datetime
     ended_at: datetime
     text: str = Field(min_length=1)
-    speaker: SpeakerLabel = SpeakerLabel.unknown
+    speaker: str = Field(default="unknown", min_length=1)
     metadata: ProviderMetadata | None = None
+
+    @field_validator("speaker", mode="before")
+    @classmethod
+    def _coerce_speaker(cls, v: Any) -> str:
+        if isinstance(v, SpeakerLabel):
+            return v.value
+        s = str(v).strip() if v is not None else "unknown"
+        return s if s else "unknown"
 
     @field_validator("ended_at")
     @classmethod
