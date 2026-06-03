@@ -9,6 +9,7 @@ import pytest
 from live_meeting_transcriber.application.screenshot_export import (
     export_screenshot_basename,
     list_session_screenshots,
+    list_session_video_slides,
     merge_transcript_lines_with_screenshots,
     parse_gnome_screenshot_filename,
 )
@@ -134,7 +135,7 @@ def test_write_dual_export_copies_screenshots(
         text="hello",
     )
 
-    app_path, obs_path = write_dual_export(
+    result = write_dual_export(
         app_base_dir=tmp_path / "app",
         session=session,
         segments=[seg],
@@ -145,6 +146,8 @@ def test_write_dual_export_copies_screenshots(
         screenshots_source_dir=shot_dir,
         obsidian_screenshots_dir=vault / "Images" / "Screenshots",
     )
+    app_path = result.app_path
+    obs_path = result.obs_path
     text = app_path.read_text(encoding="utf-8")
     assert "hello" in text
     assert "screenshots" in text
@@ -160,3 +163,22 @@ def test_write_dual_export_copies_screenshots(
         assert " " not in p.name
         assert re.fullmatch(r"[a-zA-Z0-9_.-]+", p.name)
         assert p.name.startswith("screenshot_")
+
+
+def test_list_session_video_slides_from_manifest(tmp_path: Path) -> None:
+    sid = uuid4()
+    session = MeetingSession(id=sid, title="Talk", started_at=datetime(2026, 6, 3, 10, 0, 0))
+    slides_dir = tmp_path / "sessions" / str(sid) / "slides"
+    slides_dir.mkdir(parents=True)
+    img = slides_dir / "slide_000_0.0s.png"
+    img.write_bytes(b"png")
+    cap = datetime(2026, 6, 3, 10, 0, 0)
+    (slides_dir / "slides.json").write_text(
+        '[{"index": 0, "timestamp_seconds": 0.0, "captured_at": "2026-06-03T10:00:00", '
+        '"path": "slide_000_0.0s.png", "change_score": 1.0}]',
+        encoding="utf-8",
+    )
+    hits = list_session_video_slides(tmp_path, session)
+    assert len(hits) == 1
+    assert hits[0].source_path == img.resolve()
+    assert hits[0].captured_utc == cap

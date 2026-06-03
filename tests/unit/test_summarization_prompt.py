@@ -40,3 +40,7 @@ def test_build_summary_prompt_contains_segments() -> None:
     p3 = build_summary_prompt(session=s2, segments=segs)
     assert "Alice" in p3
     assert "Room A" in p3
+
+    p4 = build_summary_prompt(session=session, segments=segs, user_context="Quarterly review")
+    assert "Quarterly review" in p4
+    assert "Additional context from the user" in p4
