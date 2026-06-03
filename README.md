@@ -74,6 +74,8 @@ Copy `.env.example` to `.env` and edit:
 
 Full reference: `docs/configuration.md`.
 
+**Desktop / menu launcher:** see [`docs/install-desktop.md`](docs/install-desktop.md) for `task install:desktop`, XDG config at `~/.config/live-meeting-transcriber/.env`, and system dependencies.
+
 ### Ubuntu audio setup (PipeWire/PulseAudio)
 
 This project captures **system output audio** using a *monitor source*, and by default **also mixes in your default microphone** so your side of the conversation is transcribed. Disable with `AUDIO_INCLUDE_MICROPHONE=false` or `live-transcriber record --no-microphone`.

@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from live_meeting_transcriber.config.settings import Settings, load_settings
+from live_meeting_transcriber.config.settings import (
+    Settings,
+    app_config_dir,
+    discover_env_file_paths,
+    load_settings,
+    xdg_config_home,
+)
 
 
 def test_settings_load_from_env(monkeypatch) -> None:
@@ -52,3 +58,45 @@ def test_effective_transcription_model_display() -> None:
         faster_whisper_model="base",
     )
     assert fw_s.effective_transcription_model_display() == "base"
+
+
+def test_xdg_config_home_uses_env(monkeypatch, tmp_path) -> None:
+    custom = tmp_path / "my-config"
+    custom.mkdir()
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(custom))
+    assert xdg_config_home() == custom.resolve()
+    assert app_config_dir() == (custom / "live-meeting-transcriber").resolve()
+
+
+def test_discover_env_file_paths_xdg_then_cwd(monkeypatch, tmp_path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    xdg = tmp_path / "xdg"
+    config_dir = xdg / "live-meeting-transcriber"
+    config_dir.mkdir(parents=True)
+    xdg_env = config_dir / ".env"
+    xdg_env.write_text("X=1\n", encoding="utf-8")
+    cwd_env = work / ".env"
+    cwd_env.write_text("Y=2\n", encoding="utf-8")
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(xdg))
+    monkeypatch.chdir(work)
+
+    assert discover_env_file_paths() == (xdg_env, cwd_env)
+
+
+def test_load_settings_cwd_env_overrides_xdg(monkeypatch, tmp_path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    xdg = tmp_path / "xdg"
+    config_dir = xdg / "live-meeting-transcriber"
+    config_dir.mkdir(parents=True)
+    (config_dir / ".env").write_text("TRANSCRIPTION_MODEL=from-xdg\n", encoding="utf-8")
+    (work / ".env").write_text("TRANSCRIPTION_MODEL=from-cwd\n", encoding="utf-8")
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(xdg))
+    monkeypatch.chdir(work)
+    monkeypatch.delenv("TRANSCRIPTION_MODEL", raising=False)
+
+    s = load_settings()
+    assert s.transcription_model == "from-cwd"

@@ -43,7 +43,7 @@ def _get_container(ctx: typer.Context) -> Container:
     return c
 
 
-@app.callback()
+@app.callback(invoke_without_command=True)
 def _main_callback(ctx: typer.Context) -> None:
     settings = load_settings()
     log_path = settings.resolved_log_file() if settings.log_enable_file else None
@@ -56,6 +56,16 @@ def _main_callback(ctx: typer.Context) -> None:
     container = build_container(settings)
     atexit.register(container.close)
     ctx.obj = container
+
+    if ctx.invoked_subcommand is None:
+        from live_meeting_transcriber.ui.tui.app import run_tui_attached
+
+        run_tui_attached(
+            container=container,
+            settings=settings,
+            configure_log=False,
+        )
+        raise typer.Exit()
 
 
 @app.command()

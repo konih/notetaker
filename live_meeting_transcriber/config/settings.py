@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Literal
 
@@ -7,6 +8,29 @@ from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from live_meeting_transcriber.domain.models import SlideDetectionParams
+
+APP_CONFIG_DIR_NAME = "live-meeting-transcriber"
+
+
+def xdg_config_home() -> Path:
+    """XDG base directory for user-specific configuration (``$XDG_CONFIG_HOME`` or ``~/.config``)."""
+    raw = os.environ.get("XDG_CONFIG_HOME")
+    if raw:
+        return Path(raw).expanduser().resolve()
+    return (Path.home() / ".config").resolve()
+
+
+def app_config_dir() -> Path:
+    return xdg_config_home() / APP_CONFIG_DIR_NAME
+
+
+def discover_env_file_paths() -> tuple[Path, ...]:
+    """Existing ``.env`` files: XDG config dir first, then CWD (later entries override)."""
+    candidates = (
+        app_config_dir() / ".env",
+        Path.cwd() / ".env",
+    )
+    return tuple(p for p in candidates if p.is_file())
 
 
 class Settings(BaseSettings):
@@ -244,4 +268,7 @@ class Settings(BaseSettings):
 
 
 def load_settings() -> Settings:
+    env_files = discover_env_file_paths()
+    if env_files:
+        return Settings(_env_file=tuple(str(p) for p in env_files))
     return Settings()

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Live Meeting Transcriber
+GenericName=Meeting Transcription
+Comment=Capture and transcribe meeting audio locally
+Exec=@EXEC@
+Icon=audio-input-microphone
+Terminal=true
+Categories=Office;AudioVideo;
+Keywords=transcription;meeting;notes;audio;
+StartupNotify=true

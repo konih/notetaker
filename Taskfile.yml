@@ -87,3 +87,8 @@ tasks:
     desc: Launch interactive terminal UI
     cmds:
       - uv run live-transcriber tui
+
+  install:desktop:
+    desc: Install uv tool CLI, launch script, and XDG desktop entry
+    cmds:
+      - bash packaging/install-desktop.sh

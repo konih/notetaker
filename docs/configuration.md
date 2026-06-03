@@ -1,6 +1,15 @@
 ## Configuration
 
-Configuration is loaded via `pydantic-settings` from environment variables.
+Configuration is loaded via `pydantic-settings` from environment variables and `.env` files.
+
+### `.env` file locations
+
+Files are read in order; **later files override earlier ones**:
+
+1. `$XDG_CONFIG_HOME/live-meeting-transcriber/.env` (default: `~/.config/live-meeting-transcriber/.env`)
+2. `./.env` in the current working directory
+
+Only existing files are loaded. See [`install-desktop.md`](install-desktop.md) for first-run setup when using the desktop launcher.
 
 ### Environment variables
 
