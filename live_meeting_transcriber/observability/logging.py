@@ -30,6 +30,17 @@ def _dup_json_line_to_file(
     return event_dict
 
 
+def parse_log_level(name: str) -> int:
+    """Map ``LOG_LEVEL`` strings to ``logging`` numeric levels (structlog filtering)."""
+    key = name.strip().upper()
+    if key in ("WARN", "WARNING"):
+        key = "WARNING"
+    if key in ("FATAL",):
+        key = "CRITICAL"
+    # logging._nameToLevel includes DEBUG, INFO, WARNING, ERROR, CRITICAL, NOTSET
+    return logging._nameToLevel.get(key, logging.INFO)
+
+
 def configure_logging(
     log_level: str = "INFO",
     *,
@@ -41,6 +52,10 @@ def configure_logging(
 
     File sink receives the same structured event dict as stdout (still no automatic
     redaction of transcript fields — avoid logging raw transcript text at INFO).
+
+    Set ``LOG_LEVEL=DEBUG`` in the process environment or in ``.env`` (project root).
+    ``direnv`` / ``.envrc`` only applies if the shell exports variables **before**
+    ``python`` starts; for IDE-launched tasks, prefer ``.env``.
     """
     global _file_handler
     if _file_handler is not None:
@@ -50,7 +65,7 @@ def configure_logging(
             pass
         _file_handler = None
 
-    level = getattr(logging, log_level.upper(), logging.INFO)
+    level = parse_log_level(log_level)
 
     if log_file is not None:
         log_file.parent.mkdir(parents=True, exist_ok=True)
@@ -80,6 +95,14 @@ def configure_logging(
         wrapper_class=structlog.make_filtering_bound_logger(level),
         logger_factory=structlog.PrintLoggerFactory(file=sys.stdout),
         cache_logger_on_first_use=True,
+    )
+
+    # Confirm effective level (helps verify .env / LOG_LEVEL is picked up).
+    structlog.get_logger(component="logging").info(
+        "logging_configured",
+        log_level_setting=log_level.strip() if isinstance(log_level, str) else log_level,
+        effective_level=logging.getLevelName(level),
+        debug_enabled=level <= logging.DEBUG,
     )
 
 
