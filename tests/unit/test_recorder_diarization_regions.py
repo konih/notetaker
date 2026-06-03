@@ -12,7 +12,9 @@ from live_meeting_transcriber.application.recorder import Recorder
 from live_meeting_transcriber.domain.models import AudioChunk, TranscriptSegment
 
 
-def _write_silent_wav(path: Path, *, seconds: float = 2.0, rate: int = 16000, channels: int = 1) -> None:
+def _write_silent_wav(
+    path: Path, *, seconds: float = 2.0, rate: int = 16000, channels: int = 1
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     nframes = int(seconds * rate)
     with wave.open(str(path), "wb") as w:

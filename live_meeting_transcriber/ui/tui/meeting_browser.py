@@ -389,8 +389,12 @@ class MeetingBrowser(Vertical):
             self.app.notify("Select a meeting first.", severity="warning")
             return
         sid = self._selected_session_id
-        self.app.notify("Running speaker ID (WhisperX) — this may take a while…", severity="information")
-        await self.store.dispatch_with_effects(act.FinalizeSessionRequested(session_id=sid, at=utc_now()))
+        self.app.notify(
+            "Running speaker ID (WhisperX) — this may take a while…", severity="information"
+        )
+        await self.store.dispatch_with_effects(
+            act.FinalizeSessionRequested(session_id=sid, at=utc_now())
+        )
 
     async def action_summarize_meeting(self) -> None:
         if self._selected_session_id is None:

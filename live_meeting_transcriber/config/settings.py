@@ -140,7 +140,9 @@ class Settings(BaseSettings):
             return None
         return str(v).strip() or None
 
-    @field_validator("whisperx_device", "whisperx_torch_device", "whisperx_diarize_device", mode="before")
+    @field_validator(
+        "whisperx_device", "whisperx_torch_device", "whisperx_diarize_device", mode="before"
+    )
     @classmethod
     def _optional_whisperx_device_str(cls, v: object) -> str | None:
         if v is None or v == "":

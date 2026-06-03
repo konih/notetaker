@@ -46,9 +46,7 @@ def select_status_line(state: AppState) -> str:
         rec = "■ stopping"
     if state.audio_channels >= 2:
         live_spk = (
-            "dual"
-            if state.audio_stereo_mode.strip().lower() == "dual_path"
-            else "mixdown→unknown"
+            "dual" if state.audio_stereo_mode.strip().lower() == "dual_path" else "mixdown→unknown"
         )
     else:
         live_spk = "mono"

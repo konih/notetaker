@@ -156,7 +156,9 @@ class Recorder:
                 last_seg = segments[-1]
                 _emit(
                     on_application_event,
-                    TranscriptionChunkCompleted(session_id=session_id, chunk_id=chunk.id, at=utc_now()),
+                    TranscriptionChunkCompleted(
+                        session_id=session_id, chunk_id=chunk.id, at=utc_now()
+                    ),
                 )
                 _emit(
                     on_application_event,
@@ -205,7 +207,9 @@ class Recorder:
                 )
                 _emit(
                     on_application_event,
-                    TranscriptionChunkCompleted(session_id=session_id, chunk_id=chunk.id, at=utc_now()),
+                    TranscriptionChunkCompleted(
+                        session_id=session_id, chunk_id=chunk.id, at=utc_now()
+                    ),
                 )
                 _emit(
                     on_application_event,
