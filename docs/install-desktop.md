@@ -58,6 +58,22 @@ The launch script warns on first run if that file is missing; the TUI still star
 
 With no subcommand, `live-transcriber` opens the TUI (same as `live-transcriber tui`). Subcommands (`record`, `sessions`, …) behave as before.
 
+### Terminal support (TUI slide preview)
+
+**Inline slide thumbnails** in the Meetings → Slide preview screen use the [textual-image](https://github.com/darrenburns/textual-image) optional extra. They render reliably only in terminals with **graphics protocols** (Kitty graphics, Sixel, etc.):
+
+| Terminal | Inline PNG preview |
+|----------|-------------------|
+| **Kitty**, **WezTerm**, **Ghostty** | Yes |
+| **Terminator**, classic **xterm**, many default emulators | No — use workarounds below |
+
+If inline preview is unavailable, the TUI still lists **candidate timestamps and scores** in the table. To view a frame:
+
+- Press **`o`** in slide preview to open the PNG with **`xdg-open`** (or macOS `open`).
+- Optional: install **`chafa`** for a coarse ASCII preview in the pane (`sudo apt install chafa` on Debian/Ubuntu).
+
+For day-to-day use in Terminator, prefer **`o`** or a graphics-capable terminal for slide review.
+
 ### Manual install
 
 ```bash
