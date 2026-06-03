@@ -6,10 +6,39 @@ tasks:
     cmds:
       - uv sync --all-extras
 
+  install:video-prereqs:
+    desc: Install ffmpeg (system) and yt-dlp (uv tool) for transcribe-video
+    cmds:
+      - bash scripts/install_video_prereqs.sh
+
+  fixtures:sample-video:
+    desc: Generate synthetic presentation MP4 under tests/fixtures/
+    deps: [install:video-prereqs]
+    cmds:
+      - uv run python scripts/generate_sample_video.py
+
+  fixtures:fetch:
+    desc: Download CC0 samples, truncate, and generate slide-test MP4
+    deps: [install:video-prereqs]
+    cmds:
+      - bash scripts/fetch_test_fixtures.sh
+
+  fixtures:download-sample:
+    desc: Cache English presentation MP4 (YouTube) under tests/fixtures/.cache/
+    deps: [install:video-prereqs]
+    cmds:
+      - bash scripts/download_sample_video.sh
+
   test:
     desc: Run all tests
     cmds:
       - uv run pytest
+
+  test:e2e:
+    desc: Run e2e smoke tests (includes transcribe-video with ffmpeg)
+    deps: [install:video-prereqs]
+    cmds:
+      - uv run pytest tests/e2e -q
 
   test:unit:
     desc: Run unit tests only
@@ -58,8 +87,3 @@ tasks:
     desc: Launch interactive terminal UI
     cmds:
       - uv run live-transcriber tui
-
-  docs:
-    desc: List docs
-    cmds:
-      - ls -la docs

@@ -43,6 +43,9 @@ dev = [
   "types-requests>=2.32.0.20240712",
   "pre-commit>=3.7",
 ]
+tui-image = [
+  "textual-image[textual]>=0.9",
+]
 
 [project.scripts]
 live-transcriber = "live_meeting_transcriber.cli.main:app"
