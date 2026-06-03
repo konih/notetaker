@@ -47,6 +47,7 @@ See [`.env.example`](.env.example) and [`docs/configuration.md`](docs/configurat
 | Storage | `DATABASE_URL` |
 | Audio | `AUDIO_CHUNK_SECONDS`, `AUDIO_SAMPLE_RATE`, `AUDIO_CHANNELS`, `AUDIO_STEREO_MODE`, `AUDIO_INCLUDE_MICROPHONE` |
 | Offline speakers | `HF_TOKEN`, `WHISPERX_*`, `FINALIZE_ON_SESSION_STOP` |
+| Video / slides | `VIDEO_SLIDE_STRATEGY`, `VIDEO_SLIDE_SAMPLE_INTERVAL_SECONDS`, `VIDEO_SLIDE_CHANGE_THRESHOLD`, `VIDEO_SLIDE_MIN_INTERVAL_SECONDS`, `VIDEO_SLIDE_MAX_CANDIDATES` |
 | Legacy / UI flags | `DIARIZATION_ENABLED`, `DIARIZATION_PROVIDER` (do **not** enable live per-chunk pyannote — see configuration doc) |
 | Logging | `LOG_LEVEL`, `LOG_ENABLE_FILE`, `LOG_FILE` |
 
@@ -117,6 +118,21 @@ task check                    # before final push
 **Does not:** implement features, force-push, amend without the rules in [Commit messages](#commit-messages), or update git config.
 
 Before commit or PR: run the gate suite above; enforce atomic Conventional Commits; exclude secrets, `.pyc`, and oversized media. For video/ffmpeg changes, also run `uv run pytest tests/e2e -q` (CI e2e job installs ffmpeg via `task install:video-prereqs`).
+
+### NFR audit checklist
+
+Verify on every PR that touches user-facing behavior (especially video, cleanup, export, or logging):
+
+| NFR | Gate |
+|-----|------|
+| **Privacy** | No transcript text in logs, tests, or commit messages; cleanup output is paths/counts only |
+| **Safety** | Destructive CLI defaults to dry-run; deletion requires `--yes` or `--no-dry-run` |
+| **Performance** | Slide preview re-runs detection only (no re-transcribe) |
+| **Maintainability** | Slide strategies live under `video/strategies/`; application orchestrates via ports |
+| **Testability** | New CLI paths have e2e smoke; strategies have unit tests on fixture MP4 |
+| **CI parity** | Video/ffmpeg changes pass `uv run pytest tests/e2e -q` (CI installs ffmpeg via `task install:video-prereqs`) |
+
+Also check commit hygiene (one logical change per commit, bisect-friendly order) and that parallel workstreams did not collide on the same hot files (`settings.py`, `container.py`, `cli/main.py`).
 
 ### When to invoke
 

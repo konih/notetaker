@@ -6,7 +6,7 @@ This project follows **clean / hexagonal architecture**:
 - **Application** (`live_meeting_transcriber/application`): orchestration and use-cases (record session, summarize session).
 - **Adapters**:
   - **Audio** (`live_meeting_transcriber/audio`): Linux system audio capture + device listing.
-  - **Transcription** (`live_meeting_transcriber/transcription`): provider implementations (OpenAI) behind ports.
+  - **Transcription** (`live_meeting_transcriber/transcription`): provider implementations (OpenAI, faster-whisper) behind ports.
   - **Summarization** (`live_meeting_transcriber/summarization`): provider implementations behind ports.
   - **Diarization** (`live_meeting_transcriber/diarization`): pyannote adapters (`NoopDiarizationProvider`, `PyannoteDiarizationProvider`) and overlap-based **merge** into `TranscriptSegment.speaker`. **Live `record` does not call pyannote per chunk**; speaker labels from clustering appear after offline **`finalize`** (WhisperX + pyannote on `full_session.wav`). Legacy batch code can still diarize stored chunk WAVs if wired manually.
   - **Storage** (`live_meeting_transcriber/storage`): SQLite repositories behind ports.
@@ -37,6 +37,18 @@ Phase 1 uses robust Linux tooling:
 TODOs:
 - Real-time low-latency streaming
 - Better VAD (voice activity detection) to skip silent chunks
+
+### Video import and slide detection
+
+Applies to **`live-transcriber transcribe-video`** (local file or URL via yt-dlp). Live **`record`** sessions do not extract slides from screen capture; GNOME screenshot filename matching on export is separate (`screenshot_export.py`).
+
+1. **Import** — `VideoImportService` resolves the source, stores a copy under app data, extracts audio to WAV, and transcribes into a new session (same chunk pipeline as live capture, but from media file).
+2. **Detect** — `SlideDetectionStrategy` adapters (`frame_diff`, `ffmpeg_scene`) score frame changes; shared extraction lives in `slide_common.py`; factory reads `VIDEO_SLIDE_*` (see [`docs/configuration.md`](configuration.md)).
+3. **Review** — inline y/n/a/q prompts (`slide_review.py`) on import, or **`slides preview`** → tune params without re-transcribing → **`slides apply`** to save PNGs + `slides.json`.
+4. **Export** — markdown export interleaves slide PNGs with transcript lines (alongside optional GNOME screenshots).
+5. **Cleanup** — `CleanupService` purges session artifacts (chunks, audio, slides, source video, preview cache, exports); CLI **`cleanup`** is dry-run by default; TUI session delete uses the same helper.
+
+Parameter matrix, preview workflow, and cleanup flags: [`docs/configuration.md`](configuration.md).
 
 ### Terminal UI (Textual)
 
