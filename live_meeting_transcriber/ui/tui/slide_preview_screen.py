@@ -179,9 +179,24 @@ class SlidePreviewScreen(ModalScreen[None]):
         )
 
     def on_mount(self) -> None:
-        table = self.query_one("#slide-candidates-table", DataTable)
+        self.call_after_refresh(self._init_preview_ui)
+
+    def _init_preview_ui(self) -> None:
+        if not self.is_mounted:
+            return
+        table = self._get_candidates_table()
+        if table is None:
+            return
         table.add_columns("Candidate", "Time", "Score", "Keep")
         self.run_worker(self._run_preview(), exclusive=True)
+
+    def _get_candidates_table(self) -> DataTable | None:
+        if not self.is_mounted:
+            return None
+        for node in self.query("#slide-candidates-table"):
+            if isinstance(node, DataTable):
+                return node
+        return None
 
     def _read_strategy(self) -> str:
         select = self.query_one("#slide-strategy", Select)
@@ -197,6 +212,8 @@ class SlidePreviewScreen(ModalScreen[None]):
         )
 
     def _set_busy(self, busy: bool) -> None:
+        if not self.is_mounted:
+            return
         self._busy = busy
         for node_id in (
             "#slide-strategy",
@@ -209,6 +226,8 @@ class SlidePreviewScreen(ModalScreen[None]):
             self.query_one(node_id).disabled = busy
 
     def _update_status(self, message: str) -> None:
+        if not self.is_mounted:
+            return
         self.query_one("#slide-preview-status", Static).update(message)
 
     async def _run_preview(self) -> None:
@@ -241,6 +260,9 @@ class SlidePreviewScreen(ModalScreen[None]):
             self._update_status(f"[red]{e}[/] — needs imported source video for this session.")
             return
 
+        if not self.is_mounted:
+            return
+
         self._result = result
         self._review = {i: None for i in range(len(result.candidates))}
         self._refresh_table()
@@ -252,15 +274,18 @@ class SlidePreviewScreen(ModalScreen[None]):
             f"duration {result.duration_seconds:.0f}s · "
             f"kept {kept}"
         )
+        table = self._get_candidates_table()
         if result.candidates:
-            table = self.query_one("#slide-candidates-table", DataTable)
-            table.move_cursor(row=0)
-            self._show_candidate(0)
-        else:
+            if table is not None:
+                table.move_cursor(row=0)
+                self._show_candidate(0)
+        elif self.is_mounted:
             self.query_one(SlideImagePane).show_path(None)
 
     def _refresh_table(self) -> None:
-        table = self.query_one("#slide-candidates-table", DataTable)
+        table = self._get_candidates_table()
+        if table is None:
+            return
         table.clear()
         if self._result is None:
             return
@@ -276,7 +301,9 @@ class SlidePreviewScreen(ModalScreen[None]):
             )
 
     def _selected_index(self) -> int | None:
-        table = self.query_one("#slide-candidates-table", DataTable)
+        table = self._get_candidates_table()
+        if table is None:
+            return None
         coord = table.cursor_coordinate
         if coord is None or coord.row < 0:
             return None
@@ -318,8 +345,9 @@ class SlidePreviewScreen(ModalScreen[None]):
             return
         self._review[idx] = True
         self._refresh_table()
-        table = self.query_one("#slide-candidates-table", DataTable)
-        table.move_cursor(row=idx)
+        table = self._get_candidates_table()
+        if table is not None:
+            table.move_cursor(row=idx)
         self._show_candidate(idx)
 
     async def action_reject_candidate(self) -> None:
@@ -329,8 +357,9 @@ class SlidePreviewScreen(ModalScreen[None]):
             return
         self._review[idx] = False
         self._refresh_table()
-        table = self.query_one("#slide-candidates-table", DataTable)
-        table.move_cursor(row=idx)
+        table = self._get_candidates_table()
+        if table is not None:
+            table.move_cursor(row=idx)
         self._show_candidate(idx)
 
     async def action_open_external(self) -> None:

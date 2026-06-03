@@ -1,11 +1,13 @@
-"""Unit tests for TUI slide preview helpers."""
+"""Unit tests for TUI slide preview helpers and screen."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import pytest
+from live_meeting_transcriber.application.slide_preview_service import SlidePreviewResult
 from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.models import SlideCandidate, SlideDetectionParams
 from live_meeting_transcriber.ui.tui.slide_preview_helpers import (
@@ -15,6 +17,8 @@ from live_meeting_transcriber.ui.tui.slide_preview_helpers import (
     normalize_strategy,
     open_image_externally,
 )
+from live_meeting_transcriber.ui.tui.slide_preview_screen import SlidePreviewScreen
+from textual.app import App
 
 
 def _settings(**overrides: object) -> Settings:
@@ -111,3 +115,43 @@ def test_build_slide_params_invalid_raises() -> None:
             max_candidates="10",
             settings=s,
         )
+
+
+@pytest.mark.asyncio
+async def test_slide_preview_screen_populates_table_after_async_preview(tmp_path: Path) -> None:
+    sid = uuid4()
+    settings = _settings(database_url=f"sqlite:///{tmp_path / 'app.db'}")
+    container = MagicMock()
+    container.settings = settings
+    preview_result = SlidePreviewResult(
+        session_id=sid,
+        strategy="frame_diff",
+        duration_seconds=60.0,
+        video_path=tmp_path / "video.mp4",
+        candidates=[
+            SlideCandidate(timestamp_seconds=5.0, change_score=0.4, preview_path=None),
+            SlideCandidate(timestamp_seconds=12.0, change_score=0.6, preview_path=None),
+        ],
+        preview_dir=tmp_path / "previews",
+    )
+
+    class PreviewTestApp(App):
+        def __init__(self) -> None:
+            super().__init__()
+            self._screen = SlidePreviewScreen(container=container, session_id=sid)
+
+        async def on_mount(self) -> None:
+            await self.push_screen(self._screen)
+
+    with patch(
+        "live_meeting_transcriber.ui.tui.slide_preview_screen.SlidePreviewService",
+    ) as mock_svc_cls:
+        mock_svc_cls.return_value.preview = AsyncMock(return_value=preview_result)
+        async with PreviewTestApp().run_test() as pilot:
+            await pilot.pause()
+            screen = pilot.app.screen
+            assert isinstance(screen, SlidePreviewScreen)
+            table = screen._get_candidates_table()
+            assert table is not None
+            assert table.row_count == 2
+            mock_svc_cls.return_value.preview.assert_awaited_once()
