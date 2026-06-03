@@ -1,0 +1,153 @@
+# AGENTS.md
+
+Guidance for humans and coding agents working on **Notetaker** (`live-meeting-transcriber`): local, Linux-first meeting transcription with chunked capture, SQLite persistence, optional offline speaker attribution, and a Textual TUI.
+
+## Project context
+
+- **Goal:** Capture system audio (PipeWire/PulseAudio monitor, optional mic mix), transcribe in chunks, store timestamped segments locally, summarize via LLM, optional speaker diarization after the session.
+- **Stack:** Python 3.12+, `uv`, Typer CLI, Textual TUI, ffmpeg/pactl, SQLite, provider ports (OpenAI / faster-whisper / WhisperX offline).
+- **Privacy:** Transcripts stay local in SQLite; cloud APIs only when configured (OpenAI transcription/summaries). See `README.md` for provider matrix.
+
+## Architecture
+
+Follow **clean / hexagonal** boundaries — do not leak provider code into application or domain layers.
+
+- **Read first:** [`docs/architecture.md`](docs/architecture.md)
+- **Domain:** `live_meeting_transcriber/domain` — models, events, ports
+- **Application:** `live_meeting_transcriber/application` — recorder, finalize, session services
+- **Adapters:** `audio/`, `transcription/`, `summarization/`, `diarization/`, `storage/`, `offline/`, `ui/`
+
+## Development workflow
+
+```bash
+task install          # uv sync --all-extras
+task check            # ruff format --check, ruff check, mypy, pytest (unit only)
+uv run pytest -q      # all tests; integration skipped by default
+uv run ruff check .   # lint
+uv run ruff format .  # format
+```
+
+- **Unit tests (default):** `uv run pytest` or `task test:unit` (`-m "not integration"`).
+- **Integration tests:** `RUN_INTEGRATION_TESTS=1 uv run pytest -m integration` or `task test:integration`.
+- **CI parity:** `task check` matches GitHub Actions (pytest + Ruff; mypy may report issues locally).
+
+### Python version and optional extras
+
+- Core app: **Python 3.12+** (`requires-python = ">=3.12"`).
+- Extras **`whisperx`** and **`diarization`** depend on **PyTorch**, which (as of early 2026) ships wheels only through **CPython 3.13**. On **3.14+**, those extras are omitted from sync.
+- For offline `finalize` or pyannote: `uv python pin 3.13` (or 3.12), then `uv sync --extra whisperx` and/or `--extra diarization`.
+
+### Key environment variables
+
+See [`.env.example`](.env.example) and [`docs/configuration.md`](docs/configuration.md).
+
+| Area | Variables |
+|------|-----------|
+| APIs | `OPENAI_API_KEY`, `TRANSCRIPTION_PROVIDER`, `TRANSCRIPTION_MODEL`, `FASTER_WHISPER_*` |
+| Storage | `DATABASE_URL` |
+| Audio | `AUDIO_CHUNK_SECONDS`, `AUDIO_SAMPLE_RATE`, `AUDIO_CHANNELS`, `AUDIO_STEREO_MODE`, `AUDIO_INCLUDE_MICROPHONE` |
+| Offline speakers | `HF_TOKEN`, `WHISPERX_*`, `FINALIZE_ON_SESSION_STOP` |
+| Legacy / UI flags | `DIARIZATION_ENABLED`, `DIARIZATION_PROVIDER` (do **not** enable live per-chunk pyannote — see configuration doc) |
+| Logging | `LOG_LEVEL`, `LOG_ENABLE_FILE`, `LOG_FILE` |
+
+## Commit messages
+
+Use **[Conventional Commits](https://www.conventionalcommits.org/)** only — **no JIRA/ticket IDs**, no required gitmoji.
+
+```
+<type>[optional scope]: <short summary>
+
+[optional body]
+```
+
+Common types: `feat`, `fix`, `docs`, `test`, `refactor`, `chore`, `ci`.
+
+Examples:
+
+- `docs: correct diarization paths in configuration`
+- `test: add CLI record smoke e2e skeleton`
+- `fix(recorder): drain chunk on stop`
+
+### Atomic commits
+
+- **One logical change per commit** when possible (reviewable, bisect-friendly).
+- Group related doc + test updates if they ship one feature; split unrelated concerns.
+- Do **not** update git config. Do **not** force-push `main`/`master`.
+
+### Agents may commit and push
+
+When work is complete and tests pass, agents may **commit** (conventional messages) and **`git push`** to the current branch unless the user says otherwise. If push fails (no remote, auth), commit locally and report clearly.
+
+## Multitask / coordinator mode
+
+When several agents run in parallel (e.g. Cursor multitask):
+
+| Workstream | Typical scope | Merge order |
+|------------|---------------|-------------|
+| **Docs** | `README.md`, `docs/*`, `AGENTS.md`, `.env.example` | Early — unblocks others |
+| **Code** | `live_meeting_transcriber/**` | After docs if env/behavior changed |
+| **Tests** | `tests/**` | After or with code; keep green |
+
+**Avoid duplicate edits:** assign non-overlapping files per agent. If two agents must touch the same module, serialize merges or split by function (one agent implements, one adds tests).
+
+**Commits:** Prefer **one conventional commit per logical change**; or a small numbered series (`docs: …`, then `feat: …`, then `test: …`). Do not squash unrelated parallel work into one blob.
+
+**Coordinator checklist:** assign paths → run `task check` after merge → resolve conflicts in `settings.py` / `container.py` carefully → single push per integrated branch.
+
+## Deferred / future work
+
+**Not implemented — do not start without explicit user request:**
+
+- **Microsoft Graph / delegated OAuth** calendar import (Teams meeting metadata, auto-titles). Note in roadmap/docs only; no OAuth code in this repo yet.
+
+## End-to-end (E2E) testing
+
+### What “e2e” means here
+
+End-to-end means exercising the **CLI → application container → SQLite** path with realistic orchestration, **without** requiring a live Teams call or GPU every CI run. Real microphone/Teams audio is **optional** and belongs in manual checklists.
+
+### Layered strategy
+
+1. **Contract / smoke e2e (CI-friendly)**  
+   Subprocess or Typer `CliRunner` against `live_meeting_transcriber.cli.main:app` with:
+   - Temp `DATABASE_URL` (SQLite under `tmp_path`)
+   - **Mocked** `Recorder`, ffmpeg capture, and cloud/local STT  
+   - Assert exit code, session row, transcript line  
+   - First target: `tests/e2e/test_cli_record_smoke.py`
+
+2. **Integration tests (`@pytest.mark.integration`)**  
+   Skipped unless `RUN_INTEGRATION_TESTS=1` (see `tests/conftest.py`).  
+   Tiny fixture WAV, optional real faster-whisper or WhisperX; skip heavy steps when `HF_TOKEN` unset. Keep runtime short.
+
+3. **Manual e2e (Ubuntu / Teams)**  
+   Human checklist: `pactl list short sources` → `live-transcriber record` ~30s → stop → `finalize` (if whisperx extra) → export markdown; verify speaker aliases.
+
+### How agents should run tests
+
+| Intent | Command |
+|--------|---------|
+| Default / PR | `uv run pytest -q` or `task check` |
+| Unit only | `uv run pytest -m "not integration"` |
+| Integration | `RUN_INTEGRATION_TESTS=1 uv run pytest -m integration` |
+| E2e smoke | `uv run pytest tests/e2e -q` |
+
+Add new e2e tests under `tests/e2e/`; prefer mocks over network/GPU. Do not call OpenAI in CI without explicit opt-in.
+
+## Diarization (agent quick reference)
+
+- **Live recording:** Chunk transcription only; **no** per-chunk pyannote in the recorder. Speaker hints during live capture come from **`AUDIO_STEREO_MODE=dual_path`** + `faster_whisper` (mic vs system channels), not from `DIARIZATION_ENABLED`.
+- **Offline:** `live-transcriber finalize` runs WhisperX + pyannote on `full_session.wav` (needs `whisperx` extra, `HF_TOKEN`).
+- **Legacy:** `application/diarization_batch.py` can reprocess stored chunk WAVs but there is **no** `live-transcriber diarize` CLI command.
+
+## Code style (Python)
+
+- Ruff lint + format (`pyproject.toml`); line length 100, target 3.12.
+- Strict typing in new code; match existing patterns in touched files.
+- Minimize scope — no drive-by refactors unrelated to the task.
+
+## References
+
+- [`README.md`](README.md) — install, CLI, models
+- [`docs/configuration.md`](docs/configuration.md) — env vars
+- [`docs/development.md`](docs/development.md) — local setup, integration marker
+- [`docs/roadmap.md`](docs/roadmap.md)
