@@ -1,0 +1,77 @@
+"""Unit tests for meeting session type helpers and video import runner."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
+
+import pytest
+from live_meeting_transcriber.application.video_import_service import (
+    VideoImportError,
+    VideoImportResult,
+)
+from live_meeting_transcriber.application.video_session_storage import is_video_import_session
+from live_meeting_transcriber.ui.tui.meeting_session_helpers import (
+    format_session_type_label,
+    session_is_video_import,
+)
+from live_meeting_transcriber.ui.tui.video_import_modal import (
+    format_video_import_error,
+    run_video_import,
+)
+
+
+def test_is_video_import_session_false_without_manifest(tmp_path: Path) -> None:
+    sid = uuid4()
+    assert is_video_import_session(tmp_path, sid) is False
+
+
+def test_is_video_import_session_true_with_manifest(tmp_path: Path) -> None:
+    sid = uuid4()
+    manifest = tmp_path / "sessions" / str(sid) / "source_media.json"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text(
+        json.dumps({"video_path": "/tmp/talk.mp4", "source": "/tmp/talk.mp4"}),
+        encoding="utf-8",
+    )
+    assert is_video_import_session(tmp_path, sid) is True
+    assert session_is_video_import(tmp_path, sid) is True
+
+
+def test_format_session_type_label() -> None:
+    assert format_session_type_label(is_video=True) == "▶ Video"
+    assert format_session_type_label(is_video=False) == "● Live"
+
+
+def test_format_video_import_error_wraps_generic() -> None:
+    assert format_video_import_error(VideoImportError("bad source")) == "bad source"
+    assert "Video import failed" in format_video_import_error(RuntimeError("boom"))
+
+
+@pytest.mark.asyncio
+async def test_run_video_import_delegates_to_service() -> None:
+    sid = uuid4()
+    expected = VideoImportResult(
+        session_id=sid,
+        segment_count=3,
+        slide_count=0,
+        video_path=Path("/tmp/talk.mp4"),
+    )
+    mock_svc = MagicMock()
+    mock_svc.import_video = AsyncMock(return_value=expected)
+    container = MagicMock()
+
+    with patch(
+        "live_meeting_transcriber.ui.tui.video_import_modal.VideoImportService",
+        return_value=mock_svc,
+    ):
+        result = await run_video_import(container, source="/tmp/talk.mp4", title="Talk")
+
+    assert result == expected
+    mock_svc.import_video.assert_awaited_once_with(
+        source="/tmp/talk.mp4",
+        title="Talk",
+        extract_slides=False,
+    )

@@ -23,12 +23,22 @@ from live_meeting_transcriber.domain.speaker_display import format_transcript_sp
 from live_meeting_transcriber.ui.state import actions as act
 from live_meeting_transcriber.ui.state.model import AppState, RecordingStatus
 from live_meeting_transcriber.ui.state.store import Store
+from live_meeting_transcriber.ui.tui.meeting_session_helpers import (
+    format_session_type_label,
+    session_is_video_import,
+)
 from live_meeting_transcriber.ui.tui.people_suggesters import (
     CommaSeparatedPeopleSuggester,
     PeoplePrefixSuggester,
 )
 from live_meeting_transcriber.ui.tui.slide_preview_screen import SlidePreviewScreen
 from live_meeting_transcriber.ui.tui.tab_complete_input import TabCompletableInput
+from live_meeting_transcriber.ui.tui.video_import_modal import (
+    VideoImportForm,
+    VideoImportModal,
+    format_video_import_error,
+    run_video_import,
+)
 from live_meeting_transcriber.utils.time import utc_now
 
 
@@ -220,6 +230,7 @@ class MeetingBrowser(Vertical):
         Binding("ctrl+i", "finalize_selected_speakers", "Speaker ID", show=False, priority=True),
         Binding("i", "show_session_media", "Media files", show=False, priority=True),
         Binding("p", "slide_preview", "Slide preview", show=False, priority=True),
+        Binding("ctrl+v", "import_video", "Import video", show=True, priority=True),
     ]
 
     def __init__(self, *, container: Container, store: Store) -> None:
@@ -241,16 +252,17 @@ class MeetingBrowser(Vertical):
 
     def compose(self) -> ComposeResult:
         yield Static(
-            "[bold]Meetings[/bold] — select a row · [dim]Continue recording[/dim] appends to the open meeting · "
-            "use buttons or [dim]w[/dim] export · [dim]k[/dim] summarize · [dim]i[/dim] media · "
-            "[dim]p[/dim] slide preview · [dim]ctrl+i[/dim] speaker ID · [dim]ctrl+s[/dim] save · "
-            "[dim]ctrl+g[/dim] summarize · [dim]ctrl+e[/dim] edit line · shift+del / ctrl+shift+d delete · "
-            "[dim]ctrl+r[/dim] refresh",
+            "[bold]Meetings[/bold] — select a row · [dim]ctrl+v[/dim] import video · "
+            "[dim]p[/dim] slide preview (video) · [dim]i[/dim] media · "
+            "[dim]ctrl+s[/dim] save · [dim]ctrl+g[/dim] summarize · [dim]ctrl+e[/dim] edit line · "
+            "shift+del / ctrl+shift+d delete · [dim]ctrl+r[/dim] refresh",
             id="meeting-browser-header",
         )
         with Horizontal(id="meeting-toolbar"):
+            yield Button("Import video", id="meeting-btn-import-video", variant="success")
             yield Button("Save", id="meeting-btn-save", variant="primary")
             yield Button("Continue recording", id="meeting-btn-continue-record")
+            yield Button("Slide preview", id="meeting-btn-slide-preview")
             yield Button("Summarize", id="meeting-btn-summarize")
             yield Button("Speaker ID", id="meeting-btn-speaker-id", variant="success")
             yield Button("Export markdown", id="meeting-btn-export")
@@ -285,13 +297,14 @@ class MeetingBrowser(Vertical):
 
     def on_mount(self) -> None:
         st = self.query_one("#meeting-sessions-table", DataTable)
-        st.add_columns("Title", "Started (UTC)", "Session")
+        st.add_columns("Type", "Title", "Started (UTC)", "Session")
         tt = self.query_one("#meeting-transcript-table", DataTable)
         tt.add_columns("Time", "Speaker", "Text")
         attendees = self.query_one("#meeting-attendees", TabCompletableInput)
         attendees.suggester = self._comma_suggester
         self.refresh_session_list()
         st = self.query_one("#meeting-sessions-table", DataTable)
+        self.query_one("#meeting-btn-slide-preview", Button).disabled = True
         if st.row_count > 0:
             st.move_cursor(row=0)
         self._unsub = self.store.subscribe(self._on_store)
@@ -321,11 +334,14 @@ class MeetingBrowser(Vertical):
             if preserve_selection and self._selected_session_id
             else None
         )
+        data_dir = self.container.settings.ensure_data_dir()
         table.clear()
         for s in self.container.sessions.list():
             short = str(s.id)[:8] + "…"
+            is_video = session_is_video_import(data_dir, s.id)
             table.add_row(
-                s.title[:44] + ("…" if len(s.title) > 44 else ""),
+                format_session_type_label(is_video=is_video),
+                s.title[:40] + ("…" if len(s.title) > 40 else ""),
                 s.started_at.isoformat(timespec="seconds"),
                 short,
                 key=str(s.id),
@@ -348,7 +364,15 @@ class MeetingBrowser(Vertical):
         if session is None:
             return
         status = self.query_one("#meeting-detail-status", Static)
-        status.update(f"Editing [bold]{session.title}[/bold] ({session_id})")
+        data_dir = self.container.settings.ensure_data_dir()
+        is_video = session_is_video_import(data_dir, session_id)
+        kind = "[cyan]Video import[/]" if is_video else "[green]Live recording[/]"
+        status.update(f"Editing {kind} [bold]{session.title}[/bold] ({session_id})")
+
+        continue_btn = self.query_one("#meeting-btn-continue-record", Button)
+        continue_btn.disabled = is_video
+        slide_btn = self.query_one("#meeting-btn-slide-preview", Button)
+        slide_btn.disabled = not is_video
 
         title_inp = self.query_one("#meeting-title", TabCompletableInput)
         title_inp.disabled = False
@@ -433,6 +457,53 @@ class MeetingBrowser(Vertical):
         spk_area = self.query_one("#meeting-speaker-area", Vertical)
         await spk_area.remove_children()
         self.query_one("#meeting-transcript-table", DataTable).clear()
+        continue_btn = self.query_one("#meeting-btn-continue-record", Button)
+        continue_btn.disabled = False
+        slide_btn = self.query_one("#meeting-btn-slide-preview", Button)
+        slide_btn.disabled = True
+
+    async def action_import_video(self) -> None:
+        await self.app.push_screen(
+            VideoImportModal(),
+            callback=self._after_video_import_modal,
+        )
+
+    def _after_video_import_modal(self, form: VideoImportForm | None) -> None:
+        if form is None:
+            return
+        self.run_worker(self._run_video_import(form), exclusive=True, group="video-import")
+
+    async def _run_video_import(self, form: VideoImportForm) -> None:
+        self.app.notify(
+            f"Importing video from {form.source[:64]}{'…' if len(form.source) > 64 else ''}…",
+            severity="information",
+        )
+        try:
+            result = await run_video_import(
+                self.container,
+                source=form.source,
+                title=form.title,
+            )
+        except Exception as e:
+            self.app.notify(format_video_import_error(e), severity="error", timeout=8)
+            return
+
+        await self.store.dispatch_with_effects(act.SessionsRefreshRequested(at=utc_now()))
+        self._selected_session_id = result.session_id
+        self.refresh_session_list(preserve_selection=True)
+        table = self.query_one("#meeting-sessions-table", DataTable)
+        for i, s in enumerate(self.container.sessions.list()):
+            if s.id == result.session_id:
+                table.move_cursor(row=i)
+                break
+        await self._load_detail(result.session_id)
+        session = self.container.sessions.get(result.session_id)
+        title = session.title if session is not None else "video"
+        self.app.notify(
+            f"Imported “{title}” — {result.segment_count} segment(s). "
+            "Press [bold]p[/] for slide preview.",
+            timeout=6,
+        )
 
     async def action_save_meeting(self) -> None:
         if self._selected_session_id is None:
@@ -531,6 +602,14 @@ class MeetingBrowser(Vertical):
         if self._selected_session_id is None:
             self.app.notify("Select a meeting first.", severity="warning")
             return
+        data_dir = self.container.settings.ensure_data_dir()
+        if not session_is_video_import(data_dir, self._selected_session_id):
+            self.app.notify(
+                "Slide preview is only available for video-import sessions "
+                "(import with ctrl+v or transcribe-video).",
+                severity="warning",
+            )
+            return
         await self.app.push_screen(
             SlidePreviewScreen(
                 container=self.container,
@@ -587,10 +666,14 @@ class MeetingBrowser(Vertical):
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         bid = event.button.id or ""
-        if bid == "meeting-btn-save":
+        if bid == "meeting-btn-import-video":
+            await self.action_import_video()
+        elif bid == "meeting-btn-save":
             await self.action_save_meeting()
         elif bid == "meeting-btn-continue-record":
             await self.action_continue_recording()
+        elif bid == "meeting-btn-slide-preview":
+            await self.action_slide_preview()
         elif bid == "meeting-btn-summarize":
             await self.action_summarize_meeting()
         elif bid == "meeting-btn-speaker-id":

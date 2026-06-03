@@ -42,6 +42,11 @@ def write_source_media_manifest(
     return path
 
 
+def is_video_import_session(data_dir: Path, session_id: UUID) -> bool:
+    """True when ``source_media.json`` exists (session created via video import)."""
+    return source_media_manifest_path(data_dir, session_id).is_file()
+
+
 def read_source_media_video_path(data_dir: Path, session_id: UUID) -> Path:
     manifest = source_media_manifest_path(data_dir, session_id)
     if not manifest.is_file():
