@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterable
+from pathlib import Path
 
 from openai import AsyncOpenAI
-from pydantic import BaseModel, Field, ValidationError
 
 from live_meeting_transcriber.domain.models import (
     ActionItem,
@@ -14,23 +14,26 @@ from live_meeting_transcriber.domain.models import (
     Summary,
     TranscriptSegment,
 )
+from live_meeting_transcriber.obsidian.vault_patterns import load_vault_naming_hints
 from live_meeting_transcriber.summarization.service import build_summary_prompt
+from live_meeting_transcriber.summarization.structured_output import parse_structured_summary_output
 
 
 class OpenAISummarizationError(RuntimeError):
     pass
 
 
-class _SummaryOutput(BaseModel):
-    summary_markdown: str = Field(min_length=1)
-    decisions: list[str] = Field(default_factory=list)
-    action_items: list[str] = Field(default_factory=list)
-
-
 class OpenAISummarizationProvider:
-    def __init__(self, *, api_key: str, model: str) -> None:
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        model: str,
+        vault_meetings_dir: Path | None = None,
+    ) -> None:
         self._client = AsyncOpenAI(api_key=api_key)
         self._model = model
+        self._vault_meetings_dir = vault_meetings_dir
 
     async def summarize(
         self,
@@ -38,9 +41,15 @@ class OpenAISummarizationProvider:
         session: MeetingSession,
         segments: Iterable[TranscriptSegment],
         speaker_display: dict[str, str] | None = None,
+        user_context: str | None = None,
     ) -> Summary:
+        vault_hints = load_vault_naming_hints(self._vault_meetings_dir)
         prompt = build_summary_prompt(
-            session=session, segments=segments, speaker_display=speaker_display
+            session=session,
+            segments=segments,
+            speaker_display=speaker_display,
+            user_context=user_context,
+            vault_hints=vault_hints,
         )
         try:
             resp = await self._client.chat.completions.create(
@@ -60,8 +69,8 @@ class OpenAISummarizationProvider:
 
         try:
             data = json.loads(content)
-            parsed = _SummaryOutput.model_validate(data)
-        except (json.JSONDecodeError, ValidationError) as e:
+            parsed = parse_structured_summary_output(data)
+        except (json.JSONDecodeError, ValueError) as e:
             raise OpenAISummarizationError("Failed to parse JSON summary output") from e
 
         return Summary(
@@ -69,5 +78,6 @@ class OpenAISummarizationProvider:
             summary_markdown=parsed.summary_markdown,
             decisions=[Decision(session_id=session.id, text=t) for t in parsed.decisions],
             action_items=[ActionItem(session_id=session.id, text=t) for t in parsed.action_items],
+            meeting_metadata=parsed.metadata,
             metadata=ProviderMetadata(provider="openai", model=self._model, extra={}),
         )
