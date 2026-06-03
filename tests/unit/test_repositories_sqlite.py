@@ -76,6 +76,45 @@ def test_repository_append_list_transcript_segments(tmp_path) -> None:
         conn.close()
 
 
+def test_transcript_replace_session(tmp_path) -> None:
+    conn = open_connection(f"sqlite:////{tmp_path}/db.sqlite3")
+    try:
+        sessions = SqliteMeetingSessionRepository(conn)
+        transcripts = SqliteTranscriptRepository(conn)
+        s = sessions.create(MeetingSession(title="X"))
+        start = datetime.utcnow()
+        transcripts.append(
+            TranscriptSegment(
+                session_id=s.id,
+                started_at=start,
+                ended_at=start + timedelta(seconds=1),
+                text="old",
+            )
+        )
+        new_segments = [
+            TranscriptSegment(
+                session_id=s.id,
+                started_at=start,
+                ended_at=start + timedelta(seconds=2),
+                text="a",
+                speaker="YOU",
+            ),
+            TranscriptSegment(
+                session_id=s.id,
+                started_at=start + timedelta(seconds=2),
+                ended_at=start + timedelta(seconds=3),
+                text="b",
+                speaker="REMOTE",
+            ),
+        ]
+        transcripts.replace_session_transcript(s.id, new_segments)
+        got = transcripts.list_by_session(s.id)
+        assert [g.text for g in got] == ["a", "b"]
+        assert [g.speaker for g in got] == ["YOU", "REMOTE"]
+    finally:
+        conn.close()
+
+
 def test_meeting_session_notes_and_attendees(tmp_path) -> None:
     conn = open_connection(f"sqlite:////{tmp_path}/db.sqlite3")
     try:
