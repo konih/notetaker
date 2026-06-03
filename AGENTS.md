@@ -92,7 +92,36 @@ When several agents run in parallel (e.g. Cursor multitask):
 
 **Commits:** Prefer **one conventional commit per logical change**; or a small numbered series (`docs: …`, then `feat: …`, then `test: …`). Do not squash unrelated parallel work into one blob.
 
-**Coordinator checklist:** assign paths → run `task check` after merge → resolve conflicts in `settings.py` / `container.py` carefully → single push per integrated branch.
+**Coordinator checklist:** assign paths → run `task check` after merge → resolve conflicts in shared modules (`settings.py`, `container.py`, `cli/main.py`) carefully → single push per integrated branch.
+
+## Git Reviewer (audit gate)
+
+Optional **Git Reviewer** role before commit or PR: quality gates and commit hygiene, **not** feature implementation.
+
+### Git Reviewer responsibilities
+
+**Quality gates** (all must pass before push):
+
+```bash
+uv run ruff format --check .
+uv run ruff check .
+uv run pytest -q
+uv run pytest tests/e2e -q    # when video/ffmpeg touched
+task check                    # before final push
+```
+
+**Git review:** inspect `git status`, `git diff`, and `git log`; enforce atomic commits, Conventional Commits (no ticket IDs), no secrets, no large binaries unless explicitly approved, no mixed concerns.
+
+**Propose:** commit grouping and subjects; flag files that must **not** be committed.
+
+**Does not:** implement features, force-push, amend without the rules in [Commit messages](#commit-messages), or update git config.
+
+Before commit or PR: run the gate suite above; enforce atomic Conventional Commits; exclude secrets, `.pyc`, and oversized media. For video/ffmpeg changes, also run `uv run pytest tests/e2e -q` (CI e2e job installs ffmpeg via `task install:video-prereqs`).
+
+### When to invoke
+
+- Before **PR creation**
+- When the user asks an agent to **commit**
 
 ## Deferred / future work
 
@@ -111,13 +140,15 @@ End-to-end means exercising the **CLI → application container → SQLite** pat
 1. **Contract / smoke e2e (CI-friendly)**  
    Subprocess or Typer `CliRunner` against `live_meeting_transcriber.cli.main:app` with:
    - Temp `DATABASE_URL` (SQLite under `tmp_path`)
-   - **Mocked** `Recorder`, ffmpeg capture, and cloud/local STT  
+   - **Mocked** `Recorder`, ffmpeg capture, and cloud/local STT (or real ffmpeg on a locally generated sample MP4 for video paths)
+   - **No live Teams/mic** — local fixtures and generated media only; see [`docs/test-fixtures.md`](docs/test-fixtures.md#e2e-tests-testse2e)
    - Assert exit code, session row, transcript line  
    - First target: `tests/e2e/test_cli_record_smoke.py`
 
 2. **Integration tests (`@pytest.mark.integration`)**  
    Skipped unless `RUN_INTEGRATION_TESTS=1` (see `tests/conftest.py`).  
-   Tiny fixture WAV, optional real faster-whisper or WhisperX; skip heavy steps when `HF_TOKEN` unset. Keep runtime short.
+   Tiny fixture WAV, optional real faster-whisper or WhisperX; skip heavy steps when `HF_TOKEN` unset. Keep runtime short.  
+   Sample meeting audio and presentation videos: [`docs/test-fixtures.md`](docs/test-fixtures.md) (`task fixtures:fetch`).
 
 3. **Manual e2e (Ubuntu / Teams)**  
    Human checklist: `pactl list short sources` → `live-transcriber record` ~30s → stop → `finalize` (if whisperx extra) → export markdown; verify speaker aliases.
@@ -150,4 +181,5 @@ Add new e2e tests under `tests/e2e/`; prefer mocks over network/GPU. Do not call
 - [`README.md`](README.md) — install, CLI, models
 - [`docs/configuration.md`](docs/configuration.md) — env vars
 - [`docs/development.md`](docs/development.md) — local setup, integration marker
+- [`docs/test-fixtures.md`](docs/test-fixtures.md) — sample meeting WAVs and presentation MP4s
 - [`docs/roadmap.md`](docs/roadmap.md)

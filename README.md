@@ -108,6 +108,27 @@ Record and transcribe (chunked):
 uv run live-transcriber record --title "Weekly sync" --chunk-seconds 10
 ```
 
+Transcribe a video file or URL (presentation talks, recorded meetings). Downloads go to the app data dir (not the repo). Requires **ffmpeg**; URLs also need **yt-dlp**. Slide changes are detected from frame diffs, then you review candidates interactively so only real slides are saved:
+
+```bash
+uv run live-transcriber transcribe-video --source /path/to/talk.mp4
+uv run live-transcriber transcribe-video --source "https://www.youtube.com/watch?v=..."
+# Skip slide prompts (accept all candidates):
+uv run live-transcriber transcribe-video --source talk.mp4 --yes-slides
+# Transcript only:
+uv run live-transcriber transcribe-video --source talk.mp4 --no-slides
+```
+
+Tune slide detection via `VIDEO_SLIDE_*` in `.env` (sample interval, change threshold, minimum seconds between slides, max candidates). Saved slides appear in exports alongside GNOME screenshots.
+
+Install video prerequisites (ffmpeg + yt-dlp) and fetch test fixtures (meeting speech EN/DE + presentation clips):
+
+```bash
+task install:video-prereqs
+task fixtures:fetch             # meeting WAVs + presentation MP4s (see docs/test-fixtures.md)
+task test:e2e
+```
+
 Summarize a session:
 
 ```bash

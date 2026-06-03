@@ -7,6 +7,12 @@
 - Linux packages:
   - `pulseaudio-utils` (for `pactl`)
   - `ffmpeg`
+- **Video import** (`transcribe-video`): `ffmpeg` + `yt-dlp`. Install with:
+
+```bash
+task install:video-prereqs
+```
+
 
 ### Install
 
@@ -37,7 +43,9 @@ task tui
 RUN_INTEGRATION_TESTS=1 task test:integration
 ```
 
-- **E2e smoke:** `tests/e2e/` — CLI contract tests with mocked audio/STT (no ffmpeg/GPU). Run: `uv run pytest tests/e2e -q`.
+- **E2e smoke:** `tests/e2e/` — CLI contract tests with mocked audio/STT and temp SQLite; no live Teams/mic. Video modules (`transcribe-video`, slides, cleanup) use ffmpeg on a per-run synthetic MP4. Run: `task test:e2e` or `uv run pytest tests/e2e -q`. Fixture mapping: [`docs/test-fixtures.md`](test-fixtures.md#e2e-tests-testse2e).
+- **Video integration:** `tests/integration/test_video_import_download.py` imports an English presentation YouTube URL when `RUN_INTEGRATION_TESTS=1`. Prepare committed clips with `task fixtures:fetch`.
+- **Sample media:** meeting WAVs and presentation MP4s — see [`docs/test-fixtures.md`](test-fixtures.md).
 
 ### Optional offline diarization (pyannote / WhisperX)
 
