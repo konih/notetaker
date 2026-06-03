@@ -13,6 +13,7 @@ from live_meeting_transcriber.domain.models import SlideCandidate, SlideDetectio
 from live_meeting_transcriber.ui.tui.slide_preview_helpers import (
     accepted_candidates,
     build_slide_params,
+    format_candidate_count_hint,
     format_candidate_label,
     inline_image_unsupported_message,
     normalize_strategy,
@@ -23,6 +24,7 @@ from live_meeting_transcriber.ui.tui.slide_preview_helpers import (
 )
 from live_meeting_transcriber.ui.tui.slide_preview_screen import SlidePreviewScreen
 from textual.app import App
+from textual.widgets import Button
 
 
 def _settings(**overrides: object) -> Settings:
@@ -139,6 +141,17 @@ def test_try_chafa_ascii_preview_without_chafa(tmp_path: Path) -> None:
         assert try_chafa_ascii_preview(png) is None
 
 
+def test_format_candidate_count_hint_flags_many() -> None:
+    hint = format_candidate_count_hint(count=20, duration_seconds=120.0, min_interval_seconds=15.0)
+    assert "20 candidate(s) in 120s" in hint
+    assert "many" in hint
+
+
+def test_format_candidate_count_hint_flags_few() -> None:
+    hint = format_candidate_count_hint(count=1, duration_seconds=120.0, min_interval_seconds=15.0)
+    assert "few" in hint
+
+
 def test_build_slide_params_invalid_raises() -> None:
     s = _settings()
     with pytest.raises(ValueError):
@@ -168,13 +181,21 @@ async def test_slide_preview_screen_populates_table_after_async_preview(tmp_path
     preview_result = SlidePreviewResult(
         session_id=sid,
         strategy="frame_diff",
-        duration_seconds=60.0,
+        duration_seconds=120.0,
         video_path=tmp_path / "video.mp4",
         candidates=candidates,
         preview_dir=tmp_path / "previews",
     )
 
     class PreviewTestApp(App):
+        CSS = """
+        #slide-preview-dialog { height: 40; layout: vertical; overflow: hidden; }
+        #slide-preview-split { height: 1fr; min-height: 8; }
+        #slide-candidates-table { height: 1fr; min-height: 4; }
+        #slide-preview-actions { dock: bottom; height: auto; }
+        #slide-preview-hint { dock: bottom; height: auto; }
+        """
+
         def __init__(self) -> None:
             super().__init__()
             self._screen = SlidePreviewScreen(container=container, session_id=sid)
@@ -192,7 +213,7 @@ async def test_slide_preview_screen_populates_table_after_async_preview(tmp_path
         ) as mock_svc_cls,
     ):
         mock_svc_cls.return_value.preview = AsyncMock(return_value=preview_result)
-        async with PreviewTestApp().run_test() as pilot:
+        async with PreviewTestApp().run_test(size=(120, 40)) as pilot:
             await pilot.pause()
             screen = pilot.app.screen
             assert isinstance(screen, SlidePreviewScreen)
@@ -201,4 +222,12 @@ async def test_slide_preview_screen_populates_table_after_async_preview(tmp_path
             assert table.row_count == 5
             assert table.cursor_row == 0
             assert table.has_focus
+            split = screen.query_one("#slide-preview-split")
+            assert split.size.height >= 4
+            apply_btn = screen.query_one("#slide-apply-btn", Button)
+            apply_all_btn = screen.query_one("#slide-apply-all-btn", Button)
+            assert apply_all_btn.disabled is False
+            assert apply_btn.disabled is True
+            assert screen._result is not None
+            assert len(screen._result.candidates) == 5
             mock_svc_cls.return_value.preview.assert_awaited_once()

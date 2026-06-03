@@ -677,8 +677,35 @@ class MeetingBrowser(Vertical):
             SlidePreviewScreen(
                 container=self.container,
                 session_id=self._selected_session_id,
-            )
+            ),
+            callback=self._after_slide_preview,
         )
+
+    def _after_slide_preview(self, _result: None) -> None:
+        if self._selected_session_id is None:
+            return
+        sid = self._selected_session_id
+        data_dir = self.container.settings.ensure_data_dir()
+        saved = count_saved_slides(data_dir, sid)
+        preview_count = count_preview_candidates(data_dir, sid)
+
+        async def _reload() -> None:
+            await self._load_detail(sid)
+            if preview_count and saved == 0:
+                self.app.notify(
+                    "Preview complete — use [bold]Apply all candidates[/] or mark rows with "
+                    "[bold]y[/] then [bold]Apply kept slides[/] in slide preview.",
+                    severity="information",
+                    timeout=8,
+                )
+            elif saved:
+                self.app.notify(
+                    f"{saved} slide(s) saved — ready to export with [bold]w[/].",
+                    severity="information",
+                    timeout=6,
+                )
+
+        self.run_worker(_reload(), exclusive=True)
 
     async def action_refresh_list(self) -> None:
         self.refresh_session_list(preserve_selection=True)

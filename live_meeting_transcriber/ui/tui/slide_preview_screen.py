@@ -23,7 +23,9 @@ from live_meeting_transcriber.domain.models import SlideCandidate
 from live_meeting_transcriber.ui.tui.slide_preview_helpers import (
     accepted_candidates,
     build_slide_params,
+    format_candidate_count_hint,
     format_candidate_label,
+    format_review_summary,
     image_widget_class,
     inline_image_unsupported_message,
     normalize_strategy,
@@ -112,19 +114,39 @@ class SlidePreviewScreen(ModalScreen[None]):
     """Re-run slide detection with tunable params; review candidates before apply."""
 
     DEFAULT_CSS = """
-    #slide-preview-dialog { width: 95%; height: 90%; min-height: 28; max-width: 120; }
-    #slide-preview-params { height: auto; margin-bottom: 1; }
+    #slide-preview-dialog {
+        width: 95%;
+        height: 90%;
+        min-height: 28;
+        max-width: 120;
+        layout: vertical;
+        overflow: hidden;
+    }
+    #slide-preview-params { height: auto; max-height: 7; margin-bottom: 1; }
     #slide-preview-params Input { width: 1fr; min-width: 8; }
     #slide-preview-params Select { width: 1fr; min-width: 14; }
-    #slide-preview-status { height: auto; margin-bottom: 1; }
-    #slide-preview-split { height: 1fr; min-height: 14; }
-    #slide-candidates-table { width: 1fr; min-width: 28; height: 1fr; min-height: 10; }
-    #slide-image-pane { width: 1fr; min-width: 24; height: 1fr; min-height: 10; border: solid $boost; padding: 0 1; }
-    #slide-preview-actions { height: auto; margin-top: 1; }
+    #slide-preview-status { height: auto; max-height: 4; margin-bottom: 1; overflow-y: auto; }
+    #slide-preview-split { height: 1fr; min-height: 12; }
+    #slide-candidates-table { width: 1fr; min-width: 28; height: 1fr; min-height: 8; }
+    #slide-image-pane { width: 1fr; min-width: 24; height: 1fr; min-height: 8; border: solid $boost; padding: 0 1; }
+    #slide-preview-actions {
+        dock: bottom;
+        width: 100%;
+        height: auto;
+        margin-top: 1;
+        padding-top: 1;
+        background: $surface;
+    }
     #slide-preview-actions Button { margin-right: 1; }
-    #slide-preview-hint { height: auto; padding-top: 1; }
+    #slide-preview-hint {
+        dock: bottom;
+        width: 100%;
+        height: auto;
+        padding-top: 1;
+        background: $surface;
+    }
     #slide-param-hint { height: auto; margin-bottom: 1; }
-    #slide-help-panel { height: auto; max-height: 12; margin-bottom: 1; }
+    #slide-help-panel { height: auto; max-height: 10; margin-bottom: 1; }
     """
 
     BINDINGS = [
@@ -208,11 +230,12 @@ class SlidePreviewScreen(ModalScreen[None]):
             Horizontal(
                 Button("Open image (o)", id="slide-open-btn", variant="default"),
                 Button("Apply kept slides (a)", id="slide-apply-btn", variant="success"),
+                Button("Apply all candidates", id="slide-apply-all-btn", variant="warning"),
                 id="slide-preview-actions",
             ),
             Static(
-                "[dim]↑↓[/] select candidate · [dim]y[/]/[dim]n[/] keep/skip · "
-                "[dim]r[/] re-run · [dim]Esc[/] close",
+                "[dim]↑↓[/] select · [dim]y[/]/[dim]n[/] keep/skip · "
+                "[dim]r[/] re-run · [dim]a[/] apply kept · [dim]Esc[/] close",
                 id="slide-preview-hint",
                 classes="hint",
             ),
@@ -221,6 +244,7 @@ class SlidePreviewScreen(ModalScreen[None]):
 
     def on_mount(self) -> None:
         self.query_one("#slide-apply-btn", Button).disabled = True
+        self.query_one("#slide-apply-all-btn", Button).disabled = True
         self.call_after_refresh(self._init_preview_ui)
 
     def _init_preview_ui(self) -> None:
@@ -264,8 +288,13 @@ class SlidePreviewScreen(ModalScreen[None]):
             "#slide-min-interval",
             "#slide-max-candidates",
             "#slide-run-btn",
+            "#slide-open-btn",
+            "#slide-apply-btn",
+            "#slide-apply-all-btn",
         ):
             self.query_one(node_id).disabled = busy
+        if not busy:
+            self._update_apply_buttons()
 
     def _update_status(self, message: str) -> None:
         if not self.is_mounted:
@@ -280,19 +309,37 @@ class SlidePreviewScreen(ModalScreen[None]):
         table.focus(scroll_visible=True)
         self._show_candidate(index)
 
+    def _update_apply_buttons(self) -> None:
+        if not self.is_mounted:
+            return
+        n = len(self._result.candidates) if self._result is not None else 0
+        kept = sum(1 for v in self._review.values() if v is True)
+        apply_btn = self.query_one("#slide-apply-btn", Button)
+        apply_all_btn = self.query_one("#slide-apply-all-btn", Button)
+        apply_btn.disabled = n == 0 or kept == 0
+        apply_all_btn.disabled = n == 0
+
     def _after_preview_complete(self) -> None:
         if not self.is_mounted or self._result is None:
             return
         self._refresh_table()
         n = len(self._result.candidates)
         kept = sum(1 for v in self._review.values() if v is True)
-        self._update_status(
-            f"[bold]Found {n} candidate(s)[/] · strategy [bold]{self._result.strategy}[/] · "
-            f"duration {self._result.duration_seconds:.0f}s · kept {kept} · "
-            "[dim]↑↓[/] navigate table"
+        skipped = sum(1 for v in self._review.values() if v is False)
+        params = self._read_params()
+        count_hint = format_candidate_count_hint(
+            count=n,
+            duration_seconds=self._result.duration_seconds,
+            min_interval_seconds=params.min_slide_interval_seconds,
         )
-        apply_btn = self.query_one("#slide-apply-btn", Button)
-        apply_btn.disabled = n == 0
+        summary = format_review_summary(kept=kept, skipped=skipped, total=n)
+        self._update_status(
+            f"[bold]{count_hint}[/]\n"
+            f"strategy [bold]{self._result.strategy}[/] · {summary} · "
+            "[dim]↑↓[/] navigate · [dim]y[/]/[dim]n[/] review · "
+            "[dim]a[/] apply kept or use Apply all"
+        )
+        self._update_apply_buttons()
         if self._result.candidates:
             self.call_after_refresh(lambda: self._focus_candidate(0))
         else:
@@ -409,6 +456,8 @@ class SlidePreviewScreen(ModalScreen[None]):
             await self.action_open_external()
         elif bid == "slide-apply-btn":
             await self.action_apply_slides()
+        elif bid == "slide-apply-all-btn":
+            await self.action_apply_all_slides()
 
     async def action_run_preview(self) -> None:
         self.run_worker(self._run_preview(), exclusive=True)
@@ -420,6 +469,7 @@ class SlidePreviewScreen(ModalScreen[None]):
             return
         self._review[idx] = True
         self._refresh_table()
+        self._update_apply_buttons()
         self._focus_candidate(idx)
 
     async def action_reject_candidate(self) -> None:
@@ -429,6 +479,7 @@ class SlidePreviewScreen(ModalScreen[None]):
             return
         self._review[idx] = False
         self._refresh_table()
+        self._update_apply_buttons()
         self._focus_candidate(idx)
 
     async def action_open_external(self) -> None:
@@ -454,10 +505,29 @@ class SlidePreviewScreen(ModalScreen[None]):
         if not accepted:
             self.app.notify("Mark slides to keep with [bold]y[/] before apply.", severity="warning")
             return
+        await self._apply_candidates(accepted, label=f"{len(accepted)} kept slide(s)")
+
+    async def action_apply_all_slides(self) -> None:
+        if self._result is None or not self._result.candidates:
+            self.app.notify("Run preview first.", severity="warning")
+            return
+        await self._apply_candidates(
+            list(self._result.candidates),
+            label=f"all {len(self._result.candidates)} candidate(s)",
+            accept_all=True,
+        )
+
+    async def _apply_candidates(
+        self,
+        candidates: list[SlideCandidate],
+        *,
+        label: str,
+        accept_all: bool = True,
+    ) -> None:
         self._set_busy(True)
-        self._update_status(f"[dim]Saving {len(accepted)} slide(s)…[/]")
+        self._update_status(f"[dim]Saving {label}…[/]")
         try:
-            saved = await self._apply_accepted(accepted)
+            saved = await self._apply_accepted(candidates, accept_all=accept_all)
         except SlidePreviewError as e:
             self.app.notify(str(e), severity="error")
             return
@@ -467,7 +537,9 @@ class SlidePreviewScreen(ModalScreen[None]):
             self.app.notify(f"Saved {saved} slide(s) to sessions/{self._session_id}/slides/")
             self._update_status(f"Applied {saved} slide(s). Press [bold]Esc[/] to close.")
 
-    async def _apply_accepted(self, accepted: list[SlideCandidate]) -> int:
+    async def _apply_accepted(
+        self, accepted: list[SlideCandidate], *, accept_all: bool = True
+    ) -> int:
         svc = SlidePreviewService(
             settings=self._container.settings,
             sessions=self._container.sessions,
@@ -475,7 +547,7 @@ class SlidePreviewScreen(ModalScreen[None]):
         return await svc.apply(
             session_id=self._session_id,
             candidates=accepted,
-            accept_all=True,
+            accept_all=accept_all,
         )
 
     def action_close(self) -> None:

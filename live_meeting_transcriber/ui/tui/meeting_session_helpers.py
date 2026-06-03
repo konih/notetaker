@@ -89,7 +89,7 @@ def format_slide_detail_note(
         ts_text = ", ".join(format_timestamp(t) for t in shown)
         if preview_count > len(shown):
             ts_text += f", … (+{preview_count - len(shown)} more)"
-        return f" · [cyan]{preview_count} slide(s) detected[/] ({ts_text}) · [dim]p[/] review"
+        return f" · [cyan]{preview_count} slide(s) detected[/] ({ts_text}) · [dim]p[/] review · [bold]a[/] apply"
     if has_slide_source:
         return " · [dim]slide preview available ([/][bold]p[/][dim])[/]"
     return ""

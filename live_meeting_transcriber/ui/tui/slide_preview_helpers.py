@@ -182,6 +182,33 @@ def format_candidate_label(index: int, cand: SlideCandidate, *, keep: bool | Non
     )
 
 
+def format_candidate_count_hint(
+    *,
+    count: int,
+    duration_seconds: float,
+    min_interval_seconds: float,
+) -> str:
+    """Hint when candidate count looks high or low vs video length."""
+    if duration_seconds <= 0:
+        return f"{count} candidate(s)"
+    interval = min_interval_seconds if min_interval_seconds > 0 else 15.0
+    expected = max(1, round(duration_seconds / interval))
+    base = f"{count} candidate(s) in {duration_seconds:.0f}s — expect ~{expected} with min interval {interval:.0f}s"
+    if count > expected * 2:
+        return f"{base} · [yellow]many — raise threshold or min interval[/]"
+    if count < max(1, expected // 3) and count > 0:
+        return f"{base} · [yellow]few — lower threshold or sample interval[/]"
+    return base
+
+
+def format_review_summary(*, kept: int, skipped: int, total: int) -> str:
+    pending = total - kept - skipped
+    parts = [f"kept {kept}", f"skipped {skipped}", f"total {total}"]
+    if pending > 0:
+        parts.append(f"unreviewed {pending}")
+    return " · ".join(parts)
+
+
 def review_keep_flags(review: dict[int, bool | None]) -> list[bool | None]:
     if not review:
         return []
