@@ -75,8 +75,8 @@ def test_normalize_strategy_falls_back_to_settings() -> None:
 def test_format_candidate_label_marks_review_state() -> None:
     cand = SlideCandidate(timestamp_seconds=65.0, change_score=0.33, preview_path=None)
     assert "1:05" in format_candidate_label(0, cand, keep=None)
-    assert "[✓]" in format_candidate_label(0, cand, keep=True)
-    assert "[✗]" in format_candidate_label(0, cand, keep=False)
+    assert "✓" in format_candidate_label(0, cand, keep=True)
+    assert "✗" in format_candidate_label(0, cand, keep=False)
 
 
 def test_accepted_candidates_filters_kept_rows() -> None:
@@ -157,15 +157,20 @@ async def test_slide_preview_screen_populates_table_after_async_preview(tmp_path
     settings = _settings(database_url=f"sqlite:///{tmp_path / 'app.db'}")
     container = MagicMock()
     container.settings = settings
+    candidates = [
+        SlideCandidate(
+            timestamp_seconds=float(i * 10 + 5),
+            change_score=0.4 + i * 0.05,
+            preview_path=tmp_path / f"candidate_{i:03d}.png",
+        )
+        for i in range(5)
+    ]
     preview_result = SlidePreviewResult(
         session_id=sid,
         strategy="frame_diff",
         duration_seconds=60.0,
         video_path=tmp_path / "video.mp4",
-        candidates=[
-            SlideCandidate(timestamp_seconds=5.0, change_score=0.4, preview_path=None),
-            SlideCandidate(timestamp_seconds=12.0, change_score=0.6, preview_path=None),
-        ],
+        candidates=candidates,
         preview_dir=tmp_path / "previews",
     )
 
@@ -193,5 +198,7 @@ async def test_slide_preview_screen_populates_table_after_async_preview(tmp_path
             assert isinstance(screen, SlidePreviewScreen)
             table = screen._get_candidates_table()
             assert table is not None
-            assert table.row_count == 2
+            assert table.row_count == 5
+            assert table.cursor_row == 0
+            assert table.has_focus
             mock_svc_cls.return_value.preview.assert_awaited_once()

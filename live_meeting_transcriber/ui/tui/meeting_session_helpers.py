@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from uuid import UUID
 
+from live_meeting_transcriber.application.slide_review import format_timestamp
 from live_meeting_transcriber.application.video_session_storage import (
     is_video_import_session,
     read_source_media_video_path,
@@ -41,6 +42,57 @@ def count_saved_slides(data_dir: Path, session_id: UUID) -> int:
     if not slides_dir.is_dir():
         return 0
     return sum(1 for p in slides_dir.glob("*.png") if p.is_file())
+
+
+def slide_preview_dir(data_dir: Path, session_id: UUID) -> Path:
+    return (data_dir.resolve() / "imports" / "slide_previews" / str(session_id)).resolve()
+
+
+def list_preview_candidate_timestamps(data_dir: Path, session_id: UUID) -> list[float]:
+    """Timestamps from last slide preview run (PNG filenames under imports/slide_previews)."""
+    preview = slide_preview_dir(data_dir, session_id)
+    if not preview.is_dir():
+        return []
+    out: list[float] = []
+    for path in sorted(preview.glob("candidate_*.png")):
+        if not path.is_file():
+            continue
+        stem = path.stem  # candidate_000_12.5s
+        if "_" not in stem:
+            continue
+        ts_part = stem.rsplit("_", 1)[-1]
+        if not ts_part.endswith("s"):
+            continue
+        try:
+            out.append(float(ts_part[:-1]))
+        except ValueError:
+            continue
+    return out
+
+
+def count_preview_candidates(data_dir: Path, session_id: UUID) -> int:
+    return len(list_preview_candidate_timestamps(data_dir, session_id))
+
+
+def format_slide_detail_note(
+    *,
+    saved_slides: int,
+    preview_count: int,
+    preview_timestamps: list[float],
+    has_slide_source: bool,
+) -> str:
+    """Short slide status line for meeting detail header."""
+    if saved_slides:
+        return f" · [cyan]{saved_slides} slide(s) saved[/]"
+    if preview_count:
+        shown = preview_timestamps[:4]
+        ts_text = ", ".join(format_timestamp(t) for t in shown)
+        if preview_count > len(shown):
+            ts_text += f", … (+{preview_count - len(shown)} more)"
+        return f" · [cyan]{preview_count} slide(s) detected[/] ({ts_text}) · [dim]p[/] review"
+    if has_slide_source:
+        return " · [dim]slide preview available ([/][bold]p[/][dim])[/]"
+    return ""
 
 
 def format_session_type_label(*, is_video: bool) -> str:

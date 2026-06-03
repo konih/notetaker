@@ -15,8 +15,11 @@ from live_meeting_transcriber.application.video_import_service import (
 from live_meeting_transcriber.application.video_session_storage import is_video_import_session
 from live_meeting_transcriber.transcription.openai_transcriber import OpenAITranscriptionError
 from live_meeting_transcriber.ui.tui.meeting_session_helpers import (
+    count_preview_candidates,
     count_saved_slides,
     format_session_type_label,
+    format_slide_detail_note,
+    list_preview_candidate_timestamps,
     session_has_slide_source,
     session_is_video_import,
 )
@@ -76,6 +79,28 @@ def test_count_saved_slides(tmp_path: Path) -> None:
     (slides_dir / "001.png").write_bytes(b"x")
     (slides_dir / "002.png").write_bytes(b"y")
     assert count_saved_slides(tmp_path, sid) == 2
+
+
+def test_list_preview_candidate_timestamps(tmp_path: Path) -> None:
+    sid = uuid4()
+    preview = tmp_path / "imports" / "slide_previews" / str(sid)
+    preview.mkdir(parents=True)
+    (preview / "candidate_000_5.0s.png").write_bytes(b"x")
+    (preview / "candidate_001_12.5s.png").write_bytes(b"y")
+    assert list_preview_candidate_timestamps(tmp_path, sid) == [5.0, 12.5]
+    assert count_preview_candidates(tmp_path, sid) == 2
+
+
+def test_format_slide_detail_note_preview_snippet() -> None:
+    note = format_slide_detail_note(
+        saved_slides=0,
+        preview_count=5,
+        preview_timestamps=[5.0, 12.0, 25.0, 40.0, 55.0],
+        has_slide_source=True,
+    )
+    assert "5 slide(s) detected" in note
+    assert "0:05" in note
+    assert "p[/] review" in note
 
 
 def test_format_video_import_error_wraps_generic() -> None:

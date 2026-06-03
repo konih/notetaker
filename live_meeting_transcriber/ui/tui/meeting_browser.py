@@ -24,8 +24,11 @@ from live_meeting_transcriber.ui.state import actions as act
 from live_meeting_transcriber.ui.state.model import AppState, RecordingStatus
 from live_meeting_transcriber.ui.state.store import Store
 from live_meeting_transcriber.ui.tui.meeting_session_helpers import (
+    count_preview_candidates,
     count_saved_slides,
     format_session_type_label,
+    format_slide_detail_note,
+    list_preview_candidate_timestamps,
     session_has_slide_source,
     session_is_video_import,
 )
@@ -404,12 +407,15 @@ class MeetingBrowser(Vertical):
         is_video = session_is_video_import(data_dir, session_id)
         has_slide_source = session_has_slide_source(data_dir, session_id)
         saved_slides = count_saved_slides(data_dir, session_id)
+        preview_count = count_preview_candidates(data_dir, session_id)
+        preview_timestamps = list_preview_candidate_timestamps(data_dir, session_id)
         kind = "[cyan]Video import[/]" if is_video else "[green]Live recording[/]"
-        slide_note = ""
-        if saved_slides:
-            slide_note = f" · [cyan]{saved_slides} slide(s) on disk[/]"
-        elif has_slide_source:
-            slide_note = " · [dim]slide preview available (p)[/]"
+        slide_note = format_slide_detail_note(
+            saved_slides=saved_slides,
+            preview_count=preview_count,
+            preview_timestamps=preview_timestamps,
+            has_slide_source=has_slide_source,
+        )
         status.update(f"Editing {kind} [bold]{session.title}[/bold] ({session_id}){slide_note}")
 
         continue_btn = self.query_one("#meeting-btn-continue-record", Button)

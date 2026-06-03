@@ -39,8 +39,8 @@ class SlideImagePane(Vertical):
     """Inline PNG preview (textual-image) or path fallback."""
 
     DEFAULT_CSS = """
-    #slide-preview-image { width: 100%; height: 1fr; min-height: 10; }
-    #slide-preview-fallback { width: 100%; height: auto; min-height: 6; }
+    #slide-preview-image { width: 100%; height: 1fr; min-height: 8; }
+    #slide-preview-fallback { width: 100%; height: 1fr; min-height: 8; overflow-y: auto; }
     """
 
     def __init__(self) -> None:
@@ -100,7 +100,7 @@ class SlideImagePane(Vertical):
                 )
             ascii_preview = try_chafa_ascii_preview(path)
             if ascii_preview:
-                lines.extend(["", ascii_preview])
+                lines.extend(["", "[bold]ASCII preview (chafa):[/]", ascii_preview])
             self._fallback.update("\n".join(lines))
 
     @property
@@ -112,14 +112,16 @@ class SlidePreviewScreen(ModalScreen[None]):
     """Re-run slide detection with tunable params; review candidates before apply."""
 
     DEFAULT_CSS = """
-    #slide-preview-dialog { width: 95%; height: 90%; max-width: 120; }
+    #slide-preview-dialog { width: 95%; height: 90%; min-height: 28; max-width: 120; }
     #slide-preview-params { height: auto; margin-bottom: 1; }
     #slide-preview-params Input { width: 1fr; min-width: 8; }
     #slide-preview-params Select { width: 1fr; min-width: 14; }
     #slide-preview-status { height: auto; margin-bottom: 1; }
-    #slide-preview-split { height: 1fr; min-height: 12; }
-    #slide-candidates-table { width: 1fr; min-width: 28; height: 1fr; }
-    #slide-image-pane { width: 1fr; min-width: 24; height: 1fr; border: solid $boost; padding: 0 1; }
+    #slide-preview-split { height: 1fr; min-height: 14; }
+    #slide-candidates-table { width: 1fr; min-width: 28; height: 1fr; min-height: 10; }
+    #slide-image-pane { width: 1fr; min-width: 24; height: 1fr; min-height: 10; border: solid $boost; padding: 0 1; }
+    #slide-preview-actions { height: auto; margin-top: 1; }
+    #slide-preview-actions Button { margin-right: 1; }
     #slide-preview-hint { height: auto; padding-top: 1; }
     #slide-param-hint { height: auto; margin-bottom: 1; }
     #slide-help-panel { height: auto; max-height: 12; margin-bottom: 1; }
@@ -203,17 +205,22 @@ class SlidePreviewScreen(ModalScreen[None]):
                 SlideImagePane(),
                 id="slide-preview-split",
             ),
+            Horizontal(
+                Button("Open image (o)", id="slide-open-btn", variant="default"),
+                Button("Apply kept slides (a)", id="slide-apply-btn", variant="success"),
+                id="slide-preview-actions",
+            ),
             Static(
-                "[dim]↑↓[/] select · [dim]y[/]/[dim]n[/] keep/skip · [dim]a[/] apply kept · "
-                "[dim]o[/] open image · [dim]r[/] re-run · [dim]Esc[/] close",
+                "[dim]↑↓[/] select candidate · [dim]y[/]/[dim]n[/] keep/skip · "
+                "[dim]r[/] re-run · [dim]Esc[/] close",
                 id="slide-preview-hint",
                 classes="hint",
             ),
             id="slide-preview-dialog",
-            classes="settings-dialog",
         )
 
     def on_mount(self) -> None:
+        self.query_one("#slide-apply-btn", Button).disabled = True
         self.call_after_refresh(self._init_preview_ui)
 
     def _init_preview_ui(self) -> None:
@@ -265,6 +272,32 @@ class SlidePreviewScreen(ModalScreen[None]):
             return
         self.query_one("#slide-preview-status", Static).update(message)
 
+    def _focus_candidate(self, index: int) -> None:
+        table = self._get_candidates_table()
+        if table is None:
+            return
+        table.move_cursor(row=index)
+        table.focus(scroll_visible=True)
+        self._show_candidate(index)
+
+    def _after_preview_complete(self) -> None:
+        if not self.is_mounted or self._result is None:
+            return
+        self._refresh_table()
+        n = len(self._result.candidates)
+        kept = sum(1 for v in self._review.values() if v is True)
+        self._update_status(
+            f"[bold]Found {n} candidate(s)[/] · strategy [bold]{self._result.strategy}[/] · "
+            f"duration {self._result.duration_seconds:.0f}s · kept {kept} · "
+            "[dim]↑↓[/] navigate table"
+        )
+        apply_btn = self.query_one("#slide-apply-btn", Button)
+        apply_btn.disabled = n == 0
+        if self._result.candidates:
+            self.call_after_refresh(lambda: self._focus_candidate(0))
+        else:
+            self.query_one(SlideImagePane).show_path(None)
+
     async def _run_preview(self) -> None:
         if self._busy:
             return
@@ -301,23 +334,10 @@ class SlidePreviewScreen(ModalScreen[None]):
 
         self._result = result
         self._review = {i: None for i in range(len(result.candidates))}
-        self._refresh_table()
         self._set_busy(False)
-        kept = sum(1 for v in self._review.values() if v is True)
         n = len(result.candidates)
         self.app.notify(f"Found {n} slide candidate(s).", severity="information", timeout=5)
-        self._update_status(
-            f"[bold]Found {n} candidate(s)[/] · strategy [bold]{result.strategy}[/] · "
-            f"duration {result.duration_seconds:.0f}s · kept {kept} · "
-            "use table for timestamps"
-        )
-        table = self._get_candidates_table()
-        if result.candidates:
-            if table is not None:
-                table.move_cursor(row=0)
-                self._show_candidate(0)
-        elif self.is_mounted:
-            self.query_one(SlideImagePane).show_path(None)
+        self._after_preview_complete()
 
     def _refresh_table(self) -> None:
         table = self._get_candidates_table()
@@ -356,10 +376,12 @@ class SlidePreviewScreen(ModalScreen[None]):
         pane = self.query_one(SlideImagePane)
         pane.show_path(cand.preview_path)
         label = format_candidate_label(index, cand, keep=self._review.get(index))
-        self._update_status(
-            f"{label} · strategy [bold]{self._result.strategy}[/] · "
-            f"{len(self._result.candidates)} total"
+        path_line = (
+            f"[dim]{cand.preview_path}[/dim]"
+            if cand.preview_path is not None
+            else "[dim]no preview PNG[/dim]"
         )
+        self._update_status(f"{label}\n{path_line}")
 
     async def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
         if event.control.id != "slide-candidates-table":
@@ -380,8 +402,13 @@ class SlidePreviewScreen(ModalScreen[None]):
             self.query_one("#slide-param-hint", Static).update(slide_param_focus_hint(node.id))
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "slide-run-btn":
+        bid = event.button.id or ""
+        if bid == "slide-run-btn":
             self.run_worker(self._run_preview(), exclusive=True)
+        elif bid == "slide-open-btn":
+            await self.action_open_external()
+        elif bid == "slide-apply-btn":
+            await self.action_apply_slides()
 
     async def action_run_preview(self) -> None:
         self.run_worker(self._run_preview(), exclusive=True)
@@ -393,10 +420,7 @@ class SlidePreviewScreen(ModalScreen[None]):
             return
         self._review[idx] = True
         self._refresh_table()
-        table = self._get_candidates_table()
-        if table is not None:
-            table.move_cursor(row=idx)
-        self._show_candidate(idx)
+        self._focus_candidate(idx)
 
     async def action_reject_candidate(self) -> None:
         idx = self._selected_index()
@@ -405,10 +429,7 @@ class SlidePreviewScreen(ModalScreen[None]):
             return
         self._review[idx] = False
         self._refresh_table()
-        table = self._get_candidates_table()
-        if table is not None:
-            table.move_cursor(row=idx)
-        self._show_candidate(idx)
+        self._focus_candidate(idx)
 
     async def action_open_external(self) -> None:
         pane = self.query_one(SlideImagePane)

@@ -175,7 +175,11 @@ def normalize_strategy(raw: str, *, settings: Settings) -> SlideStrategyName:
 def format_candidate_label(index: int, cand: SlideCandidate, *, keep: bool | None) -> str:
     ts = format_timestamp(cand.timestamp_seconds)
     mark = "✓" if keep is True else ("✗" if keep is False else "·")
-    return f"{index + 1}. {ts}  score={cand.change_score:.2f}  [{mark}]"
+    path = cand.preview_path.name if cand.preview_path is not None else "—"
+    return (
+        f"[bold]#{index + 1}[/] · [cyan]{ts}[/] · score [bold]{cand.change_score:.2f}[/] · "
+        f"[{mark}] · [dim]{path}[/]"
+    )
 
 
 def review_keep_flags(review: dict[int, bool | None]) -> list[bool | None]:

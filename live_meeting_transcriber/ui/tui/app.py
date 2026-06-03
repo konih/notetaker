@@ -301,10 +301,10 @@ class TranscriberApp(App[None]):
     .settings-dialog { padding: 1 2; width: 90; height: auto; max-height: 90%; background: $surface; border: thick $accent; }
     .settings-title { text-style: bold; }
     .hint { padding-top: 1; text-style: dim; }
-    #slide-preview-dialog { width: 95%; height: 90%; max-width: 120; }
-    #slide-preview-split { height: 1fr; min-height: 12; }
-    #slide-candidates-table { width: 1fr; min-width: 28; height: 1fr; }
-    #slide-image-pane { width: 1fr; min-width: 24; height: 1fr; border: solid $boost; padding: 0 1; }
+    #slide-preview-dialog { width: 95%; height: 90%; min-height: 28; max-width: 120; padding: 1 2; background: $surface; border: thick $accent; }
+    #slide-preview-split { height: 1fr; min-height: 14; }
+    #slide-candidates-table { width: 1fr; min-width: 28; height: 1fr; min-height: 10; }
+    #slide-image-pane { width: 1fr; min-width: 24; height: 1fr; min-height: 10; border: solid $boost; padding: 0 1; }
     #sessions-table { height: 20; min-height: 8; }
     #tab-logs { height: 1fr; }
     #ui-activity-log { height: 1fr; min-height: 10; border: solid $boost; }
