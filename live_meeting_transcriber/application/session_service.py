@@ -11,6 +11,7 @@ from live_meeting_transcriber.domain.ports import (
     SummaryRepository,
     TranscriptRepository,
 )
+from live_meeting_transcriber.obsidian.vault_patterns import is_placeholder_meeting_title
 
 
 @dataclass(frozen=True)
@@ -34,7 +35,9 @@ class SessionService:
             raise KeyError(f"Unknown session_id={session_id}")
         return session
 
-    async def summarize_session(self, *, session_id: UUID) -> Summary:
+    async def summarize_session(
+        self, *, session_id: UUID, user_context: str | None = None
+    ) -> Summary:
         session = self.get_session(session_id)
         segments = self.transcripts.list_by_session(session_id)
         speaker_display: dict[str, str] | None = None
@@ -45,5 +48,33 @@ class SessionService:
             session=session,
             segments=segments,
             speaker_display=speaker_display,
+            user_context=user_context.strip() if user_context and user_context.strip() else None,
         )
-        return self.summaries.upsert(summary)
+        stored = self.summaries.upsert(summary)
+        self._apply_meeting_metadata_to_session(
+            session_id=session_id, session=session, summary=stored
+        )
+        return stored
+
+    def _apply_meeting_metadata_to_session(
+        self,
+        *,
+        session_id: UUID,
+        session: MeetingSession,
+        summary: Summary,
+    ) -> None:
+        meta = summary.meeting_metadata
+        if meta is None:
+            return
+
+        title = meta.confident_str("title")
+        if title and (
+            is_placeholder_meeting_title(session.title) or session.title.strip() != title
+        ):
+            self.sessions.update_title(session_id, title)
+
+        participants = meta.confident_participants()
+        if participants:
+            merged = list(dict.fromkeys([*session.attendees, *participants]))
+            if merged != session.attendees:
+                self.sessions.update_details(session_id, attendees=merged)

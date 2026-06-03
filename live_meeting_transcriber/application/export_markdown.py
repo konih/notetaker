@@ -3,8 +3,15 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from live_meeting_transcriber.application.export_overwrite import (
+    ExportOverwriteConfirm,
+    ExportWriteDecision,
+    resolve_export_write,
+    write_text_from_decision,
+)
 from live_meeting_transcriber.domain.models import MeetingSession, Summary, TranscriptSegment
 from live_meeting_transcriber.domain.speaker_display import format_transcript_speaker_label
+from live_meeting_transcriber.obsidian.meeting_export import ExportCancelledError
 
 
 def _slug_title(title: str, max_len: int = 48) -> str:
@@ -79,18 +86,20 @@ def write_session_export_markdown(
     summary: Summary | None,
     speaker_display: dict[str, str] | None = None,
     transcript_lines: list[str] | None = None,
-) -> Path:
+    confirm_overwrite: ExportOverwriteConfirm | None = None,
+) -> tuple[Path, bool]:
     out_dir = (base_dir / "exports").resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / export_filename_for_session(session)
-    path.write_text(
-        build_session_export_markdown(
-            session=session,
-            segments=segments,
-            summary=summary,
-            speaker_display=speaker_display,
-            transcript_lines=transcript_lines,
-        ),
-        encoding="utf-8",
+    content = build_session_export_markdown(
+        session=session,
+        segments=segments,
+        summary=summary,
+        speaker_display=speaker_display,
+        transcript_lines=transcript_lines,
     )
-    return path
+    decision = resolve_export_write(path, content, confirm_overwrite=confirm_overwrite)
+    if decision == ExportWriteDecision.cancelled:
+        raise ExportCancelledError(path)
+    write_text_from_decision(path, content, decision)
+    return path, decision == ExportWriteDecision.write

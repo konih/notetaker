@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import shutil
 import time
@@ -11,6 +12,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
+from live_meeting_transcriber.audio.session_recording import session_audio_dir
 from live_meeting_transcriber.domain.models import MeetingSession, TranscriptSegment
 
 # e.g. "Screenshot From 2026-05-11 09-24-01.png" / "Screenshot from 2026-05-11 09-24-01 (1).png"
@@ -60,10 +62,47 @@ def _session_time_bounds(
     return start, end
 
 
+def list_session_video_slides(
+    data_dir: Path,
+    session: MeetingSession,
+) -> list[ScreenshotHit]:
+    """Load slide PNGs saved by ``transcribe-video`` (``sessions/<id>/slides/slides.json``)."""
+    manifest_path = session_audio_dir(data_dir, session.id) / "slides" / "slides.json"
+    if not manifest_path.is_file():
+        return []
+    try:
+        raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+    if not isinstance(raw, list):
+        return []
+    slides_dir = manifest_path.parent
+    hits: list[ScreenshotHit] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        path_name = item.get("path")
+        captured_raw = item.get("captured_at")
+        if not isinstance(path_name, str) or not isinstance(captured_raw, str):
+            continue
+        img = slides_dir / path_name
+        if not img.is_file():
+            continue
+        try:
+            captured = datetime.fromisoformat(captured_raw)
+        except ValueError:
+            continue
+        hits.append(ScreenshotHit(captured_utc=captured, source_path=img.resolve()))
+    hits.sort(key=lambda h: (h.captured_utc, str(h.source_path)))
+    return hits
+
+
 def list_session_screenshots(
     source_dir: Path | None,
     session: MeetingSession,
     segments: list[TranscriptSegment],
+    *,
+    data_dir: Path | None = None,
 ) -> list[ScreenshotHit]:
     """Find image files in ``source_dir`` whose embedded timestamp falls in ``[session.start, session.end]``."""
     if source_dir is None or not source_dir.is_dir():
@@ -80,6 +119,14 @@ def list_session_screenshots(
         if t0 <= utc_naive <= t1:
             hits.append(ScreenshotHit(captured_utc=utc_naive, source_path=path.resolve()))
     hits.sort(key=lambda h: (h.captured_utc, str(h.source_path)))
+    if data_dir is not None:
+        slide_hits = list_session_video_slides(data_dir, session)
+        seen = {h.source_path for h in hits}
+        for h in slide_hits:
+            if h.source_path not in seen:
+                hits.append(h)
+                seen.add(h.source_path)
+        hits.sort(key=lambda h: (h.captured_utc, str(h.source_path)))
     return hits
 
 

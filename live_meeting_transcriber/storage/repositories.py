@@ -9,6 +9,7 @@ from live_meeting_transcriber.domain.models import (
     ActionItem,
     Decision,
     DiarizationSegment,
+    MeetingMetadataProposal,
     MeetingSession,
     ProviderMetadata,
     SpeakerAlias,
@@ -487,7 +488,10 @@ class SqliteSummaryRepository:
     def upsert(self, summary: Summary) -> Summary:
         provider = summary.metadata.provider if summary.metadata else None
         model = summary.metadata.model if summary.metadata else None
-        metadata_json = dumps_json(summary.metadata.extra) if summary.metadata else None
+        extra: dict[str, object] = dict(summary.metadata.extra) if summary.metadata else {}
+        if summary.meeting_metadata is not None:
+            extra["meeting_metadata"] = summary.meeting_metadata.model_dump(mode="json")
+        metadata_json = dumps_json(extra) if summary.metadata or summary.meeting_metadata else None
 
         action_items_json = dumps_json([ai.model_dump(mode="json") for ai in summary.action_items])
         decisions_json = dumps_json([d.model_dump(mode="json") for d in summary.decisions])
@@ -535,8 +539,12 @@ class SqliteSummaryRepository:
             return None
 
         metadata: ProviderMetadata | None = None
+        meeting_metadata = None
         if row["provider"] and row["model"]:
             extra = loads_json(row["metadata_json"]) if row["metadata_json"] else {}
+            raw_meta = extra.pop("meeting_metadata", None)
+            if isinstance(raw_meta, dict):
+                meeting_metadata = MeetingMetadataProposal.model_validate(raw_meta)
             metadata = ProviderMetadata(provider=row["provider"], model=row["model"], extra=extra)  # type: ignore[arg-type]
 
         action_items = [ActionItem(**ai) for ai in loads_json(row["action_items_json"])]  # type: ignore[arg-type]
@@ -549,5 +557,6 @@ class SqliteSummaryRepository:
             summary_markdown=row["summary_markdown"],
             action_items=action_items,
             decisions=decisions,
+            meeting_metadata=meeting_metadata,
             metadata=metadata,
         )

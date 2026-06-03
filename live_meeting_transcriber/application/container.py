@@ -116,6 +116,7 @@ def build_container(settings: Settings) -> Container:
         summarizer: SummarizationProvider = OpenAISummarizationProvider(
             api_key=settings.openai_api_key or "",
             model=settings.summary_model,
+            vault_meetings_dir=settings.obsidian_meetings_dir,
         )
     else:
         raise ProviderSelectionError(f"Unsupported llm_provider={settings.llm_provider}")
