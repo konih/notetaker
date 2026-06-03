@@ -2,23 +2,38 @@ from __future__ import annotations
 
 import asyncio
 import atexit
+import sys
+from pathlib import Path
+from typing import Annotated
 from uuid import UUID
 
 import typer
 
+from live_meeting_transcriber.application.cleanup_service import run_cleanup
 from live_meeting_transcriber.application.container import Container, build_container
 from live_meeting_transcriber.application.finalize_service import finalize_session_sync
 from live_meeting_transcriber.application.recorder import Recorder
 from live_meeting_transcriber.application.session_service import SessionService
+from live_meeting_transcriber.application.slide_preview_service import (
+    SlidePreviewError,
+    SlidePreviewService,
+)
+from live_meeting_transcriber.application.video_import_service import (
+    VideoImportError,
+    VideoImportService,
+)
 from live_meeting_transcriber.audio.sources import resolve_microphone_source
 from live_meeting_transcriber.config.settings import load_settings
 from live_meeting_transcriber.diarization.labels import normalize_pyannote_speaker_label
+from live_meeting_transcriber.domain.models import SlideDetectionParams
 from live_meeting_transcriber.observability.logging import configure_logging, get_logger
-from live_meeting_transcriber.obsidian.meeting_export import write_dual_export
+from live_meeting_transcriber.obsidian.meeting_export import ExportCancelledError, write_dual_export
 
 app = typer.Typer(
     add_completion=False, help="Live background meeting transcription (Ubuntu/Linux)."
 )
+slides_app = typer.Typer(help="Preview and apply slide detection on imported video sessions.")
+app.add_typer(slides_app, name="slides")
 
 
 def _get_container(ctx: typer.Context) -> Container:
@@ -182,7 +197,15 @@ def record(
 
 
 @app.command()
-def summarize(ctx: typer.Context, session_id: str = typer.Option(..., "--session-id")) -> None:
+def summarize(
+    ctx: typer.Context,
+    session_id: str = typer.Option(..., "--session-id"),
+    context: str | None = typer.Option(
+        None,
+        "--context",
+        help="Optional extra guidance for the LLM (not stored in the database).",
+    ),
+) -> None:
     """Generate and store summary/decisions/action-items for a session."""
     c = _get_container(ctx)
     sid = UUID(session_id)
@@ -193,7 +216,12 @@ def summarize(ctx: typer.Context, session_id: str = typer.Option(..., "--session
         summarizer=c.summarizer,
         session_speakers=c.session_speakers,
     )
-    summary = asyncio.run(svc.summarize_session(session_id=sid))
+    summary = asyncio.run(svc.summarize_session(session_id=sid, user_context=context))
+    updated = c.sessions.get(sid)
+    if updated is not None and summary.meeting_metadata is not None:
+        title = summary.meeting_metadata.confident_str("title")
+        if title and updated.title == title:
+            typer.echo(f"Title: {updated.title}", err=True)
     typer.echo(summary.summary_markdown)
 
 
@@ -202,6 +230,11 @@ def export(
     ctx: typer.Context,
     session_id: str = typer.Option(..., "--session-id"),
     format: str = typer.Option("markdown", "--format"),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Overwrite existing export files without prompting.",
+    ),
 ) -> None:
     """Export transcript and summary."""
     if format != "markdown":
@@ -218,22 +251,49 @@ def export(
     segments = c.transcripts.list_by_session(sid)
     summary = c.summaries.get_by_session(sid)
     spk = c.session_speakers.get_map(sid)
-    app_path, obs_path = write_dual_export(
-        app_base_dir=c.settings.ensure_data_dir(),
-        session=session,
-        segments=segments,
-        summary=summary,
-        speaker_display=spk if spk else None,
-        obsidian_meetings_dir=c.settings.obsidian_meetings_dir,
-        obsidian_meeting_template=c.settings.obsidian_meeting_template,
-        screenshots_source_dir=c.settings.effective_screenshots_source_dir(),
-        obsidian_screenshots_dir=c.settings.obsidian_screenshots_dir,
-    )
-    typer.echo(app_path.read_text(encoding="utf-8"))
+
+    def confirm_overwrite(path: Path) -> bool:
+        if force:
+            return True
+        if not sys.stdin.isatty():
+            typer.echo(
+                f"Export skipped (file exists with different content): {path}. Use --force.",
+                err=True,
+            )
+            return False
+        return typer.confirm(
+            f"Export file exists with different content:\n{path}\nOverwrite?",
+            default=False,
+        )
+
+    try:
+        result = write_dual_export(
+            app_base_dir=c.settings.ensure_data_dir(),
+            session=session,
+            segments=segments,
+            summary=summary,
+            speaker_display=spk if spk else None,
+            obsidian_meetings_dir=c.settings.obsidian_meetings_dir,
+            obsidian_meeting_template=c.settings.obsidian_meeting_template,
+            screenshots_source_dir=c.settings.effective_screenshots_source_dir(),
+            obsidian_screenshots_dir=c.settings.obsidian_screenshots_dir,
+            confirm_overwrite=confirm_overwrite,
+        )
+    except ExportCancelledError as e:
+        typer.echo(f"Export cancelled: {e.path}", err=True)
+        raise typer.Exit(code=1) from e
+
+    typer.echo(result.app_path.read_text(encoding="utf-8"))
     typer.echo("", err=False)
-    typer.echo(f"Wrote: {app_path}", err=False)
-    if obs_path is not None:
-        typer.echo(f"Obsidian meeting: {obs_path}", err=False)
+    if result.app_written:
+        typer.echo(f"Wrote: {result.app_path}", err=False)
+    elif result.app_path.is_file():
+        typer.echo(f"Unchanged: {result.app_path}", err=False)
+    if result.obs_path is not None:
+        if result.obs_written:
+            typer.echo(f"Obsidian meeting: {result.obs_path}", err=False)
+        else:
+            typer.echo(f"Obsidian unchanged: {result.obs_path}", err=False)
 
 
 @app.command("finalize")
@@ -273,6 +333,341 @@ def list_speakers(ctx: typer.Context, session_id: str = typer.Option(..., "--ses
     typer.echo("Diarization speaker keys: " + (", ".join(d_keys) if d_keys else "—"))
     for a in c.session_speakers.list_aliases(sid):
         typer.echo(f"  alias: {a.speaker_key} -> {a.display_name}")
+
+
+def _slide_params_from_cli(
+    *,
+    sample_interval: float | None,
+    threshold: float | None,
+    min_interval: float | None,
+    max_candidates: int | None,
+    settings,
+) -> SlideDetectionParams | None:
+    if all(v is None for v in (sample_interval, threshold, min_interval, max_candidates)):
+        return None
+    base = settings.slide_detection_params()
+    return SlideDetectionParams(
+        sample_interval_seconds=sample_interval
+        if sample_interval is not None
+        else base.sample_interval_seconds,
+        change_threshold=threshold if threshold is not None else base.change_threshold,
+        min_slide_interval_seconds=min_interval
+        if min_interval is not None
+        else base.min_slide_interval_seconds,
+        max_candidates=max_candidates if max_candidates is not None else base.max_candidates,
+    )
+
+
+@app.command("transcribe-video")
+def transcribe_video(
+    ctx: typer.Context,
+    source: str = typer.Option(
+        ...,
+        "--source",
+        help="Local video path or http(s) URL (YouTube etc.; requires yt-dlp for URLs)",
+    ),
+    title: str | None = typer.Option(
+        None, "--title", help="Session title (default: from filename)"
+    ),
+    chunk_seconds: int | None = typer.Option(
+        None, "--chunk-seconds", help="Transcription chunk size in seconds"
+    ),
+    no_slides: bool = typer.Option(
+        False, "--no-slides", help="Skip slide detection and screenshot extraction"
+    ),
+    yes_slides: bool = typer.Option(
+        False,
+        "--yes-slides",
+        help="Accept all detected slide candidates without interactive review",
+    ),
+    strategy: str | None = typer.Option(
+        None,
+        "--strategy",
+        help="Slide detection strategy: frame_diff or ffmpeg_scene",
+    ),
+    sample_interval: float | None = typer.Option(
+        None, "--sample-interval", help="Seconds between frame samples"
+    ),
+    threshold: float | None = typer.Option(
+        None, "--threshold", help="Change threshold (strategy-specific)"
+    ),
+    min_interval: float | None = typer.Option(
+        None, "--min-interval", help="Minimum seconds between saved slides"
+    ),
+    max_candidates: int | None = typer.Option(
+        None, "--max-candidates", help="Maximum slide candidates to detect"
+    ),
+    preview_only: bool = typer.Option(
+        False,
+        "--preview-only",
+        help="Detect slides only; do not save (shows candidate summary)",
+    ),
+) -> None:
+    """Transcribe a video file or URL and optionally extract presentation slide screenshots."""
+    c = _get_container(ctx)
+    log = get_logger(component="cli")
+
+    svc = VideoImportService(
+        settings=c.settings,
+        sessions=c.sessions,
+        transcripts=c.transcripts,
+        transcriber=c.transcriber,
+    )
+    slide_params = _slide_params_from_cli(
+        sample_interval=sample_interval,
+        threshold=threshold,
+        min_interval=min_interval,
+        max_candidates=max_candidates,
+        settings=c.settings,
+    )
+
+    async def _run() -> None:
+        if preview_only:
+            result = await svc.import_video(
+                source=source,
+                title=title,
+                extract_slides=False,
+                skip_transcription=True,
+            )
+            preview_svc = SlidePreviewService(settings=c.settings, sessions=c.sessions)
+            preview = await preview_svc.preview(
+                session_id=result.session_id,
+                strategy=strategy,
+                params=slide_params,
+            )
+            typer.echo("", err=False)
+            typer.echo(f"Session: {result.session_id}", err=False)
+            typer.echo(
+                f"Preview ({preview.strategy}): {len(preview.candidates)} candidate(s)",
+                err=False,
+            )
+            for i, cand in enumerate(preview.candidates, start=1):
+                typer.echo(
+                    f"  [{i}] t={cand.timestamp_seconds:.1f}s score={cand.change_score:.2f}",
+                    err=False,
+                )
+            return
+
+        result = await svc.import_video(
+            source=source,
+            title=title,
+            chunk_seconds=chunk_seconds,
+            extract_slides=not no_slides,
+            accept_all_slides=yes_slides,
+            reject_all_slides=no_slides,
+            slide_strategy=strategy,
+            slide_params=slide_params,
+            on_segment=lambda seg: typer.echo(f"[{seg.started_at.isoformat()}] {seg.text}"),
+        )
+        typer.echo("", err=False)
+        typer.echo(f"Session: {result.session_id}", err=False)
+        typer.echo(
+            f"Transcript segments: {result.segment_count}; slides saved: {result.slide_count}",
+            err=False,
+        )
+        log.info(
+            "transcribe_video_done",
+            session_id=str(result.session_id),
+            segments=result.segment_count,
+            slides=result.slide_count,
+        )
+
+    try:
+        asyncio.run(_run())
+    except VideoImportError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=2) from e
+
+
+@slides_app.command("preview")
+def slides_preview(
+    ctx: typer.Context,
+    session_id: str = typer.Option(..., "--session-id"),
+    strategy: str | None = typer.Option(
+        None,
+        "--strategy",
+        help="Slide detection strategy: frame_diff or ffmpeg_scene",
+    ),
+    sample_interval: float | None = typer.Option(
+        None, "--sample-interval", help="Seconds between frame samples"
+    ),
+    threshold: float | None = typer.Option(
+        None, "--threshold", help="Change threshold (strategy-specific)"
+    ),
+    min_interval: float | None = typer.Option(
+        None, "--min-interval", help="Minimum seconds between saved slides"
+    ),
+    max_candidates: int | None = typer.Option(
+        None, "--max-candidates", help="Maximum slide candidates to detect"
+    ),
+) -> None:
+    """Re-run slide detection on an imported video session (no re-transcribe)."""
+    c = _get_container(ctx)
+    sid = UUID(session_id)
+    params = _slide_params_from_cli(
+        sample_interval=sample_interval,
+        threshold=threshold,
+        min_interval=min_interval,
+        max_candidates=max_candidates,
+        settings=c.settings,
+    )
+    svc = SlidePreviewService(settings=c.settings, sessions=c.sessions)
+
+    async def _run() -> None:
+        preview = await svc.preview(session_id=sid, strategy=strategy, params=params)
+        typer.echo(f"Strategy: {preview.strategy}")
+        typer.echo(f"Video: {preview.video_path}")
+        typer.echo(f"Candidates: {len(preview.candidates)}")
+        for i, cand in enumerate(preview.candidates, start=1):
+            preview_note = f"  preview={cand.preview_path}" if cand.preview_path else ""
+            typer.echo(
+                f"  [{i}] t={cand.timestamp_seconds:.1f}s score={cand.change_score:.2f}{preview_note}"
+            )
+
+    try:
+        asyncio.run(_run())
+    except SlidePreviewError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=2) from e
+
+
+@slides_app.command("apply")
+def slides_apply(
+    ctx: typer.Context,
+    session_id: str = typer.Option(..., "--session-id"),
+    strategy: str | None = typer.Option(None, "--strategy"),
+    sample_interval: float | None = typer.Option(None, "--sample-interval"),
+    threshold: float | None = typer.Option(None, "--threshold"),
+    min_interval: float | None = typer.Option(None, "--min-interval"),
+    max_candidates: int | None = typer.Option(None, "--max-candidates"),
+    yes_slides: bool = typer.Option(
+        False, "--yes-slides", help="Accept all detected candidates without prompts"
+    ),
+) -> None:
+    """Detect slides, optionally review, and save PNGs + slides.json for a session."""
+    c = _get_container(ctx)
+    sid = UUID(session_id)
+    params = _slide_params_from_cli(
+        sample_interval=sample_interval,
+        threshold=threshold,
+        min_interval=min_interval,
+        max_candidates=max_candidates,
+        settings=c.settings,
+    )
+    svc = SlidePreviewService(settings=c.settings, sessions=c.sessions)
+
+    async def _run() -> None:
+        preview = await svc.preview(session_id=sid, strategy=strategy, params=params)
+        saved = await svc.apply(
+            session_id=sid,
+            candidates=preview.candidates,
+            accept_all=yes_slides,
+        )
+        typer.echo(f"Saved {saved} slide(s) for session {sid}")
+
+    try:
+        asyncio.run(_run())
+    except SlidePreviewError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=2) from e
+
+
+@app.command()
+def cleanup(
+    ctx: typer.Context,
+    dry_run: bool = typer.Option(
+        True,
+        "--dry-run/--no-dry-run",
+        help="List artifacts without deleting (default).",
+    ),
+    yes: bool = typer.Option(
+        False,
+        "--yes",
+        help="Confirm destructive deletion (equivalent to --no-dry-run).",
+    ),
+    session_id: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--session-id",
+            help="Purge artifacts for one or more session UUIDs (repeatable)",
+        ),
+    ] = None,
+    all_sessions: bool = typer.Option(
+        False,
+        "--all-sessions",
+        help="Purge artifacts for every session in the database",
+    ),
+    orphans: bool = typer.Option(
+        False,
+        "--orphans",
+        help="Remove chunk/session/preview dirs with no matching DB row",
+    ),
+    imports_cache: bool = typer.Option(
+        False,
+        "--imports-cache",
+        help="Clear downloaded video cache under imports/downloads",
+    ),
+    logs: bool = typer.Option(
+        False,
+        "--logs",
+        help="Remove rotated application log files",
+    ),
+    exports: bool = typer.Option(
+        False,
+        "--exports",
+        help="Remove all markdown/screenshot exports",
+    ),
+) -> None:
+    """Remove session artifacts, orphans, or cached imports (dry-run by default)."""
+    c = _get_container(ctx)
+    if yes:
+        dry_run = False
+
+    if not any((session_id, all_sessions, orphans, imports_cache, logs, exports)):
+        typer.echo(
+            "Specify at least one target: --session-id, --all-sessions, --orphans, "
+            "--imports-cache, --logs, or --exports.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+    known = {s.id for s in c.sessions.list()}
+    session_uuids: list[UUID] = []
+    for sid in session_id or []:
+        try:
+            session_uuids.append(UUID(sid))
+        except ValueError:
+            typer.echo(f"Invalid session id: {sid}", err=True)
+            raise typer.Exit(code=2) from None
+
+    report = run_cleanup(
+        c.settings.ensure_data_dir(),
+        known_session_ids=known,
+        session_ids=session_uuids or None,
+        all_sessions=all_sessions,
+        orphans=orphans,
+        imports_cache=imports_cache,
+        logs=logs,
+        exports=exports,
+        dry_run=dry_run,
+    )
+
+    mode = "Would remove" if dry_run else "Removed"
+    for purge in report.session_purges:
+        for path in purge.paths:
+            typer.echo(f"{mode}: {path}")
+    for label, purge in (
+        ("orphan", report.orphan_purges),
+        ("imports-cache", report.imports_cache_purge),
+        ("logs", report.logs_purge),
+        ("exports", report.exports_purge),
+    ):
+        for path in purge.paths:
+            typer.echo(f"{mode} ({label}): {path}")
+
+    typer.echo(f"{mode} {report.total_paths} path(s) total.", err=False)
+    if dry_run:
+        typer.echo("Re-run with --yes to delete.", err=False)
 
 
 @app.command("speaker-alias")
