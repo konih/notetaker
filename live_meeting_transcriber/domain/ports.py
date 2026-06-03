@@ -121,6 +121,11 @@ class TranscriptRepository(Protocol):
 
     def list_by_session(self, session_id: UUID) -> list[TranscriptSegment]: ...
 
+    def replace_session_transcript(
+        self, session_id: UUID, segments: list[TranscriptSegment]
+    ) -> None:
+        """Replace all transcript rows for a session (e.g. offline WhisperX pass)."""
+
     def update_segment_text(self, segment_id: UUID, text: str) -> TranscriptSegment | None: ...
 
     def update_segment_speaker(

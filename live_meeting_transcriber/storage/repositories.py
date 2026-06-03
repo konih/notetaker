@@ -213,6 +213,36 @@ class SqliteTranscriptRepository:
             )
         return segments
 
+    def replace_session_transcript(
+        self, session_id: UUID, segments: list[TranscriptSegment]
+    ) -> None:
+        sid = str(session_id)
+        self.conn.execute("DELETE FROM transcript_segments WHERE session_id = ?", (sid,))
+        for segment in segments:
+            provider = segment.metadata.provider if segment.metadata else None
+            model = segment.metadata.model if segment.metadata else None
+            metadata_json = dumps_json(segment.metadata.extra) if segment.metadata else None
+            self.conn.execute(
+                """
+                INSERT INTO transcript_segments
+                  (id, session_id, chunk_id, started_at, ended_at, text, speaker, provider, model, metadata_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    str(segment.id),
+                    str(segment.session_id),
+                    str(segment.chunk_id) if segment.chunk_id else None,
+                    _dt_to_str(segment.started_at),
+                    _dt_to_str(segment.ended_at),
+                    segment.text,
+                    segment.speaker,
+                    provider,
+                    model,
+                    metadata_json,
+                ),
+            )
+        self.conn.commit()
+
     def update_segment_text(self, segment_id: UUID, text: str) -> TranscriptSegment | None:
         t = text.strip()
         if not t:
