@@ -59,6 +59,40 @@ class FfmpegPulseAudioCapture:
                 "pcm_s16le",
                 str(out_path),
             ]
+        elif channels >= 2:
+            # Stereo: left = microphone (local), right = monitor/system (remote), for offline
+            # YOU/REMOTE mapping and optional dual-path live transcription.
+            cmd = [
+                "ffmpeg",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-f",
+                "pulse",
+                "-thread_queue_size",
+                "4096",
+                "-i",
+                source,
+                "-f",
+                "pulse",
+                "-thread_queue_size",
+                "4096",
+                "-i",
+                mic,
+                "-filter_complex",
+                "[0:a]aresample=async=1,pan=mono|c0=c0[sys];"
+                "[1:a]aresample=async=1,pan=mono|c0=c0[mic];"
+                "[mic][sys]join=inputs=2:channel_layout=stereo[aout]",
+                "-map",
+                "[aout]",
+                "-t",
+                str(chunk_seconds),
+                "-ar",
+                str(sample_rate_hz),
+                "-acodec",
+                "pcm_s16le",
+                str(out_path),
+            ]
         else:
             cmd = [
                 "ffmpeg",
