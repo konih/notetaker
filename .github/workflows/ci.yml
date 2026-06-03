@@ -55,6 +55,30 @@ jobs:
       - name: Ruff format
         run: uv run ruff format --check live_meeting_transcriber tests
 
+  e2e:
+    name: E2E smoke (ffmpeg)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - run: uv python install 3.12
+
+      - name: Sync dev tools
+        run: uv sync --python 3.12 --extra dev
+
+      - name: Install video prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          bash scripts/install_video_prereqs.sh
+
+      - name: E2E pytest
+        run: uv run pytest tests/e2e -q
+
   secrets:
     name: Secret scan (gitleaks)
     runs-on: ubuntu-latest
