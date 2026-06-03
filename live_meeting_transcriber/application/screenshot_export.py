@@ -8,7 +8,7 @@ import shutil
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import UUID
 
@@ -62,6 +62,23 @@ def _session_time_bounds(
     return start, end
 
 
+def slide_captured_utc_from_manifest_item(
+    session: MeetingSession,
+    item: dict[str, object],
+) -> datetime | None:
+    """Map a slides.json row to session wall time (video seconds + session.started_at)."""
+    ts_raw = item.get("timestamp_seconds")
+    if isinstance(ts_raw, (int, float)):
+        return session.started_at + timedelta(seconds=float(ts_raw))
+    captured_raw = item.get("captured_at")
+    if isinstance(captured_raw, str):
+        try:
+            return datetime.fromisoformat(captured_raw)
+        except ValueError:
+            return None
+    return None
+
+
 def list_session_video_slides(
     data_dir: Path,
     session: MeetingSession,
@@ -82,15 +99,13 @@ def list_session_video_slides(
         if not isinstance(item, dict):
             continue
         path_name = item.get("path")
-        captured_raw = item.get("captured_at")
-        if not isinstance(path_name, str) or not isinstance(captured_raw, str):
+        if not isinstance(path_name, str):
             continue
         img = slides_dir / path_name
         if not img.is_file():
             continue
-        try:
-            captured = datetime.fromisoformat(captured_raw)
-        except ValueError:
+        captured = slide_captured_utc_from_manifest_item(session, item)
+        if captured is None:
             continue
         hits.append(ScreenshotHit(captured_utc=captured, source_path=img.resolve()))
     hits.sort(key=lambda h: (h.captured_utc, str(h.source_path)))
@@ -104,21 +119,21 @@ def list_session_screenshots(
     *,
     data_dir: Path | None = None,
 ) -> list[ScreenshotHit]:
-    """Find image files in ``source_dir`` whose embedded timestamp falls in ``[session.start, session.end]``."""
-    if source_dir is None or not source_dir.is_dir():
-        return []
-    t0, t1 = _session_time_bounds(session, segments)
+    """Find GNOME screenshots in ``source_dir`` and/or video slides under ``data_dir``."""
     hits: list[ScreenshotHit] = []
-    for path in sorted(source_dir.iterdir()):
-        if not path.is_file():
-            continue
-        local_naive = parse_gnome_screenshot_filename(path.name)
-        if local_naive is None:
-            continue
-        utc_naive = local_naive_to_utc_naive(local_naive)
-        if t0 <= utc_naive <= t1:
-            hits.append(ScreenshotHit(captured_utc=utc_naive, source_path=path.resolve()))
-    hits.sort(key=lambda h: (h.captured_utc, str(h.source_path)))
+    if source_dir is not None and source_dir.is_dir():
+        t0, t1 = _session_time_bounds(session, segments)
+        for path in sorted(source_dir.iterdir()):
+            if not path.is_file():
+                continue
+            local_naive = parse_gnome_screenshot_filename(path.name)
+            if local_naive is None:
+                continue
+            utc_naive = local_naive_to_utc_naive(local_naive)
+            if t0 <= utc_naive <= t1:
+                hits.append(ScreenshotHit(captured_utc=utc_naive, source_path=path.resolve()))
+        hits.sort(key=lambda h: (h.captured_utc, str(h.source_path)))
+
     if data_dir is not None:
         slide_hits = list_session_video_slides(data_dir, session)
         seen = {h.source_path for h in hits}

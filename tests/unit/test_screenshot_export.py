@@ -12,6 +12,7 @@ from live_meeting_transcriber.application.screenshot_export import (
     list_session_video_slides,
     merge_transcript_lines_with_screenshots,
     parse_gnome_screenshot_filename,
+    slide_captured_utc_from_manifest_item,
 )
 from live_meeting_transcriber.domain.models import MeetingSession, TranscriptSegment
 from live_meeting_transcriber.obsidian.meeting_export import write_dual_export
@@ -182,3 +183,121 @@ def test_list_session_video_slides_from_manifest(tmp_path: Path) -> None:
     assert len(hits) == 1
     assert hits[0].source_path == img.resolve()
     assert hits[0].captured_utc == cap
+
+
+def test_slide_captured_utc_prefers_timestamp_seconds() -> None:
+    session = MeetingSession(
+        id=uuid4(),
+        title="Talk",
+        started_at=datetime(2026, 6, 3, 10, 0, 0),
+    )
+    captured = slide_captured_utc_from_manifest_item(
+        session,
+        {
+            "timestamp_seconds": 45.0,
+            "captured_at": "2000-01-01T00:00:00",
+            "path": "slide.png",
+        },
+    )
+    assert captured == session.started_at + timedelta(seconds=45.0)
+
+
+def test_list_session_screenshots_loads_video_slides_without_gnome_dir(tmp_path: Path) -> None:
+    sid = uuid4()
+    t0 = datetime(2026, 6, 3, 10, 0, 0)
+    session = MeetingSession(id=sid, title="Video", started_at=t0, ended_at=t0 + timedelta(minutes=5))
+    slides_dir = tmp_path / "sessions" / str(sid) / "slides"
+    slides_dir.mkdir(parents=True)
+    img = slides_dir / "slide_000_30.0s.png"
+    img.write_bytes(b"png")
+    (slides_dir / "slides.json").write_text(
+        '[{"index": 0, "timestamp_seconds": 30.0, "path": "slide_000_30.0s.png", '
+        '"change_score": 1.0}]',
+        encoding="utf-8",
+    )
+    seg = TranscriptSegment(
+        session_id=sid,
+        started_at=t0,
+        ended_at=t0 + timedelta(minutes=2),
+        text="intro",
+    )
+    seg2 = TranscriptSegment(
+        session_id=sid,
+        started_at=t0 + timedelta(minutes=2),
+        ended_at=t0 + timedelta(minutes=5),
+        text="body",
+    )
+    hits = list_session_screenshots(None, session, [seg, seg2], data_dir=tmp_path)
+    assert len(hits) == 1
+    assert hits[0].captured_utc == t0 + timedelta(seconds=30.0)
+
+
+def test_merge_video_slide_at_timestamp_not_end_of_export(tmp_path: Path) -> None:
+    sid = uuid4()
+    t0 = datetime(2026, 6, 3, 10, 0, 0)
+    session = MeetingSession(id=sid, title="Video", started_at=t0, ended_at=t0 + timedelta(minutes=5))
+    s1 = TranscriptSegment(
+        session_id=sid,
+        started_at=t0,
+        ended_at=t0 + timedelta(minutes=2),
+        text="intro",
+    )
+    s2 = TranscriptSegment(
+        session_id=sid,
+        started_at=t0 + timedelta(minutes=2),
+        ended_at=t0 + timedelta(minutes=5),
+        text="body",
+    )
+    from live_meeting_transcriber.application.screenshot_export import ScreenshotHit
+
+    slide_path = tmp_path / "slide.png"
+    slide_path.write_bytes(b"x")
+    hits = [ScreenshotHit(captured_utc=t0 + timedelta(seconds=30.0), source_path=slide_path)]
+
+    lines = merge_transcript_lines_with_screenshots(
+        [s1, s2],
+        lambda seg: f"LINE:{seg.text}",
+        lambda h: f"IMG:{h.source_path.name}",
+        session=session,
+        shots=hits,
+    )
+    assert lines == ["LINE:intro", "IMG:slide.png", "LINE:body"]
+
+
+def test_write_dual_export_includes_video_slides_without_screenshots_dir(
+    tmp_path: Path,
+) -> None:
+    sid = uuid4()
+    t0 = datetime(2026, 6, 3, 10, 0, 0)
+    session = MeetingSession(id=sid, title="Video", started_at=t0, ended_at=t0 + timedelta(minutes=5))
+    seg = TranscriptSegment(
+        session_id=sid,
+        started_at=t0,
+        ended_at=t0 + timedelta(minutes=5),
+        text="hello",
+    )
+    slides_dir = tmp_path / "app" / "sessions" / str(sid) / "slides"
+    slides_dir.mkdir(parents=True)
+    (slides_dir / "slide_000_30.0s.png").write_bytes(b"png")
+    (slides_dir / "slides.json").write_text(
+        '[{"index": 0, "timestamp_seconds": 30.0, "path": "slide_000_30.0s.png", '
+        '"change_score": 1.0}]',
+        encoding="utf-8",
+    )
+
+    result = write_dual_export(
+        app_base_dir=tmp_path / "app",
+        session=session,
+        segments=[seg],
+        summary=None,
+        speaker_display=None,
+        obsidian_meetings_dir=None,
+        obsidian_meeting_template=None,
+        screenshots_source_dir=None,
+    )
+    text = result.app_path.read_text(encoding="utf-8")
+    assert "hello" in text
+    assert "slide_000_30.0s.png" in text or "screenshot_" in text
+    hello_idx = text.index("hello")
+    img_idx = text.index(".png")
+    assert img_idx > hello_idx
