@@ -20,10 +20,20 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# PyTorch wheels are not available for CPython 3.14+ yet (cp314). Use Python 3.12 or 3.13
+# for these extras, e.g. `uv python pin 3.13`.
 diarization = [
-  "pyannote.audio>=3.1.0",
-  "torch>=2.1",
-  "torchaudio>=2.1",
+  "pyannote.audio>=3.1.0; python_full_version < '3.14'",
+  "torch>=2.1; python_full_version < '3.14'",
+  "torchaudio>=2.1; python_full_version < '3.14'",
+]
+faster-whisper = [
+  "faster-whisper>=1.0.3",
+]
+whisperx = [
+  "whisperx>=3.1.1; python_full_version < '3.14'",
+  "torch>=2.1; python_full_version < '3.14'",
+  "torchaudio>=2.1; python_full_version < '3.14'",
 ]
 dev = [
   "pytest>=8.0",
