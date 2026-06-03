@@ -122,6 +122,46 @@ class Decision(BaseModel):
     text: str = Field(min_length=1)
 
 
+class MeetingMetadataProposal(BaseModel):
+    """Structured meeting metadata from summarization (applied when confidence is set)."""
+
+    title: str | None = None
+    topic: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    participants: list[str] = Field(default_factory=list)
+    series: str | None = None
+    location: str | None = None
+    related: str | None = None
+    confidence: dict[str, bool] = Field(default_factory=dict)
+
+    def confident_str(self, field: str) -> str | None:
+        if not self.confidence.get(field):
+            return None
+        val = getattr(self, field, None)
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+        return None
+
+    def confident_tags(self) -> list[str]:
+        if not self.confidence.get("tags") or not self.tags:
+            return []
+        out: list[str] = []
+        seen: set[str] = set()
+        for tag in self.tags:
+            t = tag.strip().lower().replace(" ", "-")
+            if t and t not in seen:
+                seen.add(t)
+                out.append(t)
+        if "meeting" not in seen:
+            out.insert(0, "meeting")
+        return out
+
+    def confident_participants(self) -> list[str]:
+        if not self.confidence.get("participants"):
+            return []
+        return [p.strip() for p in self.participants if p.strip()]
+
+
 class Summary(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     session_id: UUID
@@ -129,4 +169,26 @@ class Summary(BaseModel):
     summary_markdown: str = Field(min_length=1)
     action_items: list[ActionItem] = Field(default_factory=list)
     decisions: list[Decision] = Field(default_factory=list)
+    meeting_metadata: MeetingMetadataProposal | None = None
     metadata: ProviderMetadata | None = None
+
+
+class SlideDetectionParams(BaseModel):
+    """Tunable parameters for presentation slide change detection."""
+
+    model_config = {"frozen": True}
+
+    sample_interval_seconds: float = Field(default=2.0, ge=0.5, le=30.0)
+    change_threshold: float = Field(default=0.12, ge=0.01, le=1.0)
+    min_slide_interval_seconds: float = Field(default=15.0, ge=0.0, le=600.0)
+    max_candidates: int = Field(default=120, ge=1, le=500)
+
+
+class SlideCandidate(BaseModel):
+    """One detected slide transition at ``timestamp_seconds`` in the source video."""
+
+    model_config = {"frozen": True}
+
+    timestamp_seconds: float
+    change_score: float
+    preview_path: Path | None = None

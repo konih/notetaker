@@ -9,6 +9,8 @@ from live_meeting_transcriber.domain.models import (
     AudioChunk,
     DiarizationSegment,
     MeetingSession,
+    SlideCandidate,
+    SlideDetectionParams,
     SpeakerAlias,
     Summary,
     TranscriptSegment,
@@ -82,6 +84,7 @@ class SummarizationProvider(Protocol):
         session: MeetingSession,
         segments: Iterable[TranscriptSegment],
         speaker_display: dict[str, str] | None = None,
+        user_context: str | None = None,
     ) -> Summary: ...
 
 
@@ -156,3 +159,17 @@ class SummaryRepository(Protocol):
     def upsert(self, summary: Summary) -> Summary: ...
 
     def get_by_session(self, session_id: UUID) -> Summary | None: ...
+
+
+@runtime_checkable
+class SlideDetectionStrategy(Protocol):
+    """Adapter for detecting presentation slide transitions in a video file."""
+
+    def detect(
+        self,
+        *,
+        video_path: Path,
+        duration_seconds: float,
+        params: SlideDetectionParams,
+        preview_dir: Path | None = None,
+    ) -> list[SlideCandidate]: ...
