@@ -24,7 +24,9 @@ from live_meeting_transcriber.ui.state import actions as act
 from live_meeting_transcriber.ui.state.model import AppState, RecordingStatus
 from live_meeting_transcriber.ui.state.store import Store
 from live_meeting_transcriber.ui.tui.meeting_session_helpers import (
+    count_saved_slides,
     format_session_type_label,
+    session_has_slide_source,
     session_is_video_import,
 )
 from live_meeting_transcriber.ui.tui.people_suggesters import (
@@ -60,8 +62,8 @@ class EditSegmentModal(ModalScreen[bool | None]):
     """Edit transcript line text in SQLite."""
 
     BINDINGS = [
-        Binding("escape", "cancel", "Cancel", show=True),
-        Binding("ctrl+enter", "save", "Save", show=True),
+        Binding("escape", "cancel", "Cancel", show=True, priority=True),
+        Binding("ctrl+enter,ctrl+return", "save", "Save", show=True, priority=True),
     ]
 
     def __init__(self, *, container: Container, segment: TranscriptSegment) -> None:
@@ -72,8 +74,16 @@ class EditSegmentModal(ModalScreen[bool | None]):
 
     def compose(self) -> ComposeResult:
         yield Vertical(
-            Static("Edit segment text — Ctrl+Enter: save · Esc: cancel", classes="settings-title"),
+            Static("Edit segment text", classes="settings-title"),
+            Static(
+                "Ctrl+Enter: save · Esc: cancel — or use the buttons below.",
+                classes="dim",
+            ),
             TextArea(text=self._initial, id="segment-edit-area", language=None),
+            Horizontal(
+                Button("Save", id="segment-edit-save", variant="primary"),
+                Button("Cancel", id="segment-edit-cancel"),
+            ),
             classes="settings-dialog",
         )
 
@@ -94,33 +104,59 @@ class EditSegmentModal(ModalScreen[bool | None]):
     def action_cancel(self) -> None:
         self.dismiss(None)
 
+    async def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "segment-edit-save":
+            await self.action_save()
+        elif event.button.id == "segment-edit-cancel":
+            self.action_cancel()
+
 
 class SummaryContextModal(ModalScreen[str | None]):
     """Optional one-off LLM guidance before summarization (not persisted)."""
 
     BINDINGS = [
-        Binding("escape", "cancel", "Cancel", show=True),
-        Binding("ctrl+enter", "submit", "Summarize", show=True),
+        Binding("escape", "cancel", "Cancel", show=True, priority=True),
+        Binding("ctrl+enter,ctrl+return", "submit", "Summarize", show=True, priority=True),
     ]
 
     def compose(self) -> ComposeResult:
         yield Vertical(
             Static("Optional context for summary", classes="settings-title"),
             Static(
-                "Add focus, audience, or topics for the AI. Leave empty to skip. "
-                "Ctrl+Enter: summarize · Esc: cancel",
+                "Add focus, audience, or topics for the AI. "
+                "Ctrl+Enter: summarize with text below · Esc: cancel — or use buttons.",
                 classes="dim",
             ),
             TextArea(id="summary-context-area", language=None),
+            Horizontal(
+                Button("Summarize", id="summary-with-context", variant="primary"),
+                Button("Summarize without context", id="summary-without-context"),
+                Button("Cancel", id="summary-cancel"),
+            ),
             classes="settings-dialog",
         )
+
+    def on_mount(self) -> None:
+        self.query_one("#summary-context-area", TextArea).focus()
 
     def action_submit(self) -> None:
         area = self.query_one("#summary-context-area", TextArea)
         self.dismiss(area.text.strip())
 
+    def action_submit_without_context(self) -> None:
+        self.dismiss("")
+
     def action_cancel(self) -> None:
         self.dismiss(None)
+
+    async def on_button_pressed(self, event: Button.Pressed) -> None:
+        bid = event.button.id or ""
+        if bid == "summary-with-context":
+            self.action_submit()
+        elif bid == "summary-without-context":
+            self.action_submit_without_context()
+        elif bid == "summary-cancel":
+            self.action_cancel()
 
 
 class SessionMediaModal(ModalScreen[None]):
@@ -366,13 +402,20 @@ class MeetingBrowser(Vertical):
         status = self.query_one("#meeting-detail-status", Static)
         data_dir = self.container.settings.ensure_data_dir()
         is_video = session_is_video_import(data_dir, session_id)
+        has_slide_source = session_has_slide_source(data_dir, session_id)
+        saved_slides = count_saved_slides(data_dir, session_id)
         kind = "[cyan]Video import[/]" if is_video else "[green]Live recording[/]"
-        status.update(f"Editing {kind} [bold]{session.title}[/bold] ({session_id})")
+        slide_note = ""
+        if saved_slides:
+            slide_note = f" · [cyan]{saved_slides} slide(s) on disk[/]"
+        elif has_slide_source:
+            slide_note = " · [dim]slide preview available (p)[/]"
+        status.update(f"Editing {kind} [bold]{session.title}[/bold] ({session_id}){slide_note}")
 
         continue_btn = self.query_one("#meeting-btn-continue-record", Button)
         continue_btn.disabled = is_video
         slide_btn = self.query_one("#meeting-btn-slide-preview", Button)
-        slide_btn.disabled = not is_video
+        slide_btn.disabled = not has_slide_source
 
         title_inp = self.query_one("#meeting-title", TabCompletableInput)
         title_inp.disabled = False
@@ -462,6 +505,10 @@ class MeetingBrowser(Vertical):
         self.run_worker(self._run_video_import(form), exclusive=True, group="video-import")
 
     async def _run_video_import(self, form: VideoImportForm) -> None:
+        status = self.query_one("#meeting-detail-status", Static)
+        status.update("[dim]Importing video…[/]")
+        slide_btn = self.query_one("#meeting-btn-slide-preview", Button)
+        slide_btn.disabled = True
         self.app.notify(
             f"Importing video from {form.source[:64]}{'…' if len(form.source) > 64 else ''}…",
             severity="information",
@@ -469,9 +516,13 @@ class MeetingBrowser(Vertical):
 
         def _on_progress(p: VideoImportProgress) -> None:
             if p.phase == "slides":
+                status.update("[dim]Importing — detecting slides…[/]")
                 self.app.notify("Detecting slides…", severity="information", timeout=3)
                 return
             pct = int(100 * p.chunk_index / p.chunk_total) if p.chunk_total else 0
+            status.update(
+                f"[dim]Importing — transcribing chunk {p.chunk_index}/{p.chunk_total} ({pct}%)…[/]"
+            )
             self.app.notify(
                 f"Transcribing chunk {p.chunk_index}/{p.chunk_total} ({pct}%) — "
                 f"{p.segments_so_far} segment(s) so far",
@@ -609,9 +660,9 @@ class MeetingBrowser(Vertical):
             self.app.notify("Select a meeting first.", severity="warning")
             return
         data_dir = self.container.settings.ensure_data_dir()
-        if not session_is_video_import(data_dir, self._selected_session_id):
+        if not session_has_slide_source(data_dir, self._selected_session_id):
             self.app.notify(
-                "Slide preview is only available for video-import sessions "
+                "Slide preview needs a session with source video on disk "
                 "(import with ctrl+v or transcribe-video).",
                 severity="warning",
             )

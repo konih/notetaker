@@ -8,8 +8,9 @@ from uuid import UUID
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
+from textual.events import Focus
 from textual.screen import ModalScreen
-from textual.widgets import Button, DataTable, Input, Select, Static
+from textual.widgets import Button, Collapsible, DataTable, Input, Select, Static
 
 from live_meeting_transcriber.application.container import Container
 from live_meeting_transcriber.application.slide_preview_service import (
@@ -24,8 +25,13 @@ from live_meeting_transcriber.ui.tui.slide_preview_helpers import (
     build_slide_params,
     format_candidate_label,
     image_widget_class,
+    inline_image_unsupported_message,
     normalize_strategy,
     open_image_externally,
+    slide_detection_help_text,
+    slide_param_focus_hint,
+    terminal_supports_inline_images,
+    try_chafa_ascii_preview,
 )
 
 
@@ -45,7 +51,7 @@ class SlideImagePane(Vertical):
 
     def compose(self) -> ComposeResult:
         cls = image_widget_class()
-        if cls is not None:
+        if cls is not None and terminal_supports_inline_images():
             self._image_widget = cls(id="slide-preview-image")
             yield self._image_widget
         self._fallback = Static(
@@ -57,6 +63,8 @@ class SlideImagePane(Vertical):
     def on_mount(self) -> None:
         if self._image_widget is not None and self._fallback is not None:
             self._fallback.display = False
+        elif self._fallback is not None and not terminal_supports_inline_images():
+            self._fallback.update(inline_image_unsupported_message())
 
     def show_path(self, path: Path | None) -> None:
         self._current_path = path
@@ -78,12 +86,22 @@ class SlideImagePane(Vertical):
 
         if self._fallback is not None:
             self._fallback.display = True
-            self._fallback.update(
-                f"[bold]{path.name}[/bold]\n"
-                f"[dim]{path}[/dim]\n\n"
-                "[dim]Install optional extra[/] [bold]tui-image[/] "
-                "[dim]for inline preview ·[/] [bold]o[/] open externally[/]"
-            )
+            lines = [
+                f"[bold]{path.name}[/bold]",
+                f"[dim]{path}[/dim]",
+                "",
+            ]
+            if not terminal_supports_inline_images():
+                lines.append(inline_image_unsupported_message())
+            else:
+                lines.append(
+                    "[dim]Install optional extra[/] [bold]tui-image[/] "
+                    "[dim]for inline preview ·[/] [bold]o[/] open externally[/]"
+                )
+            ascii_preview = try_chafa_ascii_preview(path)
+            if ascii_preview:
+                lines.extend(["", ascii_preview])
+            self._fallback.update("\n".join(lines))
 
     @property
     def current_path(self) -> Path | None:
@@ -103,6 +121,8 @@ class SlidePreviewScreen(ModalScreen[None]):
     #slide-candidates-table { width: 1fr; min-width: 28; height: 1fr; }
     #slide-image-pane { width: 1fr; min-width: 24; height: 1fr; border: solid $boost; padding: 0 1; }
     #slide-preview-hint { height: auto; padding-top: 1; }
+    #slide-param-hint { height: auto; margin-bottom: 1; }
+    #slide-help-panel { height: auto; max-height: 12; margin-bottom: 1; }
     """
 
     BINDINGS = [
@@ -159,6 +179,21 @@ class SlidePreviewScreen(ModalScreen[None]):
                 ),
                 Button("Run preview", id="slide-run-btn", variant="primary"),
                 id="slide-preview-params",
+            ),
+            Static(
+                "Threshold: lower = more sensitive · Min interval: min seconds between slides",
+                classes="dim",
+            ),
+            Static(
+                "Focus a field for a short hint.",
+                id="slide-param-hint",
+                classes="dim",
+            ),
+            Collapsible(
+                Static(slide_detection_help_text(), id="slide-help-body"),
+                title="? Slide detection help",
+                collapsed=True,
+                id="slide-help-panel",
             ),
             Static(
                 "Adjust parameters and press Run preview or [bold]r[/].", id="slide-preview-status"
@@ -234,7 +269,8 @@ class SlidePreviewScreen(ModalScreen[None]):
         if self._busy:
             return
         self._set_busy(True)
-        self._update_status("[dim]Running slide detection…[/]")
+        self._update_status("[dim]Detecting slides…[/]")
+        self.app.notify("Detecting slides…", severity="information", timeout=4)
         try:
             strategy = normalize_strategy(self._read_strategy(), settings=self._container.settings)
             params = self._read_params()
@@ -268,11 +304,12 @@ class SlidePreviewScreen(ModalScreen[None]):
         self._refresh_table()
         self._set_busy(False)
         kept = sum(1 for v in self._review.values() if v is True)
+        n = len(result.candidates)
+        self.app.notify(f"Found {n} slide candidate(s).", severity="information", timeout=5)
         self._update_status(
-            f"Strategy [bold]{result.strategy}[/] · "
-            f"{len(result.candidates)} candidate(s) · "
-            f"duration {result.duration_seconds:.0f}s · "
-            f"kept {kept}"
+            f"[bold]Found {n} candidate(s)[/] · strategy [bold]{result.strategy}[/] · "
+            f"duration {result.duration_seconds:.0f}s · kept {kept} · "
+            "use table for timestamps"
         )
         table = self._get_candidates_table()
         if result.candidates:
@@ -330,6 +367,17 @@ class SlidePreviewScreen(ModalScreen[None]):
         idx = self._selected_index()
         if idx is not None:
             self._show_candidate(idx)
+
+    def on_focus(self, event: Focus) -> None:
+        node = event.control
+        if node.id and node.id in (
+            "slide-strategy",
+            "slide-sample",
+            "slide-threshold",
+            "slide-min-interval",
+            "slide-max-candidates",
+        ):
+            self.query_one("#slide-param-hint", Static).update(slide_param_focus_hint(node.id))
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "slide-run-btn":

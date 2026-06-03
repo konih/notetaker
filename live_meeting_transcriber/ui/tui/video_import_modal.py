@@ -7,9 +7,9 @@ from dataclasses import dataclass
 
 from textual.app import ComposeResult
 from textual.binding import Binding
-from textual.containers import Vertical
+from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Input, Static
+from textual.widgets import Button, Input, Static
 
 from live_meeting_transcriber.application.container import Container
 from live_meeting_transcriber.application.video_import_service import (
@@ -34,8 +34,8 @@ class VideoImportModal(ModalScreen[VideoImportForm | None]):
     """Collect local path or http(s) URL for ``VideoImportService``."""
 
     BINDINGS = [
-        Binding("escape", "cancel", "Cancel", show=True),
-        Binding("ctrl+enter", "submit", "Import", show=True),
+        Binding("escape", "cancel", "Cancel", show=True, priority=True),
+        Binding("ctrl+enter,ctrl+return", "submit", "Import", show=True, priority=True),
     ]
 
     def compose(self) -> ComposeResult:
@@ -44,13 +44,17 @@ class VideoImportModal(ModalScreen[VideoImportForm | None]):
             Static(
                 "Local MP4 path or http(s) URL (YouTube etc.; URLs need yt-dlp).\n"
                 "Transcription runs now; use [bold]p[/] slide preview after import.\n"
-                "Ctrl+Enter: import · Esc: cancel",
+                "Ctrl+Enter: import · Esc: cancel — or use buttons below.",
                 classes="dim",
             ),
             Static("Source path or URL"),
             Input(placeholder="/path/to/talk.mp4 or https://…", id="video-import-source"),
             Static("Title (optional)"),
             Input(placeholder="Defaults to filename or page title", id="video-import-title"),
+            Horizontal(
+                Button("Import", id="video-import-submit", variant="primary"),
+                Button("Cancel", id="video-import-cancel"),
+            ),
             classes="settings-dialog",
         )
 
@@ -67,6 +71,12 @@ class VideoImportModal(ModalScreen[VideoImportForm | None]):
 
     def action_cancel(self) -> None:
         self.dismiss(None)
+
+    async def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "video-import-submit":
+            self.action_submit()
+        elif event.button.id == "video-import-cancel":
+            self.action_cancel()
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         if event.input.id == "video-import-source":

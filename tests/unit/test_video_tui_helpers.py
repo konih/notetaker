@@ -15,7 +15,9 @@ from live_meeting_transcriber.application.video_import_service import (
 from live_meeting_transcriber.application.video_session_storage import is_video_import_session
 from live_meeting_transcriber.transcription.openai_transcriber import OpenAITranscriptionError
 from live_meeting_transcriber.ui.tui.meeting_session_helpers import (
+    count_saved_slides,
     format_session_type_label,
+    session_has_slide_source,
     session_is_video_import,
 )
 from live_meeting_transcriber.ui.tui.video_import_modal import (
@@ -44,6 +46,36 @@ def test_is_video_import_session_true_with_manifest(tmp_path: Path) -> None:
 def test_format_session_type_label() -> None:
     assert format_session_type_label(is_video=True) == "▶ Video"
     assert format_session_type_label(is_video=False) == "● Live"
+
+
+def test_session_has_slide_source_with_manifest(tmp_path: Path) -> None:
+    sid = uuid4()
+    manifest = tmp_path / "sessions" / str(sid) / "source_media.json"
+    manifest.parent.mkdir(parents=True)
+    video = tmp_path / "talk.mp4"
+    video.write_bytes(b"fake")
+    manifest.write_text(
+        json.dumps({"video_path": str(video), "source": str(video)}),
+        encoding="utf-8",
+    )
+    assert session_has_slide_source(tmp_path, sid) is True
+
+
+def test_session_has_slide_source_with_loose_mp4(tmp_path: Path) -> None:
+    sid = uuid4()
+    session_dir = tmp_path / "sessions" / str(sid)
+    session_dir.mkdir(parents=True)
+    (session_dir / "recording.mp4").write_bytes(b"fake")
+    assert session_has_slide_source(tmp_path, sid) is True
+
+
+def test_count_saved_slides(tmp_path: Path) -> None:
+    sid = uuid4()
+    slides_dir = tmp_path / "sessions" / str(sid) / "slides"
+    slides_dir.mkdir(parents=True)
+    (slides_dir / "001.png").write_bytes(b"x")
+    (slides_dir / "002.png").write_bytes(b"y")
+    assert count_saved_slides(tmp_path, sid) == 2
 
 
 def test_format_video_import_error_wraps_generic() -> None:

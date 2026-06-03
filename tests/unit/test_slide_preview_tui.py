@@ -14,8 +14,12 @@ from live_meeting_transcriber.ui.tui.slide_preview_helpers import (
     accepted_candidates,
     build_slide_params,
     format_candidate_label,
+    inline_image_unsupported_message,
     normalize_strategy,
     open_image_externally,
+    slide_param_focus_hint,
+    terminal_supports_inline_images,
+    try_chafa_ascii_preview,
 )
 from live_meeting_transcriber.ui.tui.slide_preview_screen import SlidePreviewScreen
 from textual.app import App
@@ -105,6 +109,36 @@ def test_open_image_externally_launches_viewer(tmp_path: Path) -> None:
         assert popen.call_args.args[0] == ["/usr/bin/xdg-open", str(png.resolve())]
 
 
+def test_inline_image_unsupported_message_mentions_o() -> None:
+    msg = inline_image_unsupported_message()
+    assert "[bold]o[/]" in msg
+    assert "Kitty" in msg
+
+
+def test_slide_param_focus_hint_known_ids() -> None:
+    assert "sensitive" in slide_param_focus_hint("slide-threshold").lower()
+    assert slide_param_focus_hint("unknown") == "Select a field above for a short hint."
+
+
+def test_terminal_supports_inline_images_cached(monkeypatch: pytest.MonkeyPatch) -> None:
+    import live_meeting_transcriber.ui.tui.slide_preview_helpers as helpers
+
+    monkeypatch.setattr(helpers, "_INLINE_IMAGES_SUPPORTED", None)
+    monkeypatch.setattr(helpers, "_INLINE_IMAGE_MODE", None)
+    monkeypatch.setattr(helpers, "_probe_inline_image_mode", lambda: "graphics")
+    assert terminal_supports_inline_images() is True
+
+
+def test_try_chafa_ascii_preview_without_chafa(tmp_path: Path) -> None:
+    png = tmp_path / "slide.png"
+    png.write_bytes(b"png")
+    with patch(
+        "live_meeting_transcriber.ui.tui.slide_preview_helpers.shutil.which",
+        return_value=None,
+    ):
+        assert try_chafa_ascii_preview(png) is None
+
+
 def test_build_slide_params_invalid_raises() -> None:
     s = _settings()
     with pytest.raises(ValueError):
@@ -143,9 +177,15 @@ async def test_slide_preview_screen_populates_table_after_async_preview(tmp_path
         async def on_mount(self) -> None:
             await self.push_screen(self._screen)
 
-    with patch(
-        "live_meeting_transcriber.ui.tui.slide_preview_screen.SlidePreviewService",
-    ) as mock_svc_cls:
+    with (
+        patch(
+            "live_meeting_transcriber.ui.tui.slide_preview_screen.terminal_supports_inline_images",
+            return_value=False,
+        ),
+        patch(
+            "live_meeting_transcriber.ui.tui.slide_preview_screen.SlidePreviewService",
+        ) as mock_svc_cls,
+    ):
         mock_svc_cls.return_value.preview = AsyncMock(return_value=preview_result)
         async with PreviewTestApp().run_test() as pilot:
             await pilot.pause()

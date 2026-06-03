@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -13,6 +14,31 @@ from live_meeting_transcriber.video.strategies.factory import SlideStrategyName
 
 _IMAGE_WIDGET_CLASS: type | None = None
 _IMAGE_WIDGET_CHECKED = False
+_INLINE_IMAGES_SUPPORTED: bool | None = None
+_INLINE_IMAGE_MODE: str | None = None
+
+_SLIDE_DETECTION_HELP = """\
+[bold]frame_diff[/] — Sample frames on an interval; flag when pixel change exceeds threshold.
+Good default for screen shares and steady slide decks.
+
+[bold]ffmpeg_scene[/] — Uses ffmpeg scene-change detection; can catch hard cuts faster on some videos.
+
+[bold]Sample interval[/] — Seconds between frame samples (lower = more CPU, finer search).
+
+[bold]Threshold[/] — frame_diff sensitivity; [italic]lower = more sensitive[/] (more candidates).
+
+[bold]Min interval[/] — Minimum seconds between accepted slides (reduces duplicates).
+
+[bold]Max candidates[/] — Upper bound on rows returned per preview run.
+"""
+
+_SLIDE_PARAM_HINTS: dict[str, str] = {
+    "slide-strategy": "frame_diff: pixel diff between samples · ffmpeg_scene: ffmpeg scene filter",
+    "slide-sample": "Seconds between samples (lower = slower, more thorough)",
+    "slide-threshold": "Lower = more sensitive (more slide candidates)",
+    "slide-min-interval": "Minimum seconds between detected slides",
+    "slide-max-candidates": "Cap on candidates per preview run",
+}
 
 
 def ensure_textual_image_protocol_probe() -> None:
@@ -36,6 +62,80 @@ def image_widget_class() -> type | None:
     except ImportError:
         _IMAGE_WIDGET_CLASS = None
     return _IMAGE_WIDGET_CLASS
+
+
+def _probe_inline_image_mode() -> str:
+    """Classify inline preview support (run before Textual starts)."""
+    term = os.environ.get("TERM_PROGRAM", "").strip().lower()
+    if term in ("kitty", "wezterm", "ghostty"):
+        return "graphics"
+    try:
+        from textual_image.renderable import Image as AutoImage
+        from textual_image.renderable.halfcell import Image as HalfcellImage
+        from textual_image.renderable.sixel import Image as SixelImage
+        from textual_image.renderable.tgp import Image as TGPImage
+    except ImportError:
+        return "none"
+    if AutoImage is TGPImage or AutoImage is SixelImage:
+        return "graphics"
+    if AutoImage is HalfcellImage:
+        return "halfcell"
+    return "unicode"
+
+
+def terminal_supports_inline_images() -> bool:
+    """Kitty TGP / Sixel / known graphics terminals; not Terminator half-cell fallback."""
+    global _INLINE_IMAGES_SUPPORTED, _INLINE_IMAGE_MODE
+    if _INLINE_IMAGES_SUPPORTED is None:
+        _INLINE_IMAGE_MODE = _probe_inline_image_mode()
+        _INLINE_IMAGES_SUPPORTED = _INLINE_IMAGE_MODE == "graphics"
+    return _INLINE_IMAGES_SUPPORTED
+
+
+def inline_image_mode_label() -> str:
+    if _INLINE_IMAGE_MODE is None:
+        terminal_supports_inline_images()
+    return _INLINE_IMAGE_MODE or "none"
+
+
+def inline_image_unsupported_message() -> str:
+    return (
+        "[yellow]Inline images need Kitty, WezTerm, or Ghostty[/] "
+        "(Terminator and classic xterm cannot show PNGs inline).\n"
+        "Press [bold]o[/] to open the preview in your image viewer (xdg-open).\n"
+        "[dim]See docs/install-desktop.md · optional: install[/] [bold]chafa[/] "
+        "[dim]for ASCII preview here[/]"
+    )
+
+
+def slide_detection_help_text() -> str:
+    return _SLIDE_DETECTION_HELP
+
+
+def slide_param_focus_hint(widget_id: str) -> str:
+    return _SLIDE_PARAM_HINTS.get(widget_id, "Select a field above for a short hint.")
+
+
+def try_chafa_ascii_preview(path: Path, *, columns: int = 48, rows: int = 16) -> str | None:
+    """Render PNG to ANSI art when ``chafa`` is installed; otherwise None."""
+    if not path.is_file():
+        return None
+    chafa = shutil.which("chafa")
+    if chafa is None:
+        return None
+    try:
+        proc = subprocess.run(
+            [chafa, "-s", f"{columns}x{rows}", str(path.resolve())],
+            capture_output=True,
+            text=True,
+            timeout=8,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0 or not proc.stdout.strip():
+        return None
+    return proc.stdout.rstrip()
 
 
 def build_slide_params(
