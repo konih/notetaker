@@ -177,10 +177,12 @@ class SummarizeSessionRequested:
     """Run summarization for a session and store in DB.
 
     ``session_id`` None means the live recording session from UI state.
+    ``user_context`` is optional one-off guidance for the LLM (not persisted).
     """
 
     at: datetime
     session_id: UUID | None = None
+    user_context: str | None = None
 
 
 @dataclass(frozen=True)

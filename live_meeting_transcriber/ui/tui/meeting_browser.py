@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import functools
-import shutil
 from collections.abc import Callable
+from pathlib import Path
 from uuid import UUID
 
 from textual.app import ComposeResult
@@ -11,7 +11,12 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Static, TextArea
 
+from live_meeting_transcriber.application.cleanup_service import purge_session_artifacts
 from live_meeting_transcriber.application.container import Container
+from live_meeting_transcriber.application.session_media import (
+    collect_session_media,
+    format_session_media_inventory,
+)
 from live_meeting_transcriber.application.session_service import SessionService
 from live_meeting_transcriber.domain.models import Summary, TranscriptSegment
 from live_meeting_transcriber.domain.speaker_display import format_transcript_speaker_label
@@ -22,6 +27,7 @@ from live_meeting_transcriber.ui.tui.people_suggesters import (
     CommaSeparatedPeopleSuggester,
     PeoplePrefixSuggester,
 )
+from live_meeting_transcriber.ui.tui.slide_preview_screen import SlidePreviewScreen
 from live_meeting_transcriber.ui.tui.tab_complete_input import TabCompletableInput
 from live_meeting_transcriber.utils.time import utc_now
 
@@ -76,6 +82,85 @@ class EditSegmentModal(ModalScreen[bool | None]):
 
     def action_cancel(self) -> None:
         self.dismiss(None)
+
+
+class SummaryContextModal(ModalScreen[str | None]):
+    """Optional one-off LLM guidance before summarization (not persisted)."""
+
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel", show=True),
+        Binding("ctrl+enter", "submit", "Summarize", show=True),
+    ]
+
+    def compose(self) -> ComposeResult:
+        yield Vertical(
+            Static("Optional context for summary", classes="settings-title"),
+            Static(
+                "Add focus, audience, or topics for the AI. Leave empty to skip. "
+                "Ctrl+Enter: summarize · Esc: cancel",
+                classes="dim",
+            ),
+            TextArea(id="summary-context-area", language=None),
+            classes="settings-dialog",
+        )
+
+    def action_submit(self) -> None:
+        area = self.query_one("#summary-context-area", TextArea)
+        self.dismiss(area.text.strip())
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
+class SessionMediaModal(ModalScreen[None]):
+    """Read-only inventory of on-disk WAVs, slides, and exports for the selected meeting."""
+
+    BINDINGS = [Binding("escape", "close", "Close", show=True)]
+
+    def __init__(self, *, body: str) -> None:
+        super().__init__()
+        self._body = body
+
+    def compose(self) -> ComposeResult:
+        yield Vertical(
+            Static("Session media on disk", classes="settings-title"),
+            Static(self._body, id="session-media-body"),
+            Static("[dim]Esc[/] close", classes="hint"),
+            classes="settings-dialog",
+        )
+
+    def action_close(self) -> None:
+        self.dismiss()
+
+
+class ConfirmOverwriteExportModal(ModalScreen[bool]):
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel", show=True, priority=True),
+        Binding("y,Y", "confirm", "Yes", show=True, priority=True),
+        Binding("n,N", "cancel", "No", show=True, priority=True),
+    ]
+
+    def __init__(self, *, path: Path) -> None:
+        super().__init__()
+        self._path = path
+
+    def compose(self) -> ComposeResult:
+        yield Vertical(
+            Static("Export file already exists", classes="settings-title"),
+            Static(f"[bold]{self._path}[/bold]", id="confirm-overwrite-path"),
+            Static(
+                "The on-disk file differs from the new export.\n\n"
+                "Overwrite? [bold]Y[/bold]es · [bold]N[/bold]o · [bold]Esc[/bold] cancel",
+                classes="dim",
+            ),
+            classes="settings-dialog",
+        )
+
+    def action_confirm(self) -> None:
+        self.dismiss(True)
+
+    def action_cancel(self) -> None:
+        self.dismiss(False)
 
 
 class ConfirmDeleteMeetingModal(ModalScreen[bool]):
@@ -133,6 +218,8 @@ class MeetingBrowser(Vertical):
         ),
         Binding("ctrl+e", "edit_segment", "Edit line", show=True, priority=True),
         Binding("ctrl+i", "finalize_selected_speakers", "Speaker ID", show=False, priority=True),
+        Binding("i", "show_session_media", "Media files", show=False, priority=True),
+        Binding("p", "slide_preview", "Slide preview", show=False, priority=True),
     ]
 
     def __init__(self, *, container: Container, store: Store) -> None:
@@ -155,9 +242,10 @@ class MeetingBrowser(Vertical):
     def compose(self) -> ComposeResult:
         yield Static(
             "[bold]Meetings[/bold] — select a row · [dim]Continue recording[/dim] appends to the open meeting · "
-            "use buttons or [dim]w[/dim] export · [dim]k[/dim] summarize · [dim]ctrl+i[/dim] speaker ID · "
-            "[dim]ctrl+s[/dim] save · [dim]ctrl+g[/dim] summarize · [dim]ctrl+e[/dim] edit line · "
-            "shift+del / ctrl+shift+d delete · [dim]ctrl+r[/dim] refresh",
+            "use buttons or [dim]w[/dim] export · [dim]k[/dim] summarize · [dim]i[/dim] media · "
+            "[dim]p[/dim] slide preview · [dim]ctrl+i[/dim] speaker ID · [dim]ctrl+s[/dim] save · "
+            "[dim]ctrl+g[/dim] summarize · [dim]ctrl+e[/dim] edit line · shift+del / ctrl+shift+d delete · "
+            "[dim]ctrl+r[/dim] refresh",
             id="meeting-browser-header",
         )
         with Horizontal(id="meeting-toolbar"):
@@ -401,6 +489,18 @@ class MeetingBrowser(Vertical):
             self.app.notify("Select a meeting first.", severity="warning")
             return
         sid = self._selected_session_id
+        await self.app.push_screen(
+            SummaryContextModal(),
+            callback=functools.partial(self._after_summary_context_modal, sid),
+        )
+
+    def _after_summary_context_modal(self, sid: UUID, context: str | None) -> None:
+        if context is None:
+            return
+        user_ctx = context or None
+        self.run_worker(self._run_summarize(sid, user_ctx), exclusive=True)
+
+    async def _run_summarize(self, sid: UUID, user_context: str | None) -> None:
         self.app.notify("Summarizing… (OpenAI)")
         svc = SessionService(
             sessions=self.container.sessions,
@@ -410,13 +510,33 @@ class MeetingBrowser(Vertical):
             session_speakers=self.container.session_speakers,
         )
         try:
-            await svc.summarize_session(session_id=sid)
+            await svc.summarize_session(session_id=sid, user_context=user_context)
         except Exception as e:
             self.app.notify(f"Summarize failed: {e}", severity="error")
             return
         self.app.notify("Summary saved.")
         await self.store.dispatch_with_effects(act.SessionsRefreshRequested(at=utc_now()))
         await self._load_detail(sid)
+
+    async def action_show_session_media(self) -> None:
+        if self._selected_session_id is None:
+            self.app.notify("Select a meeting first.", severity="warning")
+            return
+        data_dir = self.container.settings.ensure_data_dir()
+        inventory = collect_session_media(data_dir, self._selected_session_id)
+        body = format_session_media_inventory(inventory)
+        await self.app.push_screen(SessionMediaModal(body=body))
+
+    async def action_slide_preview(self) -> None:
+        if self._selected_session_id is None:
+            self.app.notify("Select a meeting first.", severity="warning")
+            return
+        await self.app.push_screen(
+            SlidePreviewScreen(
+                container=self.container,
+                session_id=self._selected_session_id,
+            )
+        )
 
     async def action_refresh_list(self) -> None:
         self.refresh_session_list(preserve_selection=True)
@@ -521,9 +641,11 @@ class MeetingBrowser(Vertical):
             del_idx = 0
         removed = self.container.sessions.delete(sid)
         if removed:
-            chunk_dir = self.container.settings.ensure_data_dir() / "chunks" / str(sid)
-            if chunk_dir.is_dir():
-                shutil.rmtree(chunk_dir, ignore_errors=True)
+            purge_session_artifacts(
+                self.container.settings.ensure_data_dir(),
+                sid,
+                dry_run=False,
+            )
             self.app.notify("Meeting deleted.")
         else:
             self.app.notify("Meeting was already removed.", severity="warning")

@@ -1,17 +1,24 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 from uuid import UUID
 
 from live_meeting_transcriber.application.container import Container
+from live_meeting_transcriber.application.export_overwrite import export_content_identical
 from live_meeting_transcriber.application.recorder import Recorder
 from live_meeting_transcriber.application.session_service import SessionService
 from live_meeting_transcriber.audio.sources import resolve_microphone_source
 from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.application_events import ApplicationEvent
-from live_meeting_transcriber.obsidian.meeting_export import write_dual_export
+from live_meeting_transcriber.obsidian.meeting_export import (
+    ExportCancelledError,
+    prepare_dual_export,
+    write_dual_export,
+)
 from live_meeting_transcriber.ui.bridge import application_events_to_actions
 from live_meeting_transcriber.ui.state import actions as act
 from live_meeting_transcriber.ui.state.model import (
@@ -55,6 +62,9 @@ class TuiController:
     store: Store
     container: Container
     settings: Settings
+    confirm_export_overwrite: Callable[[Path], Awaitable[bool]] | None = field(
+        default=None, repr=False
+    )
     _session_service: SessionService = field(init=False)
     _record_task: asyncio.Task[None] | None = field(default=None, init=False)
 
@@ -308,24 +318,41 @@ class TuiController:
             segments = self.container.transcripts.list_by_session(sid)
             summary = self.container.summaries.get_by_session(sid)
             spk = self.container.session_speakers.get_map(sid)
+            export_kwargs = dict(
+                app_base_dir=self.settings.ensure_data_dir(),
+                session=session,
+                segments=segments,
+                summary=summary,
+                speaker_display=spk if spk else None,
+                obsidian_meetings_dir=self.settings.obsidian_meetings_dir,
+                obsidian_meeting_template=self.settings.obsidian_meeting_template,
+                screenshots_source_dir=self.settings.effective_screenshots_source_dir(),
+                obsidian_screenshots_dir=self.settings.obsidian_screenshots_dir,
+            )
+            prepared = prepare_dual_export(**export_kwargs)
+            targets = [(prepared.app_path, prepared.app_content)]
+            if prepared.obs_path is not None and prepared.obs_content is not None:
+                targets.append((prepared.obs_path, prepared.obs_content))
+            if self.confirm_export_overwrite is not None:
+                for path, content in targets:
+                    if (
+                        path.is_file()
+                        and not export_content_identical(path.read_text(encoding="utf-8"), content)
+                        and not await self.confirm_export_overwrite(path)
+                    ):
+                        store.dispatch(act.NoticeRaised(message="Export cancelled.", at=utc_now()))
+                        return
             try:
-                app_path, obs_path = write_dual_export(
-                    app_base_dir=self.settings.ensure_data_dir(),
-                    session=session,
-                    segments=segments,
-                    summary=summary,
-                    speaker_display=spk if spk else None,
-                    obsidian_meetings_dir=self.settings.obsidian_meetings_dir,
-                    obsidian_meeting_template=self.settings.obsidian_meeting_template,
-                    screenshots_source_dir=self.settings.effective_screenshots_source_dir(),
-                    obsidian_screenshots_dir=self.settings.obsidian_screenshots_dir,
-                )
+                result = write_dual_export(**export_kwargs, confirm_overwrite=lambda _: True)
+            except ExportCancelledError as e:
+                store.dispatch(act.ErrorRaised(message=f"Export cancelled: {e.path}", at=utc_now()))
+                return
             except Exception as e:
                 store.dispatch(act.ErrorRaised(message=f"Export failed: {e}", at=utc_now()))
                 return
-            msg = f"Exported markdown → {app_path}"
-            if obs_path is not None:
-                msg += f" · Obsidian → {obs_path}"
+            msg = f"Exported markdown → {result.app_path}"
+            if result.obs_path is not None:
+                msg += f" · Obsidian → {result.obs_path}"
             elif self.settings.obsidian_meetings_dir is not None:
                 tpl = self.settings.obsidian_meeting_template
                 if tpl is None or not tpl.is_file():
@@ -347,7 +374,10 @@ class TuiController:
                 )
                 return
             try:
-                await self._session_service.summarize_session(session_id=sid)
+                summary = await self._session_service.summarize_session(
+                    session_id=sid,
+                    user_context=action.user_context,
+                )
             except KeyError:
                 store.dispatch(
                     act.ErrorRaised(message="Session not found in database.", at=utc_now())
@@ -356,9 +386,16 @@ class TuiController:
             except Exception as e:
                 store.dispatch(act.ErrorRaised(message=f"Summarize failed: {e}", at=utc_now()))
                 return
+            session = self.container.sessions.get(sid)
+            msg = "Summary generated and saved to the database."
+            if session is not None and summary.meeting_metadata is not None:
+                title = summary.meeting_metadata.confident_str("title")
+                if title and session.title == title:
+                    msg += f" Title: {session.title}."
             store.dispatch(
                 act.NoticeRaised(
-                    message="Summary generated and saved to the database.", at=utc_now()
+                    message=msg,
+                    at=utc_now(),
                 )
             )
             await self._load_sessions_catalog(store)

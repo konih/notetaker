@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import functools
-import shutil
 from collections.abc import Callable
 from datetime import datetime
+from pathlib import Path
 from uuid import UUID
 
 from rich.console import Group
@@ -24,6 +25,7 @@ from textual.widgets import (
     TabPane,
 )
 
+from live_meeting_transcriber.application.cleanup_service import purge_session_artifacts
 from live_meeting_transcriber.application.container import (
     Container,
     ProviderSelectionError,
@@ -44,7 +46,12 @@ from live_meeting_transcriber.ui.state.selectors import (
 from live_meeting_transcriber.ui.state.store import Store
 from live_meeting_transcriber.ui.tui.meeting_browser import (
     ConfirmDeleteMeetingModal,
+    ConfirmOverwriteExportModal,
     MeetingBrowser,
+    SummaryContextModal,
+)
+from live_meeting_transcriber.ui.tui.slide_preview_helpers import (
+    ensure_textual_image_protocol_probe,
 )
 from live_meeting_transcriber.utils.time import utc_now
 
@@ -236,9 +243,11 @@ class SessionsScreen(ModalScreen[None]):
         assert isinstance(app, TranscriberApp)
         removed = app.container.sessions.delete(sid)
         if removed:
-            chunk_dir = app.container.settings.ensure_data_dir() / "chunks" / str(sid)
-            if chunk_dir.is_dir():
-                shutil.rmtree(chunk_dir, ignore_errors=True)
+            purge_session_artifacts(
+                app.container.settings.ensure_data_dir(),
+                sid,
+                dry_run=False,
+            )
             self.app.notify("Session deleted.")
         else:
             self.app.notify("Session was already removed.", severity="warning")
@@ -292,15 +301,20 @@ class TranscriberApp(App[None]):
     .settings-dialog { padding: 1 2; width: 90; height: auto; max-height: 90%; background: $surface; border: thick $accent; }
     .settings-title { text-style: bold; }
     .hint { padding-top: 1; text-style: dim; }
+    #slide-preview-dialog { width: 95%; height: 90%; max-width: 120; }
+    #slide-preview-split { height: 1fr; min-height: 12; }
+    #slide-candidates-table { width: 1fr; min-width: 28; height: 1fr; }
+    #slide-image-pane { width: 1fr; min-width: 24; height: 1fr; border: solid $boost; padding: 0 1; }
     #sessions-table { height: 20; min-height: 8; }
     #tab-logs { height: 1fr; }
     #ui-activity-log { height: 1fr; min-height: 10; border: solid $boost; }
     """
 
-    def __init__(self, *, store: Store, container: Container) -> None:
+    def __init__(self, *, store: Store, container: Container, controller: TuiController) -> None:
         super().__init__()
         self.store = store
         self.container = container
+        self._controller = controller
         self._last_segment_keys: tuple[tuple[str, str, str], ...] | None = None
         self._last_ui_log_len: int = 0
 
@@ -336,6 +350,7 @@ class TranscriberApp(App[None]):
 
     async def on_mount(self) -> None:
         self.store.subscribe(self._on_state)
+        self._controller.confirm_export_overwrite = self._confirm_export_overwrite
         await self.store.dispatch_with_effects(act.AppStarted(at=utc_now()))
 
     def _on_state(self, state: AppState) -> None:
@@ -464,6 +479,7 @@ class TranscriberApp(App[None]):
 
     async def action_summarize(self) -> None:
         tabs = self.query_one(TabbedContent)
+        sid: UUID | None = None
         if tabs.active == "tab-meetings":
             browser = self.query_one("#meeting-browser", MeetingBrowser)
             sid = browser.selected_session_id
@@ -472,11 +488,26 @@ class TranscriberApp(App[None]):
                     "Select a meeting in the Meetings tab to summarize.", severity="warning"
                 )
                 return
-            await self.store.dispatch_with_effects(
-                act.SummarizeSessionRequested(at=utc_now(), session_id=sid)
-            )
+        await self.push_screen(
+            SummaryContextModal(),
+            callback=functools.partial(self._after_global_summary_context, sid),
+        )
+
+    def _after_global_summary_context(self, sid: UUID | None, context: str | None) -> None:
+        if context is None:
             return
-        await self.store.dispatch_with_effects(act.SummarizeSessionRequested(at=utc_now()))
+        user_ctx = context or None
+
+        async def _dispatch() -> None:
+            await self.store.dispatch_with_effects(
+                act.SummarizeSessionRequested(
+                    at=utc_now(),
+                    session_id=sid,
+                    user_context=user_ctx,
+                )
+            )
+
+        self.run_worker(_dispatch(), exclusive=True)
 
     async def action_finalize_speakers(self) -> None:
         tabs = self.query_one(TabbedContent)
@@ -513,6 +544,20 @@ class TranscriberApp(App[None]):
         for e in select_unacknowledged_errors(st):
             self.store.dispatch(act.ErrorAcknowledged(error_id=e.id, at=utc_now()))
 
+    async def _confirm_export_overwrite(self, path: Path) -> bool:
+        loop = asyncio.get_running_loop()
+        future: asyncio.Future[bool] = loop.create_future()
+
+        def _done(confirmed: bool | None) -> None:
+            if not future.done():
+                future.set_result(bool(confirmed))
+
+        await self.push_screen(
+            ConfirmOverwriteExportModal(path=path),
+            callback=_done,
+        )
+        return await future
+
     async def action_quit(self) -> None:
         await self.store.dispatch_with_effects(act.RecordingStopRequested(at=utc_now()))
         self.exit()
@@ -537,10 +582,11 @@ def run_tui_attached(
     """Run the Textual UI using an existing container (caller owns lifecycle)."""
     if configure_log:
         _configure_logging_from_settings(settings)
+    ensure_textual_image_protocol_probe()
     store = Store()
     controller = TuiController(store=store, container=container, settings=settings)
     store.register_effects(controller.handle)
-    TranscriberApp(store=store, container=container).run()
+    TranscriberApp(store=store, container=container, controller=controller).run()
 
 
 def run_tui() -> None:
