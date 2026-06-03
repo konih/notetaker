@@ -2,8 +2,15 @@ from __future__ import annotations
 
 import os
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
+from live_meeting_transcriber.application.export_overwrite import (
+    ExportOverwriteConfirm,
+    ExportWriteDecision,
+    resolve_export_write,
+    write_text_from_decision,
+)
 from live_meeting_transcriber.application.screenshot_export import (
     ScreenshotHit,
     copy_screenshot_for_export,
@@ -13,6 +20,27 @@ from live_meeting_transcriber.application.screenshot_export import (
 )
 from live_meeting_transcriber.domain.models import MeetingSession, Summary, TranscriptSegment
 from live_meeting_transcriber.domain.speaker_display import format_transcript_speaker_label
+from live_meeting_transcriber.obsidian.vault_patterns import (
+    is_placeholder_meeting_title,
+    safe_obsidian_filename_title,
+)
+
+
+class ExportCancelledError(Exception):
+    """Raised when the user declines to overwrite an existing export file."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        super().__init__(f"Export cancelled for {path}")
+
+
+@dataclass(frozen=True)
+class DualExportResult:
+    app_path: Path
+    obs_path: Path | None
+    app_written: bool
+    obs_written: bool
+    skipped_identical: tuple[Path, ...] = ()
 
 
 def _yaml_attendees_list(names: list[str]) -> str:
@@ -21,6 +49,36 @@ def _yaml_attendees_list(names: list[str]) -> str:
     escaped = [n.replace('"', '\\"') for n in names]
     inner = ", ".join(f'"{x}"' for x in escaped)
     return f"[{inner}]"
+
+
+def _yaml_tags_list(tags: list[str]) -> str:
+    if not tags:
+        return "[meeting]"
+    escaped = [t.replace('"', '\\"') for t in tags]
+    inner = ", ".join(f'"{x}"' for x in escaped)
+    return f"[{inner}]"
+
+
+def _replace_frontmatter_scalar(content: str, key: str, value: str) -> str:
+    quoted = value.replace('"', '\\"')
+    replacement = f'{key}: "{quoted}"' if value else f'{key}: ""'
+    pattern = rf"^{re.escape(key)}:\s*.*$"
+    if re.search(pattern, content, flags=re.MULTILINE):
+        return re.sub(pattern, replacement, content, count=1, flags=re.MULTILINE)
+    return content
+
+
+def _replace_frontmatter_list(content: str, key: str, values: list[str]) -> str:
+    if key == "attendees":
+        rendered = _yaml_attendees_list(values)
+    elif key == "tags":
+        rendered = _yaml_tags_list(values)
+    else:
+        rendered = _yaml_attendees_list(values)
+    pattern = rf"^{re.escape(key)}:\s*.*$"
+    if re.search(pattern, content, flags=re.MULTILINE):
+        return re.sub(pattern, f"{key}: {rendered}", content, count=1, flags=re.MULTILINE)
+    return content
 
 
 def _replace_under_heading(content: str, heading: str, new_body: str) -> str:
@@ -36,6 +94,44 @@ def _replace_under_heading(content: str, heading: str, new_body: str) -> str:
     return content[:start] + new_body.strip() + "\n" + rest[end_rel:]
 
 
+def _effective_attendees(session: MeetingSession, summary: Summary | None) -> list[str]:
+    attendees = list(session.attendees)
+    meta = summary.meeting_metadata if summary else None
+    if meta is not None:
+        for name in meta.confident_participants():
+            if name not in attendees:
+                attendees.append(name)
+    return attendees
+
+
+def _apply_summary_metadata_to_template(body: str, summary: Summary | None) -> str:
+    meta = summary.meeting_metadata if summary else None
+    if meta is None:
+        return body
+
+    topic = meta.confident_str("topic")
+    if topic:
+        body = _replace_frontmatter_scalar(body, "topic", topic)
+
+    tags = meta.confident_tags()
+    if tags:
+        body = _replace_frontmatter_list(body, "tags", tags)
+
+    series = meta.confident_str("series")
+    if series:
+        body = _replace_frontmatter_scalar(body, "series", series)
+
+    location = meta.confident_str("location")
+    if location:
+        body = _replace_frontmatter_scalar(body, "location", location)
+
+    related = meta.confident_str("related")
+    if related:
+        body = _replace_frontmatter_scalar(body, "related", related)
+
+    return body
+
+
 def render_meeting_note(
     *,
     template_text: str,
@@ -49,22 +145,25 @@ def render_meeting_note(
     disp = speaker_display or {}
     d = session.started_at.date().isoformat()
     t = session.started_at.strftime("%H:%M")
+    attendees = _effective_attendees(session, summary)
     body = template_text.replace("{{date}}", d)
     body = body.replace("{{time}}", t)
     body = body.replace("{{title}}", session.title)
     body = re.sub(
         r"^attendees:\s*\[\s*\]\s*$",
-        f"attendees: {_yaml_attendees_list(session.attendees)}",
+        f"attendees: {_yaml_attendees_list(attendees)}",
         body,
         flags=re.MULTILINE,
     )
-    if session.attendees:
+    if attendees:
         body = re.sub(
             r"^(- \*\*Attendees\*\*:)\s*$",
-            rf"\1 {', '.join(session.attendees)}",
+            rf"\1 {', '.join(attendees)}",
             body,
             flags=re.MULTILINE,
         )
+
+    body = _apply_summary_metadata_to_template(body, summary)
 
     notes_parts: list[str] = []
     if session.notes.strip():
@@ -102,12 +201,28 @@ def render_meeting_note(
 
 
 def meeting_export_filename(session: MeetingSession) -> str:
-    """Stable filename: ``YYYY-MM-DD_slug.md``."""
+    """Stable filename: ``YYYY-MM-DD Title.md`` when title is meaningful, else slug form."""
     from live_meeting_transcriber.application.export_markdown import _slug_title
 
     day = session.started_at.date().isoformat()
+    if not is_placeholder_meeting_title(session.title):
+        safe = safe_obsidian_filename_title(session.title)
+        return f"{day} {safe}.md"
     slug = _slug_title(session.title, max_len=56)
     return f"{day}_{slug}.md"
+
+
+def _write_export_content(
+    path: Path,
+    content: str,
+    *,
+    confirm_overwrite: ExportOverwriteConfirm | None,
+) -> tuple[bool, ExportWriteDecision]:
+    decision = resolve_export_write(path, content, confirm_overwrite=confirm_overwrite)
+    if decision == ExportWriteDecision.cancelled:
+        raise ExportCancelledError(path)
+    write_text_from_decision(path, content, decision)
+    return decision == ExportWriteDecision.write, decision
 
 
 def write_obsidian_meeting(
@@ -119,7 +234,8 @@ def write_obsidian_meeting(
     summary: Summary | None,
     speaker_display: dict[str, str] | None = None,
     transcript_lines: list[str] | None = None,
-) -> Path:
+    confirm_overwrite: ExportOverwriteConfirm | None = None,
+) -> tuple[Path, bool, ExportWriteDecision]:
     meetings_dir.mkdir(parents=True, exist_ok=True)
     template_text = template_path.read_text(encoding="utf-8")
     content = render_meeting_note(
@@ -131,11 +247,19 @@ def write_obsidian_meeting(
         transcript_lines=transcript_lines,
     )
     path = meetings_dir / meeting_export_filename(session)
-    path.write_text(content, encoding="utf-8")
-    return path
+    written, decision = _write_export_content(path, content, confirm_overwrite=confirm_overwrite)
+    return path, written, decision
 
 
-def write_dual_export(
+@dataclass(frozen=True)
+class DualExportPrepared:
+    app_path: Path
+    app_content: str
+    obs_path: Path | None
+    obs_content: str | None
+
+
+def prepare_dual_export(
     *,
     app_base_dir: Path,
     session: MeetingSession,
@@ -146,12 +270,17 @@ def write_dual_export(
     obsidian_meeting_template: Path | None,
     screenshots_source_dir: Path | None = None,
     obsidian_screenshots_dir: Path | None = None,
-) -> tuple[Path, Path | None]:
-    """Plain markdown under app data dir; optional second file in Obsidian Meetings."""
-    from live_meeting_transcriber.application.export_markdown import write_session_export_markdown
+) -> DualExportPrepared:
+    """Build export paths and markdown without writing files."""
+    from live_meeting_transcriber.application.export_markdown import (
+        build_session_export_markdown,
+        export_filename_for_session,
+    )
 
     disp = speaker_display or {}
-    hits = list_session_screenshots(screenshots_source_dir, session, segments)
+    hits = list_session_screenshots(
+        screenshots_source_dir, session, segments, data_dir=app_base_dir
+    )
     app_exports_dir = (app_base_dir / "exports").resolve()
     app_link_by_source: dict[Path, str] = {}
     obs_link_by_source: dict[Path, str] = {}
@@ -236,23 +365,86 @@ def write_dual_export(
                 shots=hits,
             )
 
-    app_path = write_session_export_markdown(
-        base_dir=app_base_dir,
+    app_path = app_exports_dir / export_filename_for_session(session)
+    app_content = build_session_export_markdown(
         session=session,
         segments=segments,
         summary=summary,
         speaker_display=speaker_display,
         transcript_lines=app_transcript_lines,
     )
-    obs_path: Path | None = None
+
+    obs_content: str | None = None
     if obs_meeting_path is not None:
-        obs_path = write_obsidian_meeting(
-            meetings_dir=obsidian_meetings_dir,  # type: ignore[arg-type]
-            template_path=obsidian_meeting_template,  # type: ignore[arg-type]
+        template_text = obsidian_meeting_template.read_text(encoding="utf-8")  # type: ignore[union-attr]
+        obs_content = render_meeting_note(
+            template_text=template_text,
             session=session,
             segments=segments,
             summary=summary,
             speaker_display=speaker_display,
             transcript_lines=obs_transcript_lines,
         )
-    return app_path, obs_path
+
+    return DualExportPrepared(
+        app_path=app_path,
+        app_content=app_content,
+        obs_path=obs_meeting_path,
+        obs_content=obs_content,
+    )
+
+
+def write_dual_export(
+    *,
+    app_base_dir: Path,
+    session: MeetingSession,
+    segments: list[TranscriptSegment],
+    summary: Summary | None,
+    speaker_display: dict[str, str] | None,
+    obsidian_meetings_dir: Path | None,
+    obsidian_meeting_template: Path | None,
+    screenshots_source_dir: Path | None = None,
+    obsidian_screenshots_dir: Path | None = None,
+    confirm_overwrite: ExportOverwriteConfirm | None = None,
+) -> DualExportResult:
+    """Plain markdown under app data dir; optional second file in Obsidian Meetings."""
+    prepared = prepare_dual_export(
+        app_base_dir=app_base_dir,
+        session=session,
+        segments=segments,
+        summary=summary,
+        speaker_display=speaker_display,
+        obsidian_meetings_dir=obsidian_meetings_dir,
+        obsidian_meeting_template=obsidian_meeting_template,
+        screenshots_source_dir=screenshots_source_dir,
+        obsidian_screenshots_dir=obsidian_screenshots_dir,
+    )
+    skipped: list[Path] = []
+
+    app_written, app_decision = _write_export_content(
+        prepared.app_path,
+        prepared.app_content,
+        confirm_overwrite=confirm_overwrite,
+    )
+    if app_decision == ExportWriteDecision.skip_identical:
+        skipped.append(prepared.app_path)
+
+    obs_path = prepared.obs_path
+    obs_written = False
+    if obs_path is not None and prepared.obs_content is not None:
+        obsidian_meetings_dir.mkdir(parents=True, exist_ok=True)  # type: ignore[union-attr]
+        obs_written, obs_decision = _write_export_content(
+            obs_path,
+            prepared.obs_content,
+            confirm_overwrite=confirm_overwrite,
+        )
+        if obs_decision == ExportWriteDecision.skip_identical:
+            skipped.append(obs_path)
+
+    return DualExportResult(
+        app_path=prepared.app_path,
+        obs_path=obs_path,
+        app_written=app_written,
+        obs_written=obs_written,
+        skipped_identical=tuple(skipped),
+    )
