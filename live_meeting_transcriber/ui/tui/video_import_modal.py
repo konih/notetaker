@@ -12,6 +12,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Static
 
 from live_meeting_transcriber.application.container import Container
+from live_meeting_transcriber.application.path_sanitize import normalize_import_path
 from live_meeting_transcriber.application.video_import_service import (
     VideoImportError,
     VideoImportProgress,
@@ -62,7 +63,7 @@ class VideoImportModal(ModalScreen[VideoImportForm | None]):
         self.query_one("#video-import-source", Input).focus()
 
     def action_submit(self) -> None:
-        source = self.query_one("#video-import-source", Input).value.strip()
+        source = normalize_import_path(self.query_one("#video-import-source", Input).value)
         if not source:
             self.app.notify("Enter a file path or URL.", severity="warning")
             return

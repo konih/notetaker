@@ -19,6 +19,7 @@ from live_meeting_transcriber.application.slide_preview_service import (
     SlidePreviewError,
     SlidePreviewService,
 )
+from live_meeting_transcriber.application.path_sanitize import normalize_import_path
 from live_meeting_transcriber.application.video_import_service import (
     VideoImportError,
     VideoImportProgress,
@@ -416,6 +417,7 @@ def transcribe_video(
     ),
 ) -> None:
     """Transcribe a video file or URL and optionally extract presentation slide screenshots."""
+    source = normalize_import_path(source)
     c = _get_container(ctx)
     log = get_logger(component="cli")
 
