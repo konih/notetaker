@@ -10,6 +10,7 @@ from live_meeting_transcriber.ui.state.model import (
     RecordingStatus,
     SessionRowState,
     TranscriptionStatus,
+    TranscriptLineState,
     initial_app_state,
 )
 from live_meeting_transcriber.ui.state.reducer import reduce
@@ -32,8 +33,13 @@ def test_settings_loaded_updates_config_fields() -> None:
             audio_chunk_seconds=15,
             audio_sample_rate=16000,
             audio_channels=1,
+            audio_stereo_mode="mixdown",
             diarization_enabled=True,
             diarization_provider="noop",
+            finalize_on_session_stop=False,
+            whisperx_model="large-v3-turbo",
+            whisperx_skip_alignment=False,
+            hf_token_configured=False,
             log_file_resolved="/tmp/app.log",
             audio_include_microphone=True,
             at=_t(),
@@ -44,7 +50,7 @@ def test_settings_loaded_updates_config_fields() -> None:
     assert s1.database_url == "sqlite:////tmp/x.db"
     assert s1.chunk_seconds == 15
     assert s1.diarization_enabled is True
-    assert s1.diarization_status == DiarizationStatus.pending
+    assert s1.diarization_status == DiarizationStatus.disabled
     assert s1.log_file_path == "/tmp/app.log"
 
 
@@ -199,3 +205,81 @@ def test_settings_screen_toggle() -> None:
     assert s0.settings_screen_open is True
     s1 = reduce(s0, act.SettingsScreenClosed(at=_t()))
     assert s1.settings_screen_open is False
+
+
+def test_finalize_session_succeeded_sets_pending_and_optional_live_lines() -> None:
+    sid = uuid4()
+    sid_str = str(sid)
+    line = TranscriptLineState(
+        id="seg-1",
+        session_id=sid_str,
+        started_at=_t(),
+        ended_at=_t(),
+        text="hello",
+        speaker="SPEAKER_00",
+    )
+    s0 = reduce(
+        initial_app_state(),
+        act.FinalizeSessionSucceeded(
+            session_id=sid,
+            segment_count=3,
+            live_lines=(line,),
+            at=_t(),
+        ),
+    )
+    assert s0.pending_meeting_detail_reload == sid
+    assert s0.recent_transcript_segments == (line,)
+    assert "3 segment" in s0.notices[-1]
+
+
+def test_finalize_session_succeeded_without_live_lines() -> None:
+    sid = uuid4()
+    s0 = initial_app_state()
+    s1 = reduce(
+        s0,
+        act.FinalizeSessionSucceeded(
+            session_id=sid,
+            segment_count=1,
+            live_lines=None,
+            at=_t(),
+        ),
+    )
+    assert s1.pending_meeting_detail_reload == sid
+    assert s1.recent_transcript_segments == s0.recent_transcript_segments
+
+
+def test_detail_reload_acknowledged_clears_pending() -> None:
+    sid = uuid4()
+    s0 = reduce(
+        initial_app_state(),
+        act.FinalizeSessionSucceeded(
+            session_id=sid,
+            segment_count=1,
+            live_lines=None,
+            at=_t(),
+        ),
+    )
+    s1 = reduce(s0, act.DetailReloadAcknowledged(at=_t()))
+    assert s1.pending_meeting_detail_reload is None
+
+
+def test_error_raised_appends_ui_log_line() -> None:
+    s0 = reduce(
+        initial_app_state(),
+        act.ErrorRaised(message="something broke", at=_t()),
+    )
+    assert len(s0.ui_log_lines) == 1
+    assert "something broke" in s0.ui_log_lines[0]
+
+
+def test_ui_log_line_added_appends() -> None:
+    s0 = reduce(
+        initial_app_state(),
+        act.UiLogLineAdded(level="info", message="step one", at=_t()),
+    )
+    assert len(s0.ui_log_lines) == 1
+    s1 = reduce(
+        s0,
+        act.UiLogLineAdded(level="info", message="step two", at=_t()),
+    )
+    assert len(s1.ui_log_lines) == 2
