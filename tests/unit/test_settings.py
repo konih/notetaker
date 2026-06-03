@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from live_meeting_transcriber.config.settings import load_settings
+from live_meeting_transcriber.config.settings import Settings, load_settings
 
 
 def test_settings_load_from_env(monkeypatch) -> None:
@@ -28,3 +28,27 @@ def test_settings_load_from_env(monkeypatch) -> None:
     assert s.audio_channels == 1
     assert s.log_level == "DEBUG"
     assert s.keep_audio_chunks is True
+
+
+def test_log_level_stripped_from_env(monkeypatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "k")
+    monkeypatch.setenv("LOG_LEVEL", "  debug  ")
+    monkeypatch.setenv("DATABASE_URL", "sqlite:////tmp/t.db")
+    s = load_settings()
+    assert s.log_level == "debug"
+
+
+def test_effective_transcription_model_display() -> None:
+    openai_s = Settings.model_construct(
+        transcription_provider="openai",
+        transcription_model="gpt-4o-mini-transcribe",
+        faster_whisper_model="small",
+    )
+    assert openai_s.effective_transcription_model_display() == "gpt-4o-mini-transcribe"
+
+    fw_s = Settings.model_construct(
+        transcription_provider="faster_whisper",
+        transcription_model="gpt-4o-mini-transcribe",
+        faster_whisper_model="base",
+    )
+    assert fw_s.effective_transcription_model_display() == "base"
