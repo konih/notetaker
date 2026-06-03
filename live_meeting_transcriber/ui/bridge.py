@@ -27,14 +27,9 @@ def application_events_to_actions(event: ev.ApplicationEvent) -> tuple[act.Actio
         out.append(act.TranscriptionStatusChanged(status=TranscriptionStatus.active, at=event.at))
 
     elif isinstance(event, ev.DiarizationChunkCompleted):
-        seg = event.segment
-        out.append(
-            act.DiarizationSegmentReceived(
-                segment_id=str(seg.id),
-                speaker=seg.speaker,
-                at=event.at,
-            )
-        )
+        # Speaker is already set on each TranscriptSegmentPersisted; avoid
+        # DiarizationSegmentReceived which only touched the last line and could
+        # desync the RichLog from reducer state.
         clean = frozenset(s for s in event.detected_speakers if s and s != "unknown")
         if clean:
             out.append(act.DiarizationSpeakersDetected(speakers=clean, at=event.at))

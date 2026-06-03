@@ -8,6 +8,7 @@ from live_meeting_transcriber.ui.state.model import (
     DiarizationStatus,
     SessionRowState,
     TranscriptionStatus,
+    TranscriptLineState,
 )
 
 # --- Actions (typed, immutable dataclasses) ---
@@ -28,8 +29,13 @@ class SettingsLoaded:
     audio_chunk_seconds: int
     audio_sample_rate: int
     audio_channels: int
+    audio_stereo_mode: str
     diarization_enabled: bool
     diarization_provider: str
+    finalize_on_session_stop: bool
+    whisperx_model: str
+    whisperx_skip_alignment: bool
+    hf_token_configured: bool
     log_file_resolved: str
     audio_include_microphone: bool
     at: datetime
@@ -147,6 +153,15 @@ class NoticeRaised:
 
 
 @dataclass(frozen=True)
+class UiLogLineAdded:
+    """Append one line to the Logs tab (and formatted for RichLog markup)."""
+
+    level: str
+    message: str
+    at: datetime
+
+
+@dataclass(frozen=True)
 class ExportMarkdownRequested:
     """Write session markdown to data_dir/exports (and Obsidian when configured).
 
@@ -166,6 +181,31 @@ class SummarizeSessionRequested:
 
     at: datetime
     session_id: UUID | None = None
+
+
+@dataclass(frozen=True)
+class FinalizeSessionRequested:
+    """Run offline WhisperX + diarization on ``full_session.wav`` for this session."""
+
+    session_id: UUID
+    at: datetime
+
+
+@dataclass(frozen=True)
+class FinalizeSessionSucceeded:
+    """Finalize replaced the transcript; optionally refresh live transcript panel."""
+
+    session_id: UUID
+    segment_count: int
+    live_lines: tuple[TranscriptLineState, ...] | None
+    at: datetime
+
+
+@dataclass(frozen=True)
+class DetailReloadAcknowledged:
+    """Meetings tab consumed ``pending_meeting_detail_reload``."""
+
+    at: datetime
 
 
 @dataclass(frozen=True)
@@ -251,8 +291,12 @@ Action = (
     | ErrorAcknowledged
     | WarningRaised
     | NoticeRaised
+    | UiLogLineAdded
     | ExportMarkdownRequested
     | SummarizeSessionRequested
+    | FinalizeSessionRequested
+    | FinalizeSessionSucceeded
+    | DetailReloadAcknowledged
     | SettingsScreenOpened
     | SettingsScreenClosed
     | SessionsRefreshRequested

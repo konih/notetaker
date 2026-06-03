@@ -44,13 +44,24 @@ def select_status_line(state: AppState) -> str:
         rec = "◯ starting"
     elif state.recording_status == RecordingStatus.stopping:
         rec = "■ stopping"
+    if state.audio_channels >= 2:
+        live_spk = (
+            "dual"
+            if state.audio_stereo_mode.strip().lower() == "dual_path"
+            else "mixdown→unknown"
+        )
+    else:
+        live_spk = "mono"
     parts = [
         f"rec={rec}",
         f"asr={state.transcription_status.value}",
-        f"diar={state.diarization_status.value}",
+        f"live_spk={live_spk}",
+        f"diar_ui={state.diarization_status.value}",
     ]
+    if state.finalize_on_session_stop:
+        parts.append("auto_finalize")
     if state.diarization_detected_speakers:
-        parts.append(f"spk={','.join(sorted(state.diarization_detected_speakers))}")
+        parts.append(f"heard={','.join(sorted(state.diarization_detected_speakers))}")
     if state.audio_source:
         parts.append(f"src={state.audio_source}")
     return " | ".join(parts)

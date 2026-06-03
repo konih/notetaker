@@ -3,6 +3,8 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
+from rich.markup import escape
+
 from live_meeting_transcriber.ui.state import actions as act
 from live_meeting_transcriber.ui.state.model import (
     AppState,
@@ -18,10 +20,26 @@ _MAX_TRANSCRIPT_LINES = 200
 _MAX_ERRORS = 40
 _MAX_WARNINGS = 30
 _MAX_NOTICES = 12
+_MAX_UI_LOG_LINES = 500
 
 
 def _touch(state: AppState, at: datetime) -> AppState:
     return state.model_copy(update={"last_updated_at": at})
+
+
+def _format_ui_log_line(level: str, message: str, at: datetime) -> str:
+    ts = at.isoformat(timespec="seconds").replace("T", " ")
+    esc = escape(message)
+    if level == "error":
+        return f"[dim]{ts}[/] [red]{esc}[/]"
+    if level == "warning":
+        return f"[dim]{ts}[/] [yellow]{esc}[/]"
+    return f"[dim]{ts}[/] {esc}"
+
+
+def _append_ui_log(state: AppState, level: str, message: str, at: datetime) -> tuple[str, ...]:
+    line = _format_ui_log_line(level, message, at)
+    return (*state.ui_log_lines, line)[-_MAX_UI_LOG_LINES:]
 
 
 def reduce(state: AppState, action: act.Action) -> AppState:
@@ -41,11 +59,14 @@ def reduce(state: AppState, action: act.Action) -> AppState:
                     "chunk_seconds": action.audio_chunk_seconds,
                     "audio_sample_rate": action.audio_sample_rate,
                     "audio_channels": action.audio_channels,
+                    "audio_stereo_mode": action.audio_stereo_mode,
                     "diarization_enabled": action.diarization_enabled,
                     "diarization_provider": action.diarization_provider,
-                    "diarization_status": DiarizationStatus.disabled
-                    if not action.diarization_enabled
-                    else DiarizationStatus.pending,
+                    "finalize_on_session_stop": action.finalize_on_session_stop,
+                    "whisperx_model": action.whisperx_model,
+                    "whisperx_skip_alignment": action.whisperx_skip_alignment,
+                    "hf_token_configured": action.hf_token_configured,
+                    "diarization_status": DiarizationStatus.disabled,
                     "log_file_path": action.log_file_resolved,
                     "audio_include_microphone": action.audio_include_microphone,
                 }
@@ -77,7 +98,10 @@ def reduce(state: AppState, action: act.Action) -> AppState:
                     "recording_status": RecordingStatus.recording,
                     "transcription_status": TranscriptionStatus.active,
                     "diarization_status": DiarizationStatus.active
-                    if state.diarization_enabled
+                    if (
+                        state.audio_channels >= 2
+                        and state.audio_stereo_mode.strip().lower() == "dual_path"
+                    )
                     else DiarizationStatus.disabled,
                     "recent_transcript_segments": (),
                     "diarization_detected_speakers": frozenset(),
@@ -104,9 +128,7 @@ def reduce(state: AppState, action: act.Action) -> AppState:
                     "recording_status": RecordingStatus.stopped,
                     "transcription_status": TranscriptionStatus.idle,
                     "microphone_source": None,
-                    "diarization_status": DiarizationStatus.disabled
-                    if not state.diarization_enabled
-                    else DiarizationStatus.pending,
+                    "diarization_status": DiarizationStatus.disabled,
                 }
             ),
             action.at,
@@ -120,6 +142,7 @@ def reduce(state: AppState, action: act.Action) -> AppState:
             acknowledged=False,
         )
         merged_errs = (*state.recent_errors, err)[-_MAX_ERRORS:]
+        logs = _append_ui_log(state, "error", action.message, action.at)
         return _touch(
             state.model_copy(
                 update={
@@ -128,9 +151,10 @@ def reduce(state: AppState, action: act.Action) -> AppState:
                     "microphone_source": None,
                     "current_level_meter": None,
                     "diarization_status": DiarizationStatus.failed
-                    if state.diarization_enabled
+                    if state.diarization_status == DiarizationStatus.active
                     else DiarizationStatus.disabled,
                     "recent_errors": merged_errs,
+                    "ui_log_lines": logs,
                 }
             ),
             action.at,
@@ -192,7 +216,11 @@ def reduce(state: AppState, action: act.Action) -> AppState:
             acknowledged=False,
         )
         merged = (*state.recent_errors, err)[-_MAX_ERRORS:]
-        return _touch(state.model_copy(update={"recent_errors": merged}), action.at)
+        logs = _append_ui_log(state, "error", action.message, action.at)
+        return _touch(
+            state.model_copy(update={"recent_errors": merged, "ui_log_lines": logs}),
+            action.at,
+        )
 
     if isinstance(action, act.ErrorAcknowledged):
         merged = tuple(
@@ -203,11 +231,37 @@ def reduce(state: AppState, action: act.Action) -> AppState:
 
     if isinstance(action, act.WarningRaised):
         w = (*state.warnings, action.message)[-_MAX_WARNINGS:]
-        return _touch(state.model_copy(update={"warnings": w}), action.at)
+        logs = _append_ui_log(state, "warning", action.message, action.at)
+        return _touch(state.model_copy(update={"warnings": w, "ui_log_lines": logs}), action.at)
+
+    if isinstance(action, act.UiLogLineAdded):
+        lvl = action.level if action.level in ("info", "warning", "error") else "info"
+        logs = _append_ui_log(state, lvl, action.message, action.at)
+        return _touch(state.model_copy(update={"ui_log_lines": logs}), action.at)
 
     if isinstance(action, act.NoticeRaised):
         n = (*state.notices, action.message)[-_MAX_NOTICES:]
         return _touch(state.model_copy(update={"notices": n}), action.at)
+
+    if isinstance(action, act.FinalizeSessionSucceeded):
+        msg = (
+            f"Speaker ID / finalize complete ({action.segment_count} segment(s)) "
+            f"for session {action.session_id}."
+        )
+        n = (*state.notices, msg)[-_MAX_NOTICES:]
+        updates: dict[str, object] = {
+            "pending_meeting_detail_reload": action.session_id,
+            "notices": n,
+        }
+        if action.live_lines is not None:
+            updates["recent_transcript_segments"] = action.live_lines
+        return _touch(state.model_copy(update=updates), action.at)
+
+    if isinstance(action, act.DetailReloadAcknowledged):
+        return _touch(
+            state.model_copy(update={"pending_meeting_detail_reload": None}),
+            action.at,
+        )
 
     if isinstance(action, act.SettingsScreenOpened):
         return _touch(state.model_copy(update={"settings_screen_open": True}), action.at)

@@ -132,6 +132,7 @@ class MeetingBrowser(Vertical):
             group=Binding.Group(description="Delete meeting", compact=True),
         ),
         Binding("ctrl+e", "edit_segment", "Edit line", show=True, priority=True),
+        Binding("ctrl+i", "finalize_selected_speakers", "Speaker ID", show=False, priority=True),
     ]
 
     def __init__(self, *, container: Container, store: Store) -> None:
@@ -154,15 +155,16 @@ class MeetingBrowser(Vertical):
     def compose(self) -> ComposeResult:
         yield Static(
             "[bold]Meetings[/bold] — select a row · [dim]Continue recording[/dim] appends to the open meeting · "
-            "use buttons or [dim]w[/dim] export · [dim]k[/dim] summarize · [dim]ctrl+s[/dim] save · "
-            "[dim]ctrl+g[/dim] summarize · [dim]ctrl+e[/dim] edit line · shift+del / ctrl+shift+d delete · "
-            "[dim]ctrl+r[/dim] refresh",
+            "use buttons or [dim]w[/dim] export · [dim]k[/dim] summarize · [dim]ctrl+i[/dim] speaker ID · "
+            "[dim]ctrl+s[/dim] save · [dim]ctrl+g[/dim] summarize · [dim]ctrl+e[/dim] edit line · "
+            "shift+del / ctrl+shift+d delete · [dim]ctrl+r[/dim] refresh",
             id="meeting-browser-header",
         )
         with Horizontal(id="meeting-toolbar"):
             yield Button("Save", id="meeting-btn-save", variant="primary")
             yield Button("Continue recording", id="meeting-btn-continue-record")
             yield Button("Summarize", id="meeting-btn-summarize")
+            yield Button("Speaker ID", id="meeting-btn-speaker-id", variant="success")
             yield Button("Export markdown", id="meeting-btn-export")
             yield Button("Refresh", id="meeting-btn-refresh")
             yield Button("Edit line", id="meeting-btn-edit-line")
@@ -215,6 +217,14 @@ class MeetingBrowser(Vertical):
         if key != self._last_catalog_key:
             self._last_catalog_key = key
             self.refresh_session_list(preserve_selection=True)
+
+        pending = state.pending_meeting_detail_reload
+        if pending is not None and self._selected_session_id == pending:
+
+            async def _reload() -> None:
+                await self._load_detail(pending)
+
+            self.run_worker(_reload(), exclusive=True)
 
     def refresh_session_list(self, *, preserve_selection: bool = False) -> None:
         table = self.query_one("#meeting-sessions-table", DataTable)
@@ -311,6 +321,10 @@ class MeetingBrowser(Vertical):
             )
             self._transcript_row_ids.append(str(s.id))
 
+        st = self.store.get_state()
+        if st.pending_meeting_detail_reload == session_id:
+            self.store.dispatch(act.DetailReloadAcknowledged(at=utc_now()))
+
     async def _clear_detail(self) -> None:
         self._selected_session_id = None
         self._segments = []
@@ -369,6 +383,14 @@ class MeetingBrowser(Vertical):
         await self.store.dispatch_with_effects(act.SessionsRefreshRequested(at=utc_now()))
         self.app.notify("Meeting saved (title, notes, attendees, speakers).")
         self.refresh_session_list(preserve_selection=True)
+
+    async def action_finalize_selected_speakers(self) -> None:
+        if self._selected_session_id is None:
+            self.app.notify("Select a meeting first.", severity="warning")
+            return
+        sid = self._selected_session_id
+        self.app.notify("Running speaker ID (WhisperX) — this may take a while…", severity="information")
+        await self.store.dispatch_with_effects(act.FinalizeSessionRequested(session_id=sid, at=utc_now()))
 
     async def action_summarize_meeting(self) -> None:
         if self._selected_session_id is None:
@@ -447,6 +469,8 @@ class MeetingBrowser(Vertical):
             await self.action_continue_recording()
         elif bid == "meeting-btn-summarize":
             await self.action_summarize_meeting()
+        elif bid == "meeting-btn-speaker-id":
+            await self.action_finalize_selected_speakers()
         elif bid == "meeting-btn-export":
             await self.action_export_meeting()
         elif bid == "meeting-btn-refresh":

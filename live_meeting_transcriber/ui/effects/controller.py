@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime
+from uuid import UUID
 
 from live_meeting_transcriber.application.container import Container
 from live_meeting_transcriber.application.recorder import Recorder
@@ -13,23 +14,34 @@ from live_meeting_transcriber.domain.application_events import ApplicationEvent
 from live_meeting_transcriber.obsidian.meeting_export import write_dual_export
 from live_meeting_transcriber.ui.bridge import application_events_to_actions
 from live_meeting_transcriber.ui.state import actions as act
-from live_meeting_transcriber.ui.state.model import RecordingStatus, SessionRowState
+from live_meeting_transcriber.ui.state.model import (
+    RecordingStatus,
+    SessionRowState,
+    TranscriptLineState,
+)
 from live_meeting_transcriber.ui.state.store import Store
 from live_meeting_transcriber.utils.time import utc_now
+
+_MAX_LIVE_TRANSCRIPT_LINES = 200
 
 
 def _settings_loaded(settings: Settings, at: datetime) -> act.SettingsLoaded:
     return act.SettingsLoaded(
         transcription_provider=settings.transcription_provider,
-        transcription_model=settings.transcription_model,
+        transcription_model=settings.effective_transcription_model_display(),
         summarization_provider=settings.llm_provider,
         summary_model=settings.summary_model,
         database_url=settings.database_url,
         audio_chunk_seconds=settings.audio_chunk_seconds,
         audio_sample_rate=settings.audio_sample_rate,
         audio_channels=settings.audio_channels,
+        audio_stereo_mode=settings.audio_stereo_mode,
         diarization_enabled=settings.diarization_enabled,
         diarization_provider=settings.diarization_provider,
+        finalize_on_session_stop=settings.finalize_on_session_stop,
+        whisperx_model=settings.whisperx_model,
+        whisperx_skip_alignment=settings.whisperx_skip_alignment,
+        hf_token_configured=bool(settings.hf_token and settings.hf_token.strip()),
         log_file_resolved=str(settings.resolved_log_file()),
         audio_include_microphone=settings.audio_include_microphone,
         at=at,
@@ -54,6 +66,86 @@ class TuiController:
             summarizer=self.container.summarizer,
             session_speakers=self.container.session_speakers,
         )
+
+    async def _finalize_session_background(self, session_id: UUID) -> None:
+        await self._run_finalize_for_session(self.store, session_id)
+
+    async def _run_finalize_for_session(self, store: Store, session_id: UUID) -> None:
+        from live_meeting_transcriber.application.finalize_service import finalize_session_offline
+
+        loop = asyncio.get_running_loop()
+
+        def _progress(msg: str) -> None:
+            def _emit() -> None:
+                store.dispatch(
+                    act.UiLogLineAdded(
+                        level="info",
+                        message=f"Finalize: {msg}",
+                        at=utc_now(),
+                    )
+                )
+
+            loop.call_soon_threadsafe(_emit)
+
+        store.dispatch(
+            act.UiLogLineAdded(
+                level="info",
+                message=f"Starting speaker ID / finalize for session {session_id}…",
+                at=utc_now(),
+            )
+        )
+        try:
+            n = await finalize_session_offline(
+                container=self.container,
+                settings=self.settings,
+                session_id=session_id,
+                progress=_progress,
+            )
+        except ImportError as e:
+            store.dispatch(
+                act.ErrorRaised(
+                    message=f"Speaker ID / finalize skipped: install whisperx extra ({e}).",
+                    at=utc_now(),
+                )
+            )
+            return
+        except FileNotFoundError as e:
+            store.dispatch(
+                act.ErrorRaised(
+                    message=f"No recorded audio for finalize yet: {e}",
+                    at=utc_now(),
+                )
+            )
+            return
+        except Exception as e:
+            store.dispatch(act.ErrorRaised(message=f"Finalize failed: {e}", at=utc_now()))
+            return
+
+        st = store.get_state()
+        live_lines: tuple[TranscriptLineState, ...] | None = None
+        if st.current_session_id == session_id and st.recording_status == RecordingStatus.recording:
+            segs = self.container.transcripts.list_by_session(session_id)
+            live_lines = tuple(
+                TranscriptLineState(
+                    id=str(s.id),
+                    session_id=str(s.session_id),
+                    started_at=s.started_at,
+                    ended_at=s.ended_at,
+                    text=s.text,
+                    speaker=s.speaker,
+                )
+                for s in segs
+            )[-_MAX_LIVE_TRANSCRIPT_LINES:]
+
+        store.dispatch(
+            act.FinalizeSessionSucceeded(
+                session_id=session_id,
+                segment_count=n,
+                live_lines=live_lines,
+                at=utc_now(),
+            )
+        )
+        await self._load_sessions_catalog(store)
 
     async def _load_sessions_catalog(self, store: Store) -> None:
         try:
@@ -168,12 +260,12 @@ class TuiController:
             recorder = Recorder(
                 audio=self.container.audio,
                 transcriber=self.container.transcriber,
-                diarizer=self.container.diarizer,
                 transcripts=self.container.transcripts,
-                diarization_segments=self.container.diarization_segments,
                 keep_audio_chunks=self.settings.keep_audio_chunks,
                 chunk_output_dir=chunk_dir,
-                diarization_enabled=self.settings.diarization_enabled,
+                data_dir=self.settings.ensure_data_dir(),
+                audio_stereo_mode=self.settings.audio_stereo_mode,
+                transcription_provider=self.settings.transcription_provider,
             )
 
             def emit(ev: ApplicationEvent) -> None:
@@ -192,6 +284,9 @@ class TuiController:
                 )
 
             self._record_task = asyncio.create_task(run())
+
+        elif isinstance(action, act.FinalizeSessionRequested):
+            await self._run_finalize_for_session(store, action.session_id)
 
         elif isinstance(action, act.ExportMarkdownRequested):
             st = store.get_state()
@@ -291,5 +386,7 @@ class TuiController:
                     self.container.sessions.end(sid)
                 except Exception:
                     pass
+                if self.settings.finalize_on_session_stop:
+                    asyncio.create_task(self._finalize_session_background(sid))  # noqa: RUF006
 
             await self._load_sessions_catalog(store)

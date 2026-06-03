@@ -82,8 +82,13 @@ class AppState(BaseModel):
     transcription_model: str = ""
     summarization_provider: str = "openai"
     summary_model: str = ""
+    audio_stereo_mode: str = "mixdown"
     diarization_enabled: bool = False
     diarization_provider: str = "noop"
+    finalize_on_session_stop: bool = False
+    whisperx_model: str = ""
+    whisperx_skip_alignment: bool = False
+    hf_token_configured: bool = False
     database_url: str = ""
     audio_sample_rate: int = 16000
     audio_channels: int = 1
@@ -100,6 +105,8 @@ class AppState(BaseModel):
     last_updated_at: datetime | None = None
     settings_screen_open: bool = False
     sessions_screen_open: bool = False
+    pending_meeting_detail_reload: UUID | None = None
+    ui_log_lines: tuple[str, ...] = Field(default_factory=tuple)
 
 
 def initial_app_state() -> AppState:

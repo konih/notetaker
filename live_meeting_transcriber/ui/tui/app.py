@@ -58,14 +58,25 @@ class SettingsScreen(ModalScreen[None]):
         app = self.app
         assert isinstance(app, TranscriberApp)
         s = app.store.get_state()
+        hf = "yes" if s.hf_token_configured else "no (needed for finalize)"
         lines = [
             f"Transcription: {s.transcription_provider} / {s.transcription_model}",
             f"Summarization: {s.summarization_provider} / {s.summary_model}",
             f"Database: {s.database_url}",
             f"Log file: {s.log_file_path or '—'}",
-            f"Audio chunk (s): {s.chunk_seconds}  rate: {s.audio_sample_rate}  ch: {s.audio_channels}",
-            f"Diarization: enabled={s.diarization_enabled} provider={s.diarization_provider}",
+            "",
+            f"Audio: chunk {s.chunk_seconds}s · {s.audio_sample_rate} Hz · {s.audio_channels} ch",
+            f"  stereo mode: {s.audio_stereo_mode} (dual_path = YOU/REMOTE live w/ faster-whisper)",
             f"Mic mix: {'on' if s.audio_include_microphone else 'off'}",
+            "",
+            "Logs tab (ctrl+3): Live errors/warnings, WhisperX finalize progress.",
+            "Offline finalize (WhisperX): ctrl+i from Live or Meetings, or "
+            "`live-transcriber finalize --session-id …`",
+            f"  auto on stop: {s.finalize_on_session_stop} · HF_TOKEN set: {hf}",
+            f"  model: {s.whisperx_model or '—'} · skip alignment: {s.whisperx_skip_alignment}",
+            "",
+            f"Legacy DIARIZATION_* (chunk pyannote removed): enabled={s.diarization_enabled} "
+            f"provider={s.diarization_provider}",
         ]
         yield Vertical(
             Static("Settings (read-only)", classes="settings-title"),
@@ -255,6 +266,8 @@ class TranscriberApp(App[None]):
         Binding("c", "ack_errors", "Ack errors", show=True),
         Binding("ctrl+1", "focus_live_tab", "Live tab", show=True),
         Binding("ctrl+2", "focus_meetings_tab", "Meetings tab", show=True),
+        Binding("ctrl+3", "focus_logs_tab", "Logs tab", show=True),
+        Binding("ctrl+i", "finalize_speakers", "Speaker ID", show=True, priority=True),
     ]
 
     CSS = """
@@ -280,6 +293,8 @@ class TranscriberApp(App[None]):
     .settings-title { text-style: bold; }
     .hint { padding-top: 1; text-style: dim; }
     #sessions-table { height: 20; min-height: 8; }
+    #tab-logs { height: 1fr; }
+    #ui-activity-log { height: 1fr; min-height: 10; border: solid $boost; }
     """
 
     def __init__(self, *, store: Store, container: Container) -> None:
@@ -287,6 +302,7 @@ class TranscriberApp(App[None]):
         self.store = store
         self.container = container
         self._last_segment_keys: tuple[tuple[str, str, str], ...] | None = None
+        self._last_ui_log_len: int = 0
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -299,6 +315,14 @@ class TranscriberApp(App[None]):
                 yield RichLog(id="transcript", highlight=True, markup=True)
             with TabPane("Meetings", id="tab-meetings"):
                 yield MeetingBrowser(container=self.container, store=self.store)
+            with TabPane("Logs", id="tab-logs"), Vertical(id="logs-pane"):
+                yield Static(
+                    "[bold]Activity log[/] — errors/warnings from the Live tab, WhisperX finalize "
+                    "progress, and other messages. Also written to the log file when file logging is on. "
+                    "[dim]ctrl+3[/]",
+                    id="logs-header",
+                )
+                yield RichLog(id="ui-activity-log", highlight=True, markup=True, auto_scroll=True)
         yield Footer()
 
     def action_focus_live_tab(self) -> None:
@@ -306,6 +330,9 @@ class TranscriberApp(App[None]):
 
     def action_focus_meetings_tab(self) -> None:
         self.query_one(TabbedContent).active = "tab-meetings"
+
+    def action_focus_logs_tab(self) -> None:
+        self.query_one(TabbedContent).active = "tab-logs"
 
     async def on_mount(self) -> None:
         self.store.subscribe(self._on_state)
@@ -326,8 +353,22 @@ class TranscriberApp(App[None]):
                 )
             )
         else:
-            notices.update(Text.from_markup("[dim]w: export markdown · k: summarize[/]"))
+            notices.update(
+                Text.from_markup(
+                    "[dim]w: export · k: summarize · ctrl+i: speaker ID · ctrl+3: logs[/]"
+                )
+            )
         err_panel.update(self._render_errors(state))
+
+        ui_log = self.query_one("#ui-activity-log", RichLog)
+        log_lines = state.ui_log_lines
+        if len(log_lines) < self._last_ui_log_len:
+            ui_log.clear()
+            self._last_ui_log_len = 0
+        if len(log_lines) > self._last_ui_log_len:
+            for line in log_lines[self._last_ui_log_len :]:
+                ui_log.write(Text.from_markup(line))
+            self._last_ui_log_len = len(log_lines)
 
         def _seg_key(seg: TranscriptLineState) -> tuple[str, str, str]:
             return (seg.id, seg.speaker, seg.text)
@@ -371,12 +412,13 @@ class TranscriberApp(App[None]):
             f"[bold]Log[/] {log_hint or '—'}",
             f"[bold]Sessions[/] {len(state.sessions_catalog)} in DB"
             + (" (loading…)" if state.sessions_loading else ""),
-            f"[bold]Diarization[/] provider={state.diarization_provider}"
+            f"[bold]Live speakers[/] {state.audio_stereo_mode} ({state.audio_channels}ch)"
             + (
-                f" · seen: {', '.join(sorted(state.diarization_detected_speakers))}"
+                f" · heard: {', '.join(sorted(state.diarization_detected_speakers))}"
                 if state.diarization_detected_speakers
                 else ""
             ),
+            f"[bold]Finalize[/] auto={state.finalize_on_session_stop} · HF={state.hf_token_configured}",
         ]
         return Group(*[Text.from_markup(x) for x in lines])
 
@@ -435,6 +477,28 @@ class TranscriberApp(App[None]):
             )
             return
         await self.store.dispatch_with_effects(act.SummarizeSessionRequested(at=utc_now()))
+
+    async def action_finalize_speakers(self) -> None:
+        tabs = self.query_one(TabbedContent)
+        sid: UUID | None = None
+        if tabs.active == "tab-meetings":
+            browser = self.query_one("#meeting-browser", MeetingBrowser)
+            sid = browser.selected_session_id
+        if sid is None:
+            sid = self.store.get_state().current_session_id
+        if sid is None:
+            self.notify(
+                "Select a meeting on the Meetings tab, or start recording on Live.",
+                severity="warning",
+            )
+            return
+        self.notify(
+            "Running speaker ID (WhisperX) — this may take a while…",
+            severity="information",
+        )
+        await self.store.dispatch_with_effects(
+            act.FinalizeSessionRequested(session_id=sid, at=utc_now())
+        )
 
     def action_settings(self) -> None:
         self.store.dispatch(act.SettingsScreenOpened(at=utc_now()))

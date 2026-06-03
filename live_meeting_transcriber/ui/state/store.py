@@ -4,6 +4,7 @@ from collections.abc import Awaitable, Callable, Sequence
 
 import structlog
 
+from live_meeting_transcriber.ui.state import actions as act
 from live_meeting_transcriber.ui.state.actions import Action
 from live_meeting_transcriber.ui.state.model import AppState, initial_app_state
 from live_meeting_transcriber.ui.state.reducer import reduce
@@ -44,11 +45,22 @@ class Store:
         return unsubscribe
 
     def dispatch(self, action: Action) -> None:
-        # Log action name only — never transcript payload.
-        self._log.info("ui_dispatch", action=type(action).__name__)
+        # Log action name only — never transcript payload (DEBUG to keep INFO readable).
+        self._log.debug("ui_dispatch", action=type(action).__name__)
+        self._emit_structlog_for_user_visible_issues(action)
         self._state = self._reducer(self._state, action)
         for fn in list(self._subscribers):
             fn(self._state)
+
+    def _emit_structlog_for_user_visible_issues(self, action: Action) -> None:
+        """Mirror Live tab errors/warnings to the log file (they only hit the UI reducer otherwise)."""
+        slog = structlog.get_logger(component="ui")
+        if isinstance(action, act.ErrorRaised):
+            slog.error("user_visible_error", message=action.message)
+        elif isinstance(action, act.WarningRaised):
+            slog.warning("user_visible_warning", message=action.message)
+        elif isinstance(action, act.RecordingFailed):
+            slog.error("user_visible_error", message=action.message, source="recording")
 
     async def dispatch_with_effects(self, action: Action) -> None:
         self.dispatch(action)
