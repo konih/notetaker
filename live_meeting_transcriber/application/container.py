@@ -31,6 +31,9 @@ from live_meeting_transcriber.storage.repositories import (
 )
 from live_meeting_transcriber.storage.sqlite import open_connection
 from live_meeting_transcriber.summarization.openai_summarizer import OpenAISummarizationProvider
+from live_meeting_transcriber.transcription.faster_whisper_transcriber import (
+    FasterWhisperTranscriptionProvider,
+)
 from live_meeting_transcriber.transcription.openai_transcriber import OpenAITranscriptionProvider
 
 
@@ -74,7 +77,9 @@ def build_diarization_provider(settings: Settings) -> DiarizationProvider:
                 "HF_TOKEN is required when DIARIZATION_ENABLED=true and DIARIZATION_PROVIDER=pyannote"
             )
         return PyannoteDiarizationProvider(
-            hf_token=settings.hf_token, model_id=settings.pyannote_model
+            hf_token=settings.hf_token,
+            model_id=settings.pyannote_model,
+            pipeline_call_kw=settings.pyannote_diarization_pipeline_kwargs(),
         )
     raise ProviderSelectionError(
         f"Unsupported diarization_provider={settings.diarization_provider!r}"
@@ -82,9 +87,8 @@ def build_diarization_provider(settings: Settings) -> DiarizationProvider:
 
 
 def build_container(settings: Settings) -> Container:
-    if settings.openai_api_key is None and (
-        settings.transcription_provider == "openai" or settings.llm_provider == "openai"
-    ):
+    needs_openai = settings.transcription_provider == "openai" or settings.llm_provider == "openai"
+    if settings.openai_api_key is None and needs_openai:
         raise ProviderSelectionError("OPENAI_API_KEY is required for OpenAI providers")
 
     devices: AudioDeviceProvider = PactlAudioDeviceProvider()
@@ -95,6 +99,13 @@ def build_container(settings: Settings) -> Container:
         transcriber: TranscriptionProvider = OpenAITranscriptionProvider(
             api_key=settings.openai_api_key or "",
             model=settings.transcription_model,
+        )
+    elif settings.transcription_provider == "faster_whisper":
+        transcriber = FasterWhisperTranscriptionProvider(
+            model_size=settings.faster_whisper_model,
+            device=settings.faster_whisper_device,
+            compute_type=settings.faster_whisper_compute_type,
+            language=settings.faster_whisper_language,
         )
     else:
         raise ProviderSelectionError(
