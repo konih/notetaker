@@ -7,7 +7,7 @@ from uuid import UUID
 import typer
 
 from live_meeting_transcriber.application.container import Container, build_container
-from live_meeting_transcriber.application.diarization_batch import reprocess_session_diarization
+from live_meeting_transcriber.application.finalize_service import finalize_session_sync
 from live_meeting_transcriber.application.recorder import Recorder
 from live_meeting_transcriber.application.session_service import SessionService
 from live_meeting_transcriber.audio.sources import resolve_microphone_source
@@ -149,12 +149,12 @@ def record(
     recorder = Recorder(
         audio=c.audio,
         transcriber=c.transcriber,
-        diarizer=c.diarizer,
         transcripts=c.transcripts,
-        diarization_segments=c.diarization_segments,
         keep_audio_chunks=c.settings.keep_audio_chunks,
         chunk_output_dir=chunk_dir,
-        diarization_enabled=c.settings.diarization_enabled,
+        data_dir=c.settings.ensure_data_dir(),
+        audio_stereo_mode=c.settings.audio_stereo_mode,
+        transcription_provider=c.settings.transcription_provider,
     )
 
     async def _run() -> None:
@@ -236,34 +236,25 @@ def export(
         typer.echo(f"Obsidian meeting: {obs_path}", err=False)
 
 
-@app.command()
-def diarize(ctx: typer.Context, session_id: str = typer.Option(..., "--session-id")) -> None:
-    """Re-run speaker diarization on stored chunk WAVs and update transcript speakers."""
+@app.command("finalize")
+def finalize_session(
+    ctx: typer.Context, session_id: str = typer.Option(..., "--session-id")
+) -> None:
+    """Run offline WhisperX + diarization on ``full_session.wav`` and replace the transcript."""
     c = _get_container(ctx)
-    if not c.settings.diarization_enabled:
-        typer.echo(
-            "Enable DIARIZATION_ENABLED and set DIARIZATION_PROVIDER (e.g. pyannote).", err=True
-        )
-        raise typer.Exit(code=2)
     sid = UUID(session_id)
     if c.sessions.get(sid) is None:
         typer.echo("Unknown session id.", err=True)
         raise typer.Exit(code=2)
-    chunk_dir = (c.settings.ensure_data_dir() / "chunks" / str(sid)).resolve()
-
-    async def _run() -> tuple[int, int]:
-        return await reprocess_session_diarization(
-            transcripts=c.transcripts,
-            diarizer=c.diarizer,
-            diarization_repo=c.diarization_segments,
-            chunk_dir=chunk_dir,
-            session_id=sid,
-            sample_rate_hz=c.settings.audio_sample_rate,
-            channels=c.settings.audio_channels,
-        )
-
-    chunks, updated = asyncio.run(_run())
-    typer.echo(f"Diarized {chunks} chunk WAV file(s); updated {updated} transcript line(s).")
+    try:
+        n = finalize_session_sync(container=c, settings=c.settings, session_id=sid)
+    except ImportError as e:
+        typer.echo(f"Install WhisperX: uv sync --extra whisperx ({e})", err=True)
+        raise typer.Exit(code=2) from e
+    except FileNotFoundError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=2) from e
+    typer.echo(f"Replaced transcript with {n} segment(s).")
 
 
 @app.command("speakers")
