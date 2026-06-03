@@ -6,3 +6,7 @@ class EmptyTranscriptionError(Exception):
 
     Callers should treat this as **recoverable**: skip persisting a segment and continue recording.
     """
+
+
+class TranscriptionProviderError(Exception):
+    """Transcription failed for a chunk (API error, corrupt audio, ffmpeg extract failure)."""

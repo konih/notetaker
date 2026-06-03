@@ -15,10 +15,12 @@ from live_meeting_transcriber.application.slide_review import (
 from live_meeting_transcriber.application.video_import_service import (
     VideoImportService,
     _effective_video_chunk_seconds,
+    _planned_chunk_count,
 )
 from live_meeting_transcriber.audio.media_source import is_remote_url, media_title_from_source
 from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.models import AudioChunk, SlideCandidate, TranscriptSegment
+from live_meeting_transcriber.transcription.openai_transcriber import OpenAITranscriptionError
 from live_meeting_transcriber.video.strategies.frame_diff import mean_absolute_difference
 
 
@@ -85,7 +87,7 @@ async def test_transcribe_wav_in_chunks_single_request_for_short_video(tmp_path:
 
     from datetime import UTC, datetime
 
-    count = await svc._transcribe_wav_in_chunks(
+    summary = await svc._transcribe_wav_in_chunks(
         session_id=session_id,
         full_wav=full_wav,
         duration_seconds=30.0,
@@ -95,8 +97,10 @@ async def test_transcribe_wav_in_chunks_single_request_for_short_video(tmp_path:
         chunk_dir=chunk_dir,
         session_started_at=datetime.now(tz=UTC),
         on_segment=None,
+        on_progress=None,
     )
-    assert count == 1
+    assert summary.segments == 1
+    assert summary.chunks == 1
     assert len(transcriber.calls) == 1
 
 
@@ -118,7 +122,7 @@ async def test_transcribe_wav_in_chunks_skips_sub_minimum_tail(tmp_path: Path) -
 
     from datetime import UTC, datetime
 
-    count = await svc._transcribe_wav_in_chunks(
+    summary = await svc._transcribe_wav_in_chunks(
         session_id=session_id,
         full_wav=full_wav,
         duration_seconds=120.064,
@@ -128,8 +132,10 @@ async def test_transcribe_wav_in_chunks_skips_sub_minimum_tail(tmp_path: Path) -
         chunk_dir=chunk_dir,
         session_started_at=datetime.now(tz=UTC),
         on_segment=None,
+        on_progress=None,
     )
-    assert count == 12
+    assert summary.segments == 12
+    assert summary.chunks == 12
     assert len(transcriber.calls) == 12
 
 
@@ -243,6 +249,167 @@ def test_review_slide_candidates_interactive() -> None:
     assert len(out) == 2
     assert out[0].timestamp_seconds == 0.0
     assert out[1].timestamp_seconds == 60.0
+
+
+def test_planned_chunk_count_200s_video() -> None:
+    assert _planned_chunk_count(200.0, 10.0) == 20
+
+
+@pytest.mark.asyncio
+async def test_transcribe_wav_in_chunks_200s_processes_all_chunks(tmp_path: Path) -> None:
+    if shutil.which("ffmpeg") is None:
+        pytest.skip("ffmpeg not available")
+    full_wav = tmp_path / "full.wav"
+    _write_silent_wav(full_wav, seconds=200.0)
+    chunk_dir = tmp_path / "chunks"
+    transcriber = _RecordingTranscriber()
+    svc = VideoImportService(
+        settings=Settings(database_url=f"sqlite:///{tmp_path / 'app.db'}"),
+        sessions=MagicMock(),
+        transcripts=MagicMock(),
+        transcriber=transcriber,
+    )
+    session_id = uuid4()
+
+    from datetime import UTC, datetime
+
+    summary = await svc._transcribe_wav_in_chunks(
+        session_id=session_id,
+        full_wav=full_wav,
+        duration_seconds=200.0,
+        chunk_seconds=10.0,
+        sample_rate_hz=16000,
+        channels=1,
+        chunk_dir=chunk_dir,
+        session_started_at=datetime.now(tz=UTC),
+        on_segment=None,
+        on_progress=None,
+    )
+    assert summary.chunks == 20
+    assert summary.segments == 20
+    assert len(transcriber.calls) == 20
+
+
+@dataclass
+class _FailingAfterFirstTranscriber:
+    calls: list[AudioChunk] = field(default_factory=list)
+
+    async def transcribe(self, *, chunk: AudioChunk) -> TranscriptSegment:
+        self.calls.append(chunk)
+        if len(self.calls) > 1:
+            raise OpenAITranscriptionError("OpenAI rate limit reached; wait and retry")
+        return TranscriptSegment(
+            session_id=chunk.session_id,
+            chunk_id=chunk.id,
+            started_at=chunk.started_at,
+            ended_at=chunk.ended_at,
+            text="first chunk only",
+        )
+
+
+@pytest.mark.asyncio
+async def test_transcribe_wav_in_chunks_api_failure_returns_partial_summary(
+    tmp_path: Path,
+) -> None:
+    if shutil.which("ffmpeg") is None:
+        pytest.skip("ffmpeg not available")
+    full_wav = tmp_path / "full.wav"
+    _write_silent_wav(full_wav, seconds=30.0)
+    chunk_dir = tmp_path / "chunks"
+    transcriber = _FailingAfterFirstTranscriber()
+    svc = VideoImportService(
+        settings=Settings(database_url=f"sqlite:///{tmp_path / 'app.db'}"),
+        sessions=MagicMock(),
+        transcripts=MagicMock(),
+        transcriber=transcriber,
+    )
+    session_id = uuid4()
+
+    from datetime import UTC, datetime
+
+    summary = await svc._transcribe_wav_in_chunks(
+        session_id=session_id,
+        full_wav=full_wav,
+        duration_seconds=30.0,
+        chunk_seconds=10.0,
+        sample_rate_hz=16000,
+        channels=1,
+        chunk_dir=chunk_dir,
+        session_started_at=datetime.now(tz=UTC),
+        on_segment=None,
+        on_progress=None,
+    )
+    assert summary.segments == 1
+    assert summary.failed == 2
+    assert summary.chunks == 3
+    assert summary.has_failures
+    assert summary.status_message() is not None
+    assert "Partial transcription" in summary.status_message()
+    assert len(transcriber.calls) == 3
+
+
+@pytest.mark.asyncio
+async def test_import_video_raises_when_all_chunks_fail(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    video = tmp_path / "talk.mp4"
+    video.write_bytes(b"not-a-real-video")
+
+    transcriber = AsyncMock()
+    transcriber.transcribe = AsyncMock(
+        side_effect=OpenAITranscriptionError("Invalid OpenAI API key; check OPENAI_API_KEY")
+    )
+    sessions = MagicMock()
+    session = MagicMock()
+    session.id = uuid4()
+    session.started_at = MagicMock()
+    sessions.create.return_value = session
+
+    svc = VideoImportService(
+        settings=Settings(database_url=f"sqlite:///{tmp_path / 'app.db'}"),
+        sessions=sessions,
+        transcripts=MagicMock(),
+        transcriber=transcriber,
+    )
+
+    def _resolve(*_a, **_k):
+        return video
+
+    monkeypatch.setattr(
+        "live_meeting_transcriber.application.video_import_service.resolve_media_source",
+        _resolve,
+    )
+    monkeypatch.setattr(
+        "live_meeting_transcriber.application.video_import_service.probe_media_duration_seconds",
+        lambda _p: 30.0,
+    )
+
+    def _extract(**kwargs):
+        dest = kwargs["dest_wav"]
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        _write_silent_wav(dest, seconds=30.0)
+
+    monkeypatch.setattr(
+        "live_meeting_transcriber.application.video_import_service.extract_audio_to_wav",
+        _extract,
+    )
+    monkeypatch.setattr(
+        "live_meeting_transcriber.application.video_import_service.write_source_media_manifest",
+        lambda **_k: None,
+    )
+    monkeypatch.setattr(
+        "live_meeting_transcriber.application.video_import_service.append_timeline_entry",
+        lambda *_a, **_k: None,
+    )
+
+    from datetime import UTC, datetime
+
+    from live_meeting_transcriber.application.video_import_service import VideoImportError
+
+    session.started_at = datetime.now(tz=UTC)
+
+    with pytest.raises(VideoImportError, match="No transcript segments"):
+        await svc.import_video(source=str(video), extract_slides=False)
 
 
 def test_mean_absolute_difference() -> None:
