@@ -11,6 +11,13 @@ class WavSegmentExtractionError(RuntimeError):
     pass
 
 
+# OpenAI and most cloud STT APIs reject clips shorter than ~0.1s.
+MIN_TRANSCRIPTION_CHUNK_SECONDS = 0.1
+
+# PCM s16le WAV header is 44 bytes; anything smaller is not usable audio.
+_MIN_PCM_WAV_BYTES = 44
+
+
 def pcm_wav_duration_seconds(path: Path) -> float:
     """Duration of a PCM WAV file in seconds (for clipping diarization offsets)."""
     with wave.open(str(path), "rb") as w:
@@ -29,6 +36,21 @@ def safe_wav_duration_seconds(path: Path) -> float:
         return pcm_wav_duration_seconds(path)
     except Exception:
         return 0.0
+
+
+def wav_is_transcribable(
+    path: Path, *, min_seconds: float = MIN_TRANSCRIPTION_CHUNK_SECONDS
+) -> bool:
+    """Return whether ``path`` looks like non-empty audio worth sending to STT."""
+    if not path.is_file():
+        return False
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return False
+    if size <= _MIN_PCM_WAV_BYTES:
+        return False
+    return safe_wav_duration_seconds(path) >= min_seconds
 
 
 def extract_wav_time_range(
