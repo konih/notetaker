@@ -20,7 +20,6 @@ from live_meeting_transcriber.application.session_media import (
 from live_meeting_transcriber.application.session_service import SessionService
 from live_meeting_transcriber.application.video_import_service import VideoImportProgress
 from live_meeting_transcriber.domain.models import Summary, TranscriptSegment
-from live_meeting_transcriber.domain.speaker_display import format_transcript_speaker_label
 from live_meeting_transcriber.ui.state import actions as act
 from live_meeting_transcriber.ui.state.model import AppState, RecordingStatus
 from live_meeting_transcriber.ui.state.store import Store
@@ -34,6 +33,7 @@ from live_meeting_transcriber.ui.tui.people_suggesters import (
 )
 from live_meeting_transcriber.ui.tui.slide_preview_screen import SlidePreviewScreen
 from live_meeting_transcriber.ui.tui.tab_complete_input import TabCompletableInput
+from live_meeting_transcriber.ui.tui.transcript_display import format_meeting_transcript_text
 from live_meeting_transcriber.ui.tui.video_import_modal import (
     VideoImportForm,
     VideoImportModal,
@@ -291,16 +291,15 @@ class MeetingBrowser(Vertical):
                     classes="dim",
                 )
                 yield Vertical(id="meeting-speaker-area")
-                yield Static("Transcript", classes="dim")
-                yield DataTable(
-                    id="meeting-transcript-table", cursor_type="row", zebra_stripes=True
+                yield Static(
+                    "Transcript (scrollable — place cursor on a line, ctrl+e to edit)",
+                    classes="dim",
                 )
+                yield TextArea(id="meeting-transcript", read_only=True, language=None)
 
     def on_mount(self) -> None:
         st = self.query_one("#meeting-sessions-table", DataTable)
         st.add_columns("Type", "Title", "Started (UTC)", "Session")
-        tt = self.query_one("#meeting-transcript-table", DataTable)
-        tt.add_columns("Time", "Speaker", "Text")
         attendees = self.query_one("#meeting-attendees", TabCompletableInput)
         attendees.suggester = self._comma_suggester
         self.refresh_session_list()
@@ -418,21 +417,9 @@ class MeetingBrowser(Vertical):
         if rows:
             await spk_area.mount(*rows)
 
-        tt = self.query_one("#meeting-transcript-table", DataTable)
-        tt.clear()
-        self._transcript_row_ids = []
-        for s in self._segments:
-            label = format_transcript_speaker_label(s.speaker, name_map)
-            snippet = s.text.replace("\n", " ")
-            if len(snippet) > 100:
-                snippet = snippet[:97] + "…"
-            tt.add_row(
-                s.started_at.isoformat(timespec="minutes"),
-                label,
-                snippet,
-                key=str(s.id),
-            )
-            self._transcript_row_ids.append(str(s.id))
+        transcript = self.query_one("#meeting-transcript", TextArea)
+        transcript.text = format_meeting_transcript_text(self._segments, session, name_map)
+        self._transcript_row_ids = [str(s.id) for s in self._segments]
 
         st = self.store.get_state()
         if st.pending_meeting_detail_reload == session_id:
@@ -457,7 +444,7 @@ class MeetingBrowser(Vertical):
         att.disabled = True
         spk_area = self.query_one("#meeting-speaker-area", Vertical)
         await spk_area.remove_children()
-        self.query_one("#meeting-transcript-table", DataTable).clear()
+        self.query_one("#meeting-transcript", TextArea).text = ""
         continue_btn = self.query_one("#meeting-btn-continue-record", Button)
         continue_btn.disabled = False
         slide_btn = self.query_one("#meeting-btn-slide-preview", Button)
@@ -776,12 +763,12 @@ class MeetingBrowser(Vertical):
         if self._selected_session_id is None or not self._segments:
             self.app.notify("Select a meeting with transcript lines.", severity="warning")
             return
-        tt = self.query_one("#meeting-transcript-table", DataTable)
-        coord = tt.cursor_coordinate
-        if coord is None or coord.row < 0 or coord.row >= len(self._transcript_row_ids):
-            self.app.notify("Select a transcript row first.", severity="warning")
+        transcript = self.query_one("#meeting-transcript", TextArea)
+        row = transcript.cursor_location[0]
+        if row < 0 or row >= len(self._transcript_row_ids):
+            self.app.notify("Place the cursor on a transcript line first.", severity="warning")
             return
-        seg_id = UUID(self._transcript_row_ids[coord.row])
+        seg_id = UUID(self._transcript_row_ids[row])
         seg = next((s for s in self._segments if s.id == seg_id), None)
         if seg is None:
             return

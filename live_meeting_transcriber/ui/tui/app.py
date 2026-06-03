@@ -294,7 +294,7 @@ class TranscriberApp(App[None]):
     #meeting-browser-detail { height: 1fr; min-height: 8; }
     #meeting-notes { height: 7; min-height: 4; max-height: 12; }
     #meeting-summary { height: 10; min-height: 5; max-height: 18; }
-    #meeting-transcript-table { height: 1fr; min-height: 6; }
+    #meeting-transcript { height: 1fr; min-height: 8; }
     .spk-row { height: auto; margin-bottom: 1; }
     .spk-label { width: 14; }
     .dim { text-style: dim; }
