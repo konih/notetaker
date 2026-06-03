@@ -60,6 +60,14 @@ uv sync --extra diarization
 
 Accept the **pyannote** and model license(s) on Hugging Face, then set `HF_TOKEN` in `.env`.
 
+Optional **inline slide thumbnails in the TUI** ([textual-image](https://github.com/darrenburns/textual-image)):
+
+```bash
+uv sync --extra tui-image
+```
+
+Inline PNG preview works in **Kitty**, **WezTerm**, or **Ghostty** — not in Terminator or most default GNOME terminals. In Terminator, use **`o`** in slide preview to open the PNG with `xdg-open`, or install **`chafa`** for a coarse ASCII preview (`sudo apt install chafa`). See [`docs/install-desktop.md`](docs/install-desktop.md).
+
 ### Configuration
 
 Copy `.env.example` to `.env` and edit:

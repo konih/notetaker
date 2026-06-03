@@ -60,7 +60,13 @@ With no subcommand, `live-transcriber` opens the TUI (same as `live-transcriber 
 
 ### Terminal support (TUI slide preview)
 
-**Inline slide thumbnails** in the Meetings → Slide preview screen use the [textual-image](https://github.com/darrenburns/textual-image) optional extra. They render reliably only in terminals with **graphics protocols** (Kitty graphics, Sixel, etc.):
+**Inline slide thumbnails** in Meetings → Slide preview use the optional **`tui-image`** extra:
+
+```bash
+uv sync --extra tui-image
+```
+
+They render reliably only in terminals with **graphics protocols** (Kitty graphics, Sixel, etc.):
 
 | Terminal | Inline PNG preview |
 |----------|-------------------|
