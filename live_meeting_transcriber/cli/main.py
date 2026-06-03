@@ -8,6 +8,7 @@ from typing import Annotated
 from uuid import UUID
 
 import typer
+from rich.progress import BarColumn, Progress, TextColumn, TimeElapsedColumn
 
 from live_meeting_transcriber.application.cleanup_service import run_cleanup
 from live_meeting_transcriber.application.container import Container, build_container
@@ -20,6 +21,7 @@ from live_meeting_transcriber.application.slide_preview_service import (
 )
 from live_meeting_transcriber.application.video_import_service import (
     VideoImportError,
+    VideoImportProgress,
     VideoImportService,
 )
 from live_meeting_transcriber.audio.sources import resolve_microphone_source
@@ -458,23 +460,69 @@ def transcribe_video(
                 )
             return
 
-        result = await svc.import_video(
-            source=source,
-            title=title,
-            chunk_seconds=chunk_seconds,
-            extract_slides=not no_slides,
-            accept_all_slides=yes_slides,
-            reject_all_slides=no_slides,
-            slide_strategy=strategy,
-            slide_params=slide_params,
-            on_segment=lambda seg: typer.echo(f"[{seg.started_at.isoformat()}] {seg.text}"),
-        )
+        progress_task: int | None = None
+        progress: Progress | None = None
+
+        def _on_progress(p: VideoImportProgress) -> None:
+            nonlocal progress, progress_task
+            if p.phase == "slides":
+                if progress is not None and progress_task is not None:
+                    progress.update(progress_task, description="Detecting slides")
+                return
+            if progress is None:
+                progress = Progress(
+                    TextColumn("[progress.description]{task.description}"),
+                    BarColumn(),
+                    TextColumn("{task.completed}/{task.total}"),
+                    TimeElapsedColumn(),
+                    transient=False,
+                )
+                progress.start()
+                progress_task = progress.add_task("Transcribing", total=max(p.chunk_total, 1))
+            assert progress_task is not None
+            progress.update(
+                progress_task,
+                completed=p.chunk_index,
+                description=(
+                    f"Chunk {p.chunk_index}/{p.chunk_total} @ {p.offset_seconds:.0f}s "
+                    f"({p.segments_so_far} segment(s))"
+                ),
+            )
+
+        try:
+            result = await svc.import_video(
+                source=source,
+                title=title,
+                chunk_seconds=chunk_seconds,
+                extract_slides=not no_slides,
+                accept_all_slides=yes_slides,
+                reject_all_slides=no_slides,
+                slide_strategy=strategy,
+                slide_params=slide_params,
+                on_segment=lambda seg: typer.echo(f"[{seg.started_at.isoformat()}] {seg.text}"),
+                on_progress=_on_progress,
+            )
+        finally:
+            if progress is not None:
+                progress.stop()
+
         typer.echo("", err=False)
         typer.echo(f"Session: {result.session_id}", err=False)
-        typer.echo(
-            f"Transcript segments: {result.segment_count}; slides saved: {result.slide_count}",
-            err=False,
+        summary_line = (
+            f"Transcript segments: {result.segment_count}; slides saved: {result.slide_count}"
         )
+        if result.transcription is not None:
+            tx = result.transcription
+            summary_line += (
+                f" ({tx.segments} from {tx.chunks} chunk(s)"
+                f"; skipped {tx.skipped_empty} empty, {tx.skipped_silent} silent"
+                f"; failed {tx.failed})"
+            )
+        typer.echo(summary_line, err=False)
+        if result.transcription is not None:
+            warning = result.transcription.status_message()
+            if warning is not None and result.transcription.segments > 0:
+                typer.echo(f"Warning: {warning}", err=True)
         log.info(
             "transcribe_video_done",
             session_id=str(result.session_id),

@@ -13,6 +13,7 @@ from live_meeting_transcriber.application.video_import_service import (
     VideoImportResult,
 )
 from live_meeting_transcriber.application.video_session_storage import is_video_import_session
+from live_meeting_transcriber.transcription.openai_transcriber import OpenAITranscriptionError
 from live_meeting_transcriber.ui.tui.meeting_session_helpers import (
     format_session_type_label,
     session_is_video_import,
@@ -47,6 +48,12 @@ def test_format_session_type_label() -> None:
 
 def test_format_video_import_error_wraps_generic() -> None:
     assert format_video_import_error(VideoImportError("bad source")) == "bad source"
+    assert (
+        format_video_import_error(
+            OpenAITranscriptionError("Invalid OpenAI API key; check OPENAI_API_KEY")
+        )
+        == "Invalid OpenAI API key; check OPENAI_API_KEY"
+    )
     assert "Video import failed" in format_video_import_error(RuntimeError("boom"))
 
 
@@ -74,4 +81,5 @@ async def test_run_video_import_delegates_to_service() -> None:
         source="/tmp/talk.mp4",
         title="Talk",
         extract_slides=False,
+        on_progress=None,
     )

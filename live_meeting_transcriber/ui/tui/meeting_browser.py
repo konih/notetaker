@@ -18,6 +18,7 @@ from live_meeting_transcriber.application.session_media import (
     format_session_media_inventory,
 )
 from live_meeting_transcriber.application.session_service import SessionService
+from live_meeting_transcriber.application.video_import_service import VideoImportProgress
 from live_meeting_transcriber.domain.models import Summary, TranscriptSegment
 from live_meeting_transcriber.domain.speaker_display import format_transcript_speaker_label
 from live_meeting_transcriber.ui.state import actions as act
@@ -478,11 +479,25 @@ class MeetingBrowser(Vertical):
             f"Importing video from {form.source[:64]}{'…' if len(form.source) > 64 else ''}…",
             severity="information",
         )
+
+        def _on_progress(p: VideoImportProgress) -> None:
+            if p.phase == "slides":
+                self.app.notify("Detecting slides…", severity="information", timeout=3)
+                return
+            pct = int(100 * p.chunk_index / p.chunk_total) if p.chunk_total else 0
+            self.app.notify(
+                f"Transcribing chunk {p.chunk_index}/{p.chunk_total} ({pct}%) — "
+                f"{p.segments_so_far} segment(s) so far",
+                severity="information",
+                timeout=4,
+            )
+
         try:
             result = await run_video_import(
                 self.container,
                 source=form.source,
                 title=form.title,
+                on_progress=_on_progress,
             )
         except Exception as e:
             self.app.notify(format_video_import_error(e), severity="error", timeout=8)
@@ -499,11 +514,15 @@ class MeetingBrowser(Vertical):
         await self._load_detail(result.session_id)
         session = self.container.sessions.get(result.session_id)
         title = session.title if session is not None else "video"
-        self.app.notify(
+        msg = (
             f"Imported “{title}” — {result.segment_count} segment(s). "
-            "Press [bold]p[/] for slide preview.",
-            timeout=6,
+            "Press [bold]p[/] for slide preview."
         )
+        if result.transcription is not None:
+            warning = result.transcription.status_message()
+            if warning is not None and result.transcription.segments > 0:
+                self.app.notify(warning, severity="warning", timeout=10)
+        self.app.notify(msg, timeout=6)
 
     async def action_save_meeting(self) -> None:
         if self._selected_session_id is None:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from textual.app import ComposeResult
@@ -13,9 +14,14 @@ from textual.widgets import Input, Static
 from live_meeting_transcriber.application.container import Container
 from live_meeting_transcriber.application.video_import_service import (
     VideoImportError,
+    VideoImportProgress,
     VideoImportResult,
     VideoImportService,
 )
+from live_meeting_transcriber.transcription.faster_whisper_transcriber import (
+    FasterWhisperTranscriptionError,
+)
+from live_meeting_transcriber.transcription.openai_transcriber import OpenAITranscriptionError
 
 
 @dataclass(frozen=True)
@@ -76,6 +82,7 @@ async def run_video_import(
     *,
     source: str,
     title: str | None = None,
+    on_progress: Callable[[VideoImportProgress], None] | None = None,
 ) -> VideoImportResult:
     """Import and transcribe a video; slides are reviewed later via slide preview."""
     svc = VideoImportService(
@@ -88,10 +95,13 @@ async def run_video_import(
         source=source,
         title=title,
         extract_slides=False,
+        on_progress=on_progress,
     )
 
 
 def format_video_import_error(exc: BaseException) -> str:
     if isinstance(exc, VideoImportError):
+        return str(exc)
+    if isinstance(exc, (OpenAITranscriptionError, FasterWhisperTranscriptionError)):
         return str(exc)
     return f"Video import failed: {exc}"
