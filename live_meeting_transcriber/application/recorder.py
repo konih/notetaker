@@ -6,16 +6,20 @@ from dataclasses import dataclass
 from pathlib import Path
 from uuid import UUID
 
-from live_meeting_transcriber.audio.wav_level import peak_linear_from_wav_path
-from live_meeting_transcriber.diarization.merge_service import (
-    merge_diarization_into_transcript_segment,
+from live_meeting_transcriber.audio.session_recording import (
+    append_chunk_to_full_session_wav,
+    full_session_wav_path,
+    session_audio_dir,
 )
+from live_meeting_transcriber.audio.stereo import extract_mono_channel_wav, rms_mixdown_to_mono_wav
+from live_meeting_transcriber.audio.timeline import AudioTimelineEntry, append_timeline_entry
+from live_meeting_transcriber.audio.wav_level import peak_linear_from_wav_path
+from live_meeting_transcriber.audio.wav_segment import safe_wav_duration_seconds
 from live_meeting_transcriber.domain.application_events import (
     ApplicationEvent,
     AudioChunkCaptured,
     AudioChunkLevelMeasured,
     DiarizationChunkCompleted,
-    DiarizationFailed,
     RecordingFailed,
     RecordingLoopEntered,
     RecordingStopped,
@@ -25,11 +29,9 @@ from live_meeting_transcriber.domain.application_events import (
     TranscriptSegmentPersisted,
 )
 from live_meeting_transcriber.domain.exceptions import EmptyTranscriptionError
-from live_meeting_transcriber.domain.models import DiarizationSegment, TranscriptSegment
+from live_meeting_transcriber.domain.models import AudioChunk, TranscriptSegment
 from live_meeting_transcriber.domain.ports import (
     AudioCapture,
-    DiarizationProvider,
-    DiarizationRepository,
     TranscriptionProvider,
     TranscriptRepository,
 )
@@ -54,12 +56,188 @@ def _emit(
 class Recorder:
     audio: AudioCapture
     transcriber: TranscriptionProvider
-    diarizer: DiarizationProvider
     transcripts: TranscriptRepository
-    diarization_segments: DiarizationRepository
     keep_audio_chunks: bool
     chunk_output_dir: Path
-    diarization_enabled: bool = False
+    data_dir: Path
+    audio_stereo_mode: str
+    transcription_provider: str
+
+    async def _ingest_captured_chunk(
+        self,
+        *,
+        session_id: UUID,
+        chunk: AudioChunk,
+        session_audio_root: Path,
+        sample_rate_hz: int,
+        on_application_event: Callable[[ApplicationEvent], None] | None,
+        on_segment: Callable[[TranscriptSegment], None] | None,
+    ) -> None:
+        log = get_logger(component="recorder", session_id=str(session_id))
+        log.info("transcription_started", chunk_id=str(chunk.id))
+        _emit(
+            on_application_event,
+            TranscriptionChunkStarted(session_id=session_id, chunk_id=chunk.id, at=utc_now()),
+        )
+
+        file_dur = safe_wav_duration_seconds(chunk.path)
+        if file_dur <= 0.0:
+            file_dur = chunk.duration_seconds
+
+        full_wav = full_session_wav_path(session_audio_root)
+        audio_start = safe_wav_duration_seconds(full_wav)
+        audio_end = audio_start + file_dur
+        try:
+            append_chunk_to_full_session_wav(
+                session_audio_root=session_audio_root,
+                chunk_wav=chunk.path,
+                sample_rate_hz=sample_rate_hz,
+            )
+        except Exception as e:
+            log.warning("session_full_audio_append_failed", error=str(e))
+        else:
+            append_timeline_entry(
+                session_audio_root,
+                AudioTimelineEntry(
+                    audio_start_sec=audio_start,
+                    audio_end_sec=audio_end,
+                    wall_started_at=chunk.started_at,
+                    wall_ended_at=chunk.ended_at,
+                ),
+            )
+
+        use_dual = (
+            chunk.channels == 2
+            and self.audio_stereo_mode == "dual_path"
+            and callable(getattr(self.transcriber, "transcribe_stereo_chunk", None))
+        )
+        if chunk.channels == 2 and self.audio_stereo_mode == "dual_path" and not use_dual:
+            log.warning(
+                "dual_path_stereo_ignored",
+                message="AUDIO_STEREO_MODE=dual_path requires faster_whisper; using mixdown.",
+            )
+
+        temp_paths: list[Path] = []
+        try:
+            if use_dual:
+                mic_path = extract_mono_channel_wav(chunk.path, 0, sample_rate_hz=sample_rate_hz)
+                sys_path = extract_mono_channel_wav(chunk.path, 1, sample_rate_hz=sample_rate_hz)
+                temp_paths.extend([mic_path, sys_path])
+                segments = await self.transcriber.transcribe_stereo_chunk(  # type: ignore[attr-defined]
+                    chunk=chunk, mic_path=mic_path, sys_path=sys_path
+                )
+                if not segments:
+                    log.warning("transcription_empty_chunk", chunk_id=str(chunk.id))
+                    _emit(
+                        on_application_event,
+                        TranscriptionChunkEmpty(
+                            session_id=session_id,
+                            chunk_id=chunk.id,
+                            at=utc_now(),
+                        ),
+                    )
+                    if not self.keep_audio_chunks:
+                        try:
+                            chunk.path.unlink(missing_ok=True)
+                        except OSError:
+                            log.warning("audio_chunk_cleanup_failed", path=str(chunk.path))
+                    await asyncio.sleep(0)
+                    return
+                detected = frozenset({s.speaker for s in segments if s.speaker})
+                for segment in segments:
+                    self.transcripts.append(segment)
+                    log.info("transcript_segment_saved", segment_id=str(segment.id))
+                    _emit(
+                        on_application_event,
+                        TranscriptSegmentPersisted(segment=segment, at=utc_now()),
+                    )
+                    if on_segment is not None:
+                        on_segment(segment)
+                last_seg = segments[-1]
+                _emit(
+                    on_application_event,
+                    TranscriptionChunkCompleted(session_id=session_id, chunk_id=chunk.id, at=utc_now()),
+                )
+                _emit(
+                    on_application_event,
+                    DiarizationChunkCompleted(
+                        segment=last_seg,
+                        detected_speakers=detected,
+                        at=utc_now(),
+                    ),
+                )
+            else:
+                work_chunk = chunk
+                if chunk.channels == 2:
+                    mono_p = rms_mixdown_to_mono_wav(chunk.path, sample_rate_hz=sample_rate_hz)
+                    temp_paths.append(mono_p)
+                    work_chunk = chunk.model_copy(
+                        update={
+                            "path": mono_p,
+                            "channels": 1,
+                        }
+                    )
+                try:
+                    segment = await self.transcriber.transcribe(chunk=work_chunk)
+                except EmptyTranscriptionError:
+                    log.warning("transcription_empty_chunk", chunk_id=str(chunk.id))
+                    _emit(
+                        on_application_event,
+                        TranscriptionChunkEmpty(
+                            session_id=session_id,
+                            chunk_id=chunk.id,
+                            at=utc_now(),
+                        ),
+                    )
+                    if not self.keep_audio_chunks:
+                        try:
+                            chunk.path.unlink(missing_ok=True)
+                        except OSError:
+                            log.warning("audio_chunk_cleanup_failed", path=str(chunk.path))
+                    await asyncio.sleep(0)
+                    return
+
+                segment = segment.model_copy(
+                    update={
+                        "speaker": "unknown",
+                        "chunk_id": chunk.id,
+                    }
+                )
+                _emit(
+                    on_application_event,
+                    TranscriptionChunkCompleted(session_id=session_id, chunk_id=chunk.id, at=utc_now()),
+                )
+                _emit(
+                    on_application_event,
+                    DiarizationChunkCompleted(
+                        segment=segment,
+                        detected_speakers=frozenset(),
+                        at=utc_now(),
+                    ),
+                )
+                self.transcripts.append(segment)
+                log.info("transcript_segment_saved", segment_id=str(segment.id))
+                _emit(
+                    on_application_event,
+                    TranscriptSegmentPersisted(segment=segment, at=utc_now()),
+                )
+                if on_segment is not None:
+                    on_segment(segment)
+
+        finally:
+            for p in temp_paths:
+                try:
+                    p.unlink(missing_ok=True)
+                except OSError:
+                    pass
+
+        if not self.keep_audio_chunks:
+            try:
+                chunk.path.unlink(missing_ok=True)
+            except OSError:
+                log.warning("audio_chunk_cleanup_failed", path=str(chunk.path))
+
+        await asyncio.sleep(0)
 
     async def record_forever(
         self,
@@ -82,6 +260,7 @@ class Recorder:
         )
 
         self.chunk_output_dir.mkdir(parents=True, exist_ok=True)
+        session_audio_root = session_audio_dir(self.data_dir, session_id)
         now = utc_now()
         _emit(
             on_application_event,
@@ -96,16 +275,25 @@ class Recorder:
 
         try:
             while True:
-                chunk = await asyncio.to_thread(
-                    self.audio.capture_chunk,
-                    session_id=session_id,
-                    source=source,
-                    microphone_source=microphone_source,
-                    chunk_seconds=chunk_seconds,
-                    sample_rate_hz=sample_rate_hz,
-                    channels=channels,
-                    output_dir=self.chunk_output_dir,
-                )
+                try:
+                    chunk = await asyncio.to_thread(
+                        self.audio.capture_chunk,
+                        session_id=session_id,
+                        source=source,
+                        microphone_source=microphone_source,
+                        chunk_seconds=chunk_seconds,
+                        sample_rate_hz=sample_rate_hz,
+                        channels=channels,
+                        output_dir=self.chunk_output_dir,
+                    )
+                except asyncio.CancelledError:
+                    log.info("recording_cancelled")
+                    _emit(
+                        on_application_event,
+                        RecordingStopped(session_id=session_id, at=utc_now()),
+                    )
+                    return
+
                 log.info("audio_chunk_captured", chunk_id=str(chunk.id), path=str(chunk.path))
                 _emit(
                     on_application_event,
@@ -125,93 +313,27 @@ class Recorder:
                     ),
                 )
 
-                log.info("transcription_started", chunk_id=str(chunk.id))
-                _emit(
-                    on_application_event,
-                    TranscriptionChunkStarted(
-                        session_id=session_id, chunk_id=chunk.id, at=utc_now()
-                    ),
+                ingest_task = asyncio.create_task(
+                    self._ingest_captured_chunk(
+                        session_id=session_id,
+                        chunk=chunk,
+                        session_audio_root=session_audio_root,
+                        sample_rate_hz=sample_rate_hz,
+                        on_application_event=on_application_event,
+                        on_segment=on_segment,
+                    )
                 )
                 try:
-                    segment = await self.transcriber.transcribe(chunk=chunk)
-                except EmptyTranscriptionError:
-                    log.warning("transcription_empty_chunk", chunk_id=str(chunk.id))
+                    await asyncio.shield(ingest_task)
+                except asyncio.CancelledError:
+                    log.info("recording_stop_draining_chunk", chunk_id=str(chunk.id))
+                    await ingest_task
+                    log.info("recording_cancelled")
                     _emit(
                         on_application_event,
-                        TranscriptionChunkEmpty(
-                            session_id=session_id,
-                            chunk_id=chunk.id,
-                            at=utc_now(),
-                        ),
+                        RecordingStopped(session_id=session_id, at=utc_now()),
                     )
-                    if not self.keep_audio_chunks:
-                        try:
-                            chunk.path.unlink(missing_ok=True)
-                        except Exception:
-                            log.warning("audio_chunk_cleanup_failed", path=str(chunk.path))
-                    await asyncio.sleep(0)
-                    continue
-
-                log.info("transcription_completed", chunk_id=str(chunk.id))
-                _emit(
-                    on_application_event,
-                    TranscriptionChunkCompleted(
-                        session_id=session_id, chunk_id=chunk.id, at=utc_now()
-                    ),
-                )
-
-                diar_segments: list[DiarizationSegment] = []
-                if self.diarization_enabled:
-                    try:
-                        diar_segments = await self.diarizer.diarize_chunk(chunk=chunk)
-                    except Exception as e:
-                        log.warning("diarization_failed", chunk_id=str(chunk.id), error=str(e))
-                        _emit(
-                            on_application_event,
-                            DiarizationFailed(
-                                session_id=session_id,
-                                chunk_id=chunk.id,
-                                message=str(e),
-                                at=utc_now(),
-                            ),
-                        )
-                segment = merge_diarization_into_transcript_segment(segment, diar_segments)
-                if self.diarization_enabled and diar_segments:
-                    self.diarization_segments.append_segments(session_id, diar_segments)
-                detected = frozenset({segment.speaker} | {d.speaker_key for d in diar_segments})
-                _emit(
-                    on_application_event,
-                    DiarizationChunkCompleted(
-                        segment=segment,
-                        detected_speakers=detected,
-                        at=utc_now(),
-                    ),
-                )
-
-                self.transcripts.append(segment)
-                log.info("transcript_segment_saved", segment_id=str(segment.id))
-                _emit(
-                    on_application_event,
-                    TranscriptSegmentPersisted(segment=segment, at=utc_now()),
-                )
-
-                if on_segment is not None:
-                    on_segment(segment)
-
-                if not self.keep_audio_chunks:
-                    try:
-                        chunk.path.unlink(missing_ok=True)
-                    except Exception:
-                        log.warning("audio_chunk_cleanup_failed", path=str(chunk.path))
-
-                await asyncio.sleep(0)  # allow cancellation
-        except asyncio.CancelledError:
-            log.info("recording_cancelled")
-            _emit(
-                on_application_event,
-                RecordingStopped(session_id=session_id, at=utc_now()),
-            )
-            raise
+                    return
         except KeyboardInterrupt:
             log.info("recording_interrupted")
             raise
