@@ -283,3 +283,43 @@ def test_ui_log_line_added_appends() -> None:
         act.UiLogLineAdded(level="info", message="step two", at=_t()),
     )
     assert len(s1.ui_log_lines) == 2
+
+
+def test_busy_operation_started_then_finished_tracks_spinner_state() -> None:
+    s0 = reduce(
+        initial_app_state(),
+        act.BusyOperationStarted(label="finalize:x", message="starting…", at=_t()),
+    )
+    assert s0.busy_operations == {"finalize:x": "starting…"}
+
+    s1 = reduce(
+        s0,
+        act.BusyOperationProgress(label="finalize:x", message="diarizing…", at=_t()),
+    )
+    assert s1.busy_operations == {"finalize:x": "diarizing…"}
+
+    s2 = reduce(s1, act.BusyOperationFinished(label="finalize:x", at=_t()))
+    assert s2.busy_operations == {}
+
+
+def test_busy_operations_track_independent_labels() -> None:
+    s0 = reduce(
+        initial_app_state(),
+        act.BusyOperationStarted(label="finalize:a", message="finalizing a", at=_t()),
+    )
+    s1 = reduce(
+        s0,
+        act.BusyOperationStarted(label="summarize:b", message="summarizing b", at=_t()),
+    )
+    assert s1.busy_operations == {"finalize:a": "finalizing a", "summarize:b": "summarizing b"}
+
+    s2 = reduce(s1, act.BusyOperationFinished(label="finalize:a", at=_t()))
+    assert s2.busy_operations == {"summarize:b": "summarizing b"}
+
+
+def test_busy_operation_finished_for_unknown_label_is_a_noop() -> None:
+    s0 = reduce(
+        initial_app_state(),
+        act.BusyOperationFinished(label="finalize:never-started", at=_t()),
+    )
+    assert s0.busy_operations == {}
