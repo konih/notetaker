@@ -146,6 +146,43 @@ def test_speaker_alias_updated() -> None:
     assert s0.speaker_aliases["speaker_1"] == "Alice"
 
 
+def test_recording_started_resumed_keeps_loaded_transcript() -> None:
+    sid = uuid4()
+    sid_str = str(sid)
+    t0 = _t()
+    existing = TranscriptLineState(
+        id="seg-1",
+        session_id=sid_str,
+        started_at=t0,
+        ended_at=t0 + timedelta(seconds=1),
+        text="before crash",
+        speaker="YOU",
+    )
+    s0 = AppState(
+        current_session_id=sid,
+        session_title="Standup",
+        recording_status=RecordingStatus.failed,
+        recent_transcript_segments=(existing,),
+    )
+    s1 = reduce(
+        s0,
+        act.RecordingStarted(
+            session_id=sid,
+            title="Standup",
+            audio_source="sink.monitor",
+            microphone_source="mic",
+            chunk_seconds=10,
+            at=_t(),
+            resumed=True,
+            loaded_transcript_segments=(existing,),
+        ),
+    )
+    assert s1.recording_status == RecordingStatus.recording
+    assert len(s1.recent_transcript_segments) == 1
+    assert s1.recent_transcript_segments[0].text == "before crash"
+    assert s1.diarization_detected_speakers == frozenset({"YOU"})
+
+
 def test_recording_failed_appends_error() -> None:
     s0 = reduce(
         initial_app_state(),

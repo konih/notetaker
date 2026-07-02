@@ -26,6 +26,14 @@ def application_events_to_actions(event: ev.ApplicationEvent) -> tuple[act.Actio
         # Silent in UI (not an error); recorder already logs. Keep transcription status active.
         out.append(act.TranscriptionStatusChanged(status=TranscriptionStatus.active, at=event.at))
 
+    elif isinstance(event, ev.TranscriptionChunkFailed):
+        out.append(
+            act.WarningRaised(
+                message=f"Transcription skipped for chunk: {event.message}", at=event.at
+            )
+        )
+        out.append(act.TranscriptionStatusChanged(status=TranscriptionStatus.active, at=event.at))
+
     elif isinstance(event, ev.DiarizationChunkCompleted):
         # Speaker is already set on each TranscriptSegmentPersisted; avoid
         # DiarizationSegmentReceived which only touched the last line and could

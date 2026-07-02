@@ -32,6 +32,26 @@ from live_meeting_transcriber.utils.time import utc_now
 _MAX_LIVE_TRANSCRIPT_LINES = 200
 
 
+def transcript_lines_for_session(
+    container: Container,
+    session_id: UUID,
+    *,
+    max_lines: int = _MAX_LIVE_TRANSCRIPT_LINES,
+) -> tuple[TranscriptLineState, ...]:
+    segs = container.transcripts.list_by_session(session_id)
+    return tuple(
+        TranscriptLineState(
+            id=str(s.id),
+            session_id=str(s.session_id),
+            started_at=s.started_at,
+            ended_at=s.ended_at,
+            text=s.text,
+            speaker=s.speaker,
+        )
+        for s in segs
+    )[-max_lines:]
+
+
 def _settings_loaded(settings: Settings, at: datetime) -> act.SettingsLoaded:
     return act.SettingsLoaded(
         transcription_provider=settings.transcription_provider,
@@ -253,6 +273,10 @@ class TuiController:
                 )
 
             chunk_seconds = self.settings.audio_chunk_seconds
+            resumed = action.resume_session_id is not None
+            loaded_lines = (
+                transcript_lines_for_session(self.container, session.id) if resumed else ()
+            )
             store.dispatch(
                 act.RecordingStarted(
                     session_id=session.id,
@@ -261,6 +285,8 @@ class TuiController:
                     microphone_source=mic,
                     chunk_seconds=chunk_seconds,
                     at=utc_now(),
+                    resumed=resumed,
+                    loaded_transcript_segments=loaded_lines,
                 )
             )
             aliases = self.container.session_speakers.get_map(session.id)

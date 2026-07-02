@@ -59,6 +59,8 @@ class RecordingStarted:
     microphone_source: str | None
     chunk_seconds: int
     at: datetime
+    resumed: bool = False
+    loaded_transcript_segments: tuple[TranscriptLineState, ...] = ()
 
 
 @dataclass(frozen=True)

@@ -87,28 +87,31 @@ def reduce(state: AppState, action: act.Action) -> AppState:
         )
 
     if isinstance(action, act.RecordingStarted):
-        return _touch(
-            state.model_copy(
-                update={
-                    "current_session_id": action.session_id,
-                    "session_title": action.title,
-                    "audio_source": action.audio_source,
-                    "microphone_source": action.microphone_source,
-                    "chunk_seconds": action.chunk_seconds,
-                    "recording_status": RecordingStatus.recording,
-                    "transcription_status": TranscriptionStatus.active,
-                    "diarization_status": DiarizationStatus.active
-                    if (
-                        state.audio_channels >= 2
-                        and state.audio_stereo_mode.strip().lower() == "dual_path"
-                    )
-                    else DiarizationStatus.disabled,
-                    "recent_transcript_segments": (),
-                    "diarization_detected_speakers": frozenset(),
-                }
-            ),
-            action.at,
-        )
+        updates: dict[str, object] = {
+            "current_session_id": action.session_id,
+            "session_title": action.title,
+            "audio_source": action.audio_source,
+            "microphone_source": action.microphone_source,
+            "chunk_seconds": action.chunk_seconds,
+            "recording_status": RecordingStatus.recording,
+            "transcription_status": TranscriptionStatus.active,
+            "diarization_status": DiarizationStatus.active
+            if (
+                state.audio_channels >= 2 and state.audio_stereo_mode.strip().lower() == "dual_path"
+            )
+            else DiarizationStatus.disabled,
+        }
+        if action.resumed:
+            updates["recent_transcript_segments"] = action.loaded_transcript_segments
+            updates["diarization_detected_speakers"] = frozenset(
+                s.speaker
+                for s in action.loaded_transcript_segments
+                if s.speaker and s.speaker not in ("unknown", "")
+            )
+        else:
+            updates["recent_transcript_segments"] = ()
+            updates["diarization_detected_speakers"] = frozenset()
+        return _touch(state.model_copy(update=updates), action.at)
 
     if isinstance(action, act.RecordingStopRequested):
         if state.recording_status not in (

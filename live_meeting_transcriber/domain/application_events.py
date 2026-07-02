@@ -78,6 +78,16 @@ class TranscriptionChunkEmpty:
 
 
 @dataclass(frozen=True)
+class TranscriptionChunkFailed:
+    """Transcription failed for this chunk; segment was skipped (recording continues)."""
+
+    session_id: UUID
+    chunk_id: UUID
+    message: str
+    at: datetime
+
+
+@dataclass(frozen=True)
 class TranscriptSegmentPersisted:
     segment: TranscriptSegment
     at: datetime
@@ -130,6 +140,7 @@ ApplicationEvent = (
     | TranscriptionChunkStarted
     | TranscriptionChunkCompleted
     | TranscriptionChunkEmpty
+    | TranscriptionChunkFailed
     | TranscriptSegmentPersisted
     | DiarizationChunkCompleted
     | DiarizationFailed

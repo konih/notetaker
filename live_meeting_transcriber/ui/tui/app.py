@@ -456,12 +456,27 @@ class TranscriberApp(App[None]):
 
     async def action_record(self) -> None:
         st = self.store.get_state()
+        if st.recording_status in (
+            RecordingStatus.starting,
+            RecordingStatus.recording,
+            RecordingStatus.stopping,
+        ):
+            self.notify("Recording already in progress.", severity="warning")
+            return
+
+        resume_session_id: UUID | None = None
         title = f"Meeting {datetime.now().isoformat(timespec='seconds')}"
+        if st.recording_status == RecordingStatus.failed and st.current_session_id is not None:
+            resume_session_id = st.current_session_id
+            title = st.session_title or title
+            self.notify(f"Resuming meeting: {title}", severity="information")
+
         await self.store.dispatch_with_effects(
             act.RecordingStartRequested(
                 title=title,
                 audio_source=st.audio_source,
                 at=utc_now(),
+                resume_session_id=resume_session_id,
             )
         )
 

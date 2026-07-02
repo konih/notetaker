@@ -4,6 +4,7 @@ import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 
 from live_meeting_transcriber.audio.session_recording import (
@@ -25,10 +26,14 @@ from live_meeting_transcriber.domain.application_events import (
     RecordingStopped,
     TranscriptionChunkCompleted,
     TranscriptionChunkEmpty,
+    TranscriptionChunkFailed,
     TranscriptionChunkStarted,
     TranscriptSegmentPersisted,
 )
-from live_meeting_transcriber.domain.exceptions import EmptyTranscriptionError
+from live_meeting_transcriber.domain.exceptions import (
+    EmptyTranscriptionError,
+    TranscriptionProviderError,
+)
 from live_meeting_transcriber.domain.models import AudioChunk, TranscriptSegment
 from live_meeting_transcriber.domain.ports import (
     AudioCapture,
@@ -36,11 +41,22 @@ from live_meeting_transcriber.domain.ports import (
     TranscriptRepository,
 )
 from live_meeting_transcriber.observability.logging import get_logger
+from live_meeting_transcriber.transcription.faster_whisper_transcriber import (
+    FasterWhisperTranscriptionError,
+)
+from live_meeting_transcriber.transcription.openai_transcriber import OpenAITranscriptionError
 from live_meeting_transcriber.utils.time import utc_now
 
 
 class RecorderError(RuntimeError):
     pass
+
+
+_RECOVERABLE_TRANSCRIPTION_ERRORS = (
+    OpenAITranscriptionError,
+    FasterWhisperTranscriptionError,
+    TranscriptionProviderError,
+)
 
 
 def _emit(
@@ -62,6 +78,22 @@ class Recorder:
     data_dir: Path
     audio_stereo_mode: str
     transcription_provider: str
+
+    async def _skip_transcription_chunk(
+        self,
+        *,
+        chunk: AudioChunk,
+        on_application_event: Callable[[ApplicationEvent], None] | None,
+        event: TranscriptionChunkEmpty | TranscriptionChunkFailed,
+        log: Any,
+    ) -> None:
+        _emit(on_application_event, event)
+        if not self.keep_audio_chunks:
+            try:
+                chunk.path.unlink(missing_ok=True)
+            except OSError:
+                log.warning("audio_chunk_cleanup_failed", path=str(chunk.path))
+        await asyncio.sleep(0)
 
     async def _ingest_captured_chunk(
         self,
@@ -123,25 +155,50 @@ class Recorder:
                 mic_path = extract_mono_channel_wav(chunk.path, 0, sample_rate_hz=sample_rate_hz)
                 sys_path = extract_mono_channel_wav(chunk.path, 1, sample_rate_hz=sample_rate_hz)
                 temp_paths.extend([mic_path, sys_path])
-                segments = await self.transcriber.transcribe_stereo_chunk(  # type: ignore[attr-defined]
-                    chunk=chunk, mic_path=mic_path, sys_path=sys_path
-                )
+                try:
+                    segments = await self.transcriber.transcribe_stereo_chunk(  # type: ignore[attr-defined]
+                        chunk=chunk, mic_path=mic_path, sys_path=sys_path
+                    )
+                except _RECOVERABLE_TRANSCRIPTION_ERRORS as e:
+                    log.warning("transcription_chunk_failed", chunk_id=str(chunk.id), error=str(e))
+                    await self._skip_transcription_chunk(
+                        chunk=chunk,
+                        on_application_event=on_application_event,
+                        event=TranscriptionChunkFailed(
+                            session_id=session_id,
+                            chunk_id=chunk.id,
+                            message=str(e),
+                            at=utc_now(),
+                        ),
+                        log=log,
+                    )
+                    return
+                except Exception as e:
+                    log.exception("transcription_chunk_failed", chunk_id=str(chunk.id))
+                    await self._skip_transcription_chunk(
+                        chunk=chunk,
+                        on_application_event=on_application_event,
+                        event=TranscriptionChunkFailed(
+                            session_id=session_id,
+                            chunk_id=chunk.id,
+                            message=str(e),
+                            at=utc_now(),
+                        ),
+                        log=log,
+                    )
+                    return
                 if not segments:
                     log.warning("transcription_empty_chunk", chunk_id=str(chunk.id))
-                    _emit(
-                        on_application_event,
-                        TranscriptionChunkEmpty(
+                    await self._skip_transcription_chunk(
+                        chunk=chunk,
+                        on_application_event=on_application_event,
+                        event=TranscriptionChunkEmpty(
                             session_id=session_id,
                             chunk_id=chunk.id,
                             at=utc_now(),
                         ),
+                        log=log,
                     )
-                    if not self.keep_audio_chunks:
-                        try:
-                            chunk.path.unlink(missing_ok=True)
-                        except OSError:
-                            log.warning("audio_chunk_cleanup_failed", path=str(chunk.path))
-                    await asyncio.sleep(0)
                     return
                 detected = frozenset({s.speaker for s in segments if s.speaker})
                 for segment in segments:
@@ -183,20 +240,44 @@ class Recorder:
                     segment = await self.transcriber.transcribe(chunk=work_chunk)
                 except EmptyTranscriptionError:
                     log.warning("transcription_empty_chunk", chunk_id=str(chunk.id))
-                    _emit(
-                        on_application_event,
-                        TranscriptionChunkEmpty(
+                    await self._skip_transcription_chunk(
+                        chunk=chunk,
+                        on_application_event=on_application_event,
+                        event=TranscriptionChunkEmpty(
                             session_id=session_id,
                             chunk_id=chunk.id,
                             at=utc_now(),
                         ),
+                        log=log,
                     )
-                    if not self.keep_audio_chunks:
-                        try:
-                            chunk.path.unlink(missing_ok=True)
-                        except OSError:
-                            log.warning("audio_chunk_cleanup_failed", path=str(chunk.path))
-                    await asyncio.sleep(0)
+                    return
+                except _RECOVERABLE_TRANSCRIPTION_ERRORS as e:
+                    log.warning("transcription_chunk_failed", chunk_id=str(chunk.id), error=str(e))
+                    await self._skip_transcription_chunk(
+                        chunk=chunk,
+                        on_application_event=on_application_event,
+                        event=TranscriptionChunkFailed(
+                            session_id=session_id,
+                            chunk_id=chunk.id,
+                            message=str(e),
+                            at=utc_now(),
+                        ),
+                        log=log,
+                    )
+                    return
+                except Exception as e:
+                    log.exception("transcription_chunk_failed", chunk_id=str(chunk.id))
+                    await self._skip_transcription_chunk(
+                        chunk=chunk,
+                        on_application_event=on_application_event,
+                        event=TranscriptionChunkFailed(
+                            session_id=session_id,
+                            chunk_id=chunk.id,
+                            message=str(e),
+                            at=utc_now(),
+                        ),
+                        log=log,
+                    )
                     return
 
                 segment = segment.model_copy(
