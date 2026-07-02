@@ -100,6 +100,7 @@ class AppState(BaseModel):
     warnings: tuple[str, ...] = Field(default_factory=tuple)
     notices: tuple[str, ...] = Field(default_factory=tuple)
     speaker_aliases: dict[str, str] = Field(default_factory=dict)
+    busy_operations: dict[str, str] = Field(default_factory=dict)
     diarization_detected_speakers: frozenset[str] = frozenset()
     current_level_meter: float | None = None
     last_updated_at: datetime | None = None

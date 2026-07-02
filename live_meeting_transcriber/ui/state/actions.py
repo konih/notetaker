@@ -204,6 +204,32 @@ class FinalizeSessionSucceeded:
 
 
 @dataclass(frozen=True)
+class BusyOperationStarted:
+    """A long-running background operation (finalize, summarize) began.
+
+    ``label`` identifies the operation instance (e.g. ``f"finalize:{session_id}"``)
+    so overlapping operations don't clobber each other's spinner/status text.
+    """
+
+    label: str
+    message: str
+    at: datetime
+
+
+@dataclass(frozen=True)
+class BusyOperationProgress:
+    label: str
+    message: str
+    at: datetime
+
+
+@dataclass(frozen=True)
+class BusyOperationFinished:
+    label: str
+    at: datetime
+
+
+@dataclass(frozen=True)
 class DetailReloadAcknowledged:
     """Meetings tab consumed ``pending_meeting_detail_reload``."""
 
@@ -298,6 +324,9 @@ Action = (
     | SummarizeSessionRequested
     | FinalizeSessionRequested
     | FinalizeSessionSucceeded
+    | BusyOperationStarted
+    | BusyOperationProgress
+    | BusyOperationFinished
     | DetailReloadAcknowledged
     | SettingsScreenOpened
     | SettingsScreenClosed

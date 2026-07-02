@@ -13,7 +13,33 @@ from live_meeting_transcriber.audio.session_recording import (
 )
 from live_meeting_transcriber.audio.timeline import AudioTimelineEntry, load_timeline
 from live_meeting_transcriber.config.settings import Settings
-from live_meeting_transcriber.domain.models import TranscriptSegment
+from live_meeting_transcriber.domain.models import MeetingSession, TranscriptSegment
+
+
+def find_unfinalized_sessions(
+    *, container: Container, ended_after: datetime | None = None
+) -> list[MeetingSession]:
+    """Ended sessions with a transcript where every segment is still ``"unknown"``.
+
+    A reliable-enough proxy for "recorded but finalize (WhisperX + diarization)
+    never actually completed" — e.g. an auto-finalize-on-stop task that got
+    killed by the app exiting before it finished. ``ended_after`` bounds the
+    scan to recently-ended sessions (avoids repeatedly reprocessing sessions
+    that legitimately have no distinguishable speakers).
+    """
+    out: list[MeetingSession] = []
+    for session in container.sessions.list():
+        if session.ended_at is None:
+            continue
+        if ended_after is not None and session.ended_at < ended_after:
+            continue
+        segments = container.transcripts.list_by_session(session.id)
+        if not segments:
+            continue
+        if any(s.speaker != "unknown" for s in segments):
+            continue
+        out.append(session)
+    return out
 
 
 def _finalize_load_inputs(

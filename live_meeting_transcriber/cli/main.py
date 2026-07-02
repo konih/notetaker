@@ -12,14 +12,17 @@ from rich.progress import BarColumn, Progress, TextColumn, TimeElapsedColumn
 
 from live_meeting_transcriber.application.cleanup_service import run_cleanup
 from live_meeting_transcriber.application.container import Container, build_container
-from live_meeting_transcriber.application.finalize_service import finalize_session_sync
+from live_meeting_transcriber.application.finalize_service import (
+    finalize_session_sync,
+    find_unfinalized_sessions,
+)
+from live_meeting_transcriber.application.path_sanitize import normalize_import_path
 from live_meeting_transcriber.application.recorder import Recorder
 from live_meeting_transcriber.application.session_service import SessionService
 from live_meeting_transcriber.application.slide_preview_service import (
     SlidePreviewError,
     SlidePreviewService,
 )
-from live_meeting_transcriber.application.path_sanitize import normalize_import_path
 from live_meeting_transcriber.application.video_import_service import (
     VideoImportError,
     VideoImportProgress,
@@ -328,6 +331,58 @@ def finalize_session(
         typer.echo(str(e), err=True)
         raise typer.Exit(code=2) from e
     typer.echo(f"Replaced transcript with {n} segment(s).")
+
+
+@app.command("finalize-pending")
+def finalize_pending(
+    ctx: typer.Context,
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="List sessions that would be finalized without running WhisperX."
+    ),
+) -> None:
+    """Backfill speaker ID for ended sessions that never got diarized.
+
+    Auto-finalize-on-stop schedules a background task when a recording stops;
+    if the app is closed shortly after, that task is killed before WhisperX
+    finishes and the session is left with every transcript segment stuck on
+    "unknown" forever. This finds those sessions (ended, non-empty transcript,
+    every segment still "unknown") and re-runs finalize for each of them.
+    """
+    c = _get_container(ctx)
+    pending = find_unfinalized_sessions(container=c)
+    if not pending:
+        typer.echo("No pending sessions found (nothing to finalize).")
+        return
+
+    typer.echo(f"Found {len(pending)} session(s) never diarized:")
+    for session in pending:
+        typer.echo(f"  {session.id}  {session.started_at.isoformat()}  {session.title}")
+    if dry_run:
+        typer.echo("Dry run: not running WhisperX.")
+        return
+
+    ok = 0
+    failed = 0
+    with Progress(
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("{task.completed}/{task.total}"),
+        TimeElapsedColumn(),
+    ) as progress:
+        task_id = progress.add_task("Finalizing", total=len(pending))
+        for session in pending:
+            progress.update(task_id, description=f"Finalizing {session.title[:40]}")
+            try:
+                n = finalize_session_sync(container=c, settings=c.settings, session_id=session.id)
+                typer.echo(f"  ok: {session.id} -> {n} segment(s)")
+                ok += 1
+            except Exception as e:
+                typer.echo(f"  failed: {session.id}: {e}", err=True)
+                failed += 1
+            progress.advance(task_id)
+    typer.echo(f"Done: {ok} succeeded, {failed} failed.")
+    if failed:
+        raise typer.Exit(code=1)
 
 
 @app.command("speakers")

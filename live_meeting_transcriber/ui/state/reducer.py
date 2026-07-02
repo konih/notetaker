@@ -257,6 +257,18 @@ def reduce(state: AppState, action: act.Action) -> AppState:
             updates["recent_transcript_segments"] = action.live_lines
         return _touch(state.model_copy(update=updates), action.at)
 
+    if isinstance(action, (act.BusyOperationStarted, act.BusyOperationProgress)):
+        ops = dict(state.busy_operations)
+        ops[action.label] = action.message
+        return _touch(state.model_copy(update={"busy_operations": ops}), action.at)
+
+    if isinstance(action, act.BusyOperationFinished):
+        if action.label not in state.busy_operations:
+            return _touch(state, action.at)
+        ops = dict(state.busy_operations)
+        del ops[action.label]
+        return _touch(state.model_copy(update={"busy_operations": ops}), action.at)
+
     if isinstance(action, act.DetailReloadAcknowledged):
         return _touch(
             state.model_copy(update={"pending_meeting_detail_reload": None}),
