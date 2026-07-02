@@ -19,10 +19,12 @@ from textual.widgets import (
     Footer,
     Header,
     Input,
+    LoadingIndicator,
     RichLog,
     Static,
     TabbedContent,
     TabPane,
+    TextArea,
 )
 
 from live_meeting_transcriber.application.cleanup_service import purge_session_artifacts
@@ -272,6 +274,7 @@ class TranscriberApp(App[None]):
         Binding("k", "summarize", "Summarize", show=True, priority=True),
         Binding("s", "settings", "Settings", show=True),
         Binding("m", "sessions", "Sessions", show=True),
+        Binding("ctrl+s", "save_live_details", "Save details", show=True, priority=True),
         Binding("c", "ack_errors", "Ack errors", show=True),
         Binding("ctrl+1", "focus_live_tab", "Live tab", show=True),
         Binding("ctrl+2", "focus_meetings_tab", "Meetings tab", show=True),
@@ -284,6 +287,9 @@ class TranscriberApp(App[None]):
     TabPane { height: 1fr; }
     #tab-live #main-row { height: 1fr; }
     #sidebar { width: 38; min-width: 38; border: solid $primary; }
+    #live-notes { height: 6; min-height: 3; max-height: 10; }
+    #busy-indicator { height: 3; }
+    #busy-status { height: auto; padding: 0 1; text-style: italic; color: $warning; }
     #transcript { border: solid $accent; min-width: 40; }
     #status { height: auto; padding: 0 1; }
     #notices { height: auto; padding: 0 1; border-top: solid $boost; text-style: italic; color: $success; }
@@ -322,6 +328,7 @@ class TranscriberApp(App[None]):
         self._controller = controller
         self._last_segment_keys: tuple[tuple[str, str, str], ...] | None = None
         self._last_ui_log_len: int = 0
+        self._last_live_session_id: UUID | None = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -329,6 +336,15 @@ class TranscriberApp(App[None]):
             with TabPane("Live", id="tab-live"), Horizontal(id="main-row"):
                 with Vertical(id="sidebar"):
                     yield Static("", id="status")
+                    yield LoadingIndicator(id="busy-indicator")
+                    yield Static("", id="busy-status")
+                    yield Static("Title", classes="dim")
+                    yield Input(placeholder="Meeting title", id="live-title", disabled=True)
+                    yield Static("Notes", classes="dim")
+                    yield TextArea(id="live-notes", disabled=True, language=None)
+                    yield Static("Attendees (comma-separated)", classes="dim")
+                    yield Input(placeholder="Alice, Bob, …", id="live-attendees", disabled=True)
+                    yield Static("[dim]ctrl+s: save title/notes/attendees[/]")
                     yield Static("", id="notices")
                     yield Static("", id="errors")
                 yield RichLog(id="transcript", highlight=True, markup=True)
@@ -366,6 +382,11 @@ class TranscriberApp(App[None]):
         log = self.query_one("#transcript", RichLog)
 
         status.update(self._render_status(state))
+        self._sync_live_meeting_fields(state)
+        busy_indicator = self.query_one("#busy-indicator", LoadingIndicator)
+        busy_status = self.query_one("#busy-status", Static)
+        busy_indicator.display = bool(state.busy_operations)
+        busy_status.update("\n".join(state.busy_operations.values()))
         if state.notices:
             notices.update(
                 Text.from_markup(
@@ -413,6 +434,61 @@ class TranscriberApp(App[None]):
                 log.write(Text.from_markup(f"[dim]{ts}[/] [bold]{sp}[/]\n{line.text}"))
         self._last_segment_keys = new_keys
 
+    def _sync_live_meeting_fields(self, state: AppState) -> None:
+        sid = state.current_session_id
+        if sid == self._last_live_session_id:
+            return
+        self._last_live_session_id = sid
+        title_inp = self.query_one("#live-title", Input)
+        notes_ta = self.query_one("#live-notes", TextArea)
+        att_inp = self.query_one("#live-attendees", Input)
+        if sid is None:
+            title_inp.value = ""
+            title_inp.disabled = True
+            notes_ta.text = ""
+            notes_ta.disabled = True
+            att_inp.value = ""
+            att_inp.disabled = True
+            return
+        title_inp.disabled = False
+        notes_ta.disabled = False
+        att_inp.disabled = False
+        session = self.container.sessions.get(sid)
+        if session is not None:
+            title_inp.value = session.title
+            notes_ta.text = session.notes
+            att_inp.value = ", ".join(session.attendees)
+
+    async def action_save_live_details(self) -> None:
+        st = self.store.get_state()
+        sid = st.current_session_id
+        if sid is None:
+            self.notify("No active or resumed meeting to save.", severity="warning")
+            return
+        title = self.query_one("#live-title", Input).value.strip()
+        notes = self.query_one("#live-notes", TextArea).text
+        raw_att = self.query_one("#live-attendees", Input).value
+        parts = [p.strip() for p in raw_att.replace("\n", ",").split(",")]
+        attendees = [p for p in parts if p]
+        if not title:
+            self.notify("Title required.", severity="error")
+            return
+
+        updated = self.container.sessions.update_details(
+            sid, title=title, notes=notes, attendees=attendees
+        )
+        if updated is None:
+            self.notify("Save failed.", severity="error")
+            return
+
+        for name in attendees:
+            self.container.people.touch(name)
+
+        self.store.dispatch(
+            act.SessionTitleUpdated(session_id=sid, title=updated.title, at=utc_now())
+        )
+        self.notify("Meeting details saved.")
+
     def _render_status(self, state: AppState) -> Group:
         log_hint = (
             state.log_file_path[:52] + "…" if len(state.log_file_path) > 55 else state.log_file_path
@@ -424,7 +500,6 @@ class TranscriberApp(App[None]):
         )
         lines = [
             f"[bold]Session[/] {state.current_session_id or '—'}",
-            f"[bold]Title[/] {state.session_title or '—'}",
             f"[bold]Status[/] {select_status_line(state)}",
             f"[bold]Level[/] [{select_level_bar(state)}] {peak_pct} [dim](per chunk)[/]",
             f"[bold]Chunk[/] {state.chunk_seconds}s",
