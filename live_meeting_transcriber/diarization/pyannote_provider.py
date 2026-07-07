@@ -6,6 +6,7 @@ import asyncio
 from datetime import timedelta
 
 from live_meeting_transcriber.diarization.labels import normalize_pyannote_speaker_label
+from live_meeting_transcriber.diarization.wav_input import load_pyannote_audio_input
 from live_meeting_transcriber.domain.models import AudioChunk, DiarizationSegment
 from live_meeting_transcriber.observability.logging import get_logger
 
@@ -45,20 +46,21 @@ class PyannoteDiarizationProvider:
     def _run_sync(self, chunk: AudioChunk) -> list[DiarizationSegment]:
         log = get_logger(component="pyannote_diarization", chunk_id=str(chunk.id))
         pipeline = self._ensure_pipeline()
+        audio_input = load_pyannote_audio_input(chunk.path)
         call_kw = self._pipeline_call_kw
         if call_kw:
             log.debug("pyannote_pipeline_call_kwargs", kwargs=call_kw)
             try:
-                raw = pipeline(str(chunk.path), **call_kw)
+                raw = pipeline(audio_input, **call_kw)
             except TypeError as e:
                 log.warning(
                     "pyannote_pipeline_kwargs_unsupported",
                     error=str(e),
                     kwargs=call_kw,
                 )
-                raw = pipeline(str(chunk.path))
+                raw = pipeline(audio_input)
         else:
-            raw = pipeline(str(chunk.path))
+            raw = pipeline(audio_input)
         # pyannote.audio 3.x returns DiarizeOutput; older pipelines return Annotation directly.
         annotation = getattr(raw, "speaker_diarization", raw)
         out: list[DiarizationSegment] = []

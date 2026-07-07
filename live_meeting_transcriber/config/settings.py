@@ -10,6 +10,15 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from live_meeting_transcriber.domain.models import SlideDetectionParams
 
 APP_CONFIG_DIR_NAME = "live-meeting-transcriber"
+APP_DATA_DIR_NAME = "live-meeting-transcriber"
+
+
+def default_data_dir() -> Path:
+    return (Path.home() / ".local" / "share" / APP_DATA_DIR_NAME).resolve()
+
+
+def default_database_url() -> str:
+    return f"sqlite:////{default_data_dir() / 'app.db'}"
 
 
 def xdg_config_home() -> Path:
@@ -60,7 +69,7 @@ class Settings(BaseSettings):
 
     # Storage
     database_url: str = Field(
-        default="sqlite:////home/you/.local/share/live-meeting-transcriber/app.db",
+        default_factory=default_database_url,
         alias="DATABASE_URL",
     )
 
@@ -210,7 +219,7 @@ class Settings(BaseSettings):
 
     def ensure_data_dir(self) -> Path:
         # Only used for default sqlite paths; callers should not rely on implicit globals.
-        default_dir = Path.home() / ".local" / "share" / "live-meeting-transcriber"
+        default_dir = default_data_dir()
         default_dir.mkdir(parents=True, exist_ok=True)
         return default_dir
 

@@ -35,7 +35,13 @@ require_cmd yt-dlp || true
 if ((${#missing[@]} > 0)); then
   echo ""
   echo "Missing required commands: ${missing[*]}" >&2
-  if command -v apt-get >/dev/null 2>&1; then
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    if command -v brew >/dev/null 2>&1; then
+      echo "Try: brew install ffmpeg" >&2
+    else
+      echo "Install ffmpeg with Homebrew or from https://ffmpeg.org/download.html" >&2
+    fi
+  elif command -v apt-get >/dev/null 2>&1; then
     echo "Try: sudo apt-get update && sudo apt-get install -y ffmpeg" >&2
   else
     echo "Install ffmpeg/ffprobe with your system package manager." >&2

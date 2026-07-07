@@ -11,7 +11,7 @@ def resolve_microphone_source(
     cli_explicit: str | None = None,
     cli_no_microphone: bool = False,
 ) -> str | None:
-    """PulseAudio source name for the microphone leg of a monitor+mic mix, or None for monitor-only."""
+    """PulseAudio/PipeWire or AVFoundation source name for the microphone leg, or None for monitor-only."""
     if cli_no_microphone or not settings.audio_include_microphone:
         return None
     if cli_explicit is not None and cli_explicit.strip():

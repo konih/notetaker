@@ -3,22 +3,43 @@ from __future__ import annotations
 import subprocess
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 from uuid import UUID, uuid4
 
 from live_meeting_transcriber.domain.models import AudioChunk
+
+AudioBackend = Literal["pulse", "avfoundation"]
 
 
 class AudioCaptureError(RuntimeError):
     pass
 
 
-class FfmpegPulseAudioCapture:
+class FfmpegAudioCapture:
     """
-    Captures audio from PipeWire/PulseAudio sources using ffmpeg.
+    Captures audio using ffmpeg.
+
+    Linux uses PipeWire/PulseAudio (``-f pulse``). macOS uses AVFoundation
+    (``-f avfoundation``) with device specs like ``:3`` from ``live-transcriber devices``.
 
     When ``microphone_source`` is set (and distinct from ``source``), records
-    system/monitor and microphone together via ``amix`` into one chunk.
+    system/monitor and microphone together via ``amix`` (mono) or ``join`` (stereo).
     """
+
+    def __init__(self, *, backend: AudioBackend = "pulse") -> None:
+        self._backend = backend
+
+    def _input_prefix(self, source: str) -> list[str]:
+        if self._backend == "avfoundation":
+            return [
+                "-f",
+                "avfoundation",
+                "-thread_queue_size",
+                "4096",
+                "-i",
+                source,
+            ]
+        return ["-f", "pulse", "-i", source]
 
     def capture_chunk(
         self,
@@ -45,10 +66,7 @@ class FfmpegPulseAudioCapture:
                 "-hide_banner",
                 "-loglevel",
                 "error",
-                "-f",
-                "pulse",
-                "-i",
-                source,
+                *self._input_prefix(source),
                 "-t",
                 str(chunk_seconds),
                 "-ac",
@@ -67,18 +85,8 @@ class FfmpegPulseAudioCapture:
                 "-hide_banner",
                 "-loglevel",
                 "error",
-                "-f",
-                "pulse",
-                "-thread_queue_size",
-                "4096",
-                "-i",
-                source,
-                "-f",
-                "pulse",
-                "-thread_queue_size",
-                "4096",
-                "-i",
-                mic,
+                *self._input_prefix(source),
+                *self._input_prefix(mic),
                 "-filter_complex",
                 "[0:a]aresample=async=1,pan=mono|c0=c0[sys];"
                 "[1:a]aresample=async=1,pan=mono|c0=c0[mic];"
@@ -99,20 +107,10 @@ class FfmpegPulseAudioCapture:
                 "-hide_banner",
                 "-loglevel",
                 "error",
-                "-f",
-                "pulse",
-                "-thread_queue_size",
-                "4096",
-                "-i",
-                source,
-                "-f",
-                "pulse",
-                "-thread_queue_size",
-                "4096",
-                "-i",
-                mic,
+                *self._input_prefix(source),
+                *self._input_prefix(mic),
                 "-filter_complex",
-                # aresample async=1 reduces drift when one Pulse source is idle while the other
+                # aresample async=1 reduces drift when one source is idle while the other
                 # is active (common monitor+mic amix issue: mic appears only when system audio plays).
                 "[0:a]aresample=async=1[a0];[1:a]aresample=async=1[a1];"
                 "[a0][a1]amix=inputs=2:duration=longest:dropout_transition=0:normalize=0[aout]",
@@ -146,3 +144,17 @@ class FfmpegPulseAudioCapture:
             sample_rate_hz=sample_rate_hz,
             channels=channels,
         )
+
+
+class FfmpegPulseAudioCapture(FfmpegAudioCapture):
+    """Linux PipeWire/PulseAudio capture (backwards-compatible alias)."""
+
+    def __init__(self) -> None:
+        super().__init__(backend="pulse")
+
+
+class FfmpegAvfoundationCapture(FfmpegAudioCapture):
+    """macOS AVFoundation capture."""
+
+    def __init__(self) -> None:
+        super().__init__(backend="avfoundation")

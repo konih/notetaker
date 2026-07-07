@@ -13,18 +13,19 @@ from rich.progress import BarColumn, Progress, TextColumn, TimeElapsedColumn
 from live_meeting_transcriber.application.cleanup_service import run_cleanup
 from live_meeting_transcriber.application.container import Container, build_container
 from live_meeting_transcriber.application.finalize_service import finalize_session_sync
+from live_meeting_transcriber.application.path_sanitize import normalize_import_path
 from live_meeting_transcriber.application.recorder import Recorder
 from live_meeting_transcriber.application.session_service import SessionService
 from live_meeting_transcriber.application.slide_preview_service import (
     SlidePreviewError,
     SlidePreviewService,
 )
-from live_meeting_transcriber.application.path_sanitize import normalize_import_path
 from live_meeting_transcriber.application.video_import_service import (
     VideoImportError,
     VideoImportProgress,
     VideoImportService,
 )
+from live_meeting_transcriber.audio.platform import audio_backend
 from live_meeting_transcriber.audio.sources import resolve_microphone_source
 from live_meeting_transcriber.config.settings import load_settings
 from live_meeting_transcriber.diarization.labels import normalize_pyannote_speaker_label
@@ -33,7 +34,8 @@ from live_meeting_transcriber.observability.logging import configure_logging, ge
 from live_meeting_transcriber.obsidian.meeting_export import ExportCancelledError, write_dual_export
 
 app = typer.Typer(
-    add_completion=False, help="Live background meeting transcription (Ubuntu/Linux)."
+    add_completion=False,
+    help="Live background meeting transcription (Linux and macOS).",
 )
 slides_app = typer.Typer(help="Preview and apply slide detection on imported video sessions.")
 app.add_typer(slides_app, name="slides")
@@ -85,7 +87,7 @@ def tui(ctx: typer.Context) -> None:
 
 @app.command()
 def devices(ctx: typer.Context) -> None:
-    """List available PulseAudio/PipeWire sources (including monitor sources)."""
+    """List available audio capture devices (PulseAudio/PipeWire on Linux, AVFoundation on macOS)."""
     c = _get_container(ctx)
     sources = c.devices.list_sources()
     default_monitor = c.devices.get_default_monitor_source()
@@ -98,9 +100,18 @@ def devices(ctx: typer.Context) -> None:
             prefix = "^ "
         else:
             prefix = "  "
-        typer.echo(f"{prefix}{s.name}")
+        if audio_backend() == "avfoundation":
+            typer.echo(f"{prefix}{s.name}  {s.description}")
+        else:
+            typer.echo(f"{prefix}{s.name}")
     typer.echo("", err=False)
     typer.echo("* = default monitor (playback)   ^ = default microphone (capture)", err=False)
+    if audio_backend() == "avfoundation" and default_monitor is None:
+        typer.echo(
+            "macOS: no virtual loopback detected — install BlackHole or route meeting audio "
+            "through a virtual device, then set --source or AUDIO_MICROPHONE_SOURCE.",
+            err=False,
+        )
 
 
 @app.command()
@@ -123,12 +134,14 @@ def record(
     ctx: typer.Context,
     title: str = typer.Option(..., "--title", help="Meeting title"),
     source: str | None = typer.Option(
-        None, "--source", help="PulseAudio source name (e.g. <sink>.monitor)"
+        None,
+        "--source",
+        help="PulseAudio/PipeWire or AVFoundation source (e.g. <sink>.monitor or :3)",
     ),
     microphone_source: str | None = typer.Option(
         None,
         "--microphone-source",
-        help="PulseAudio mic source; default: default capture device",
+        help="Microphone source; default: default capture device",
     ),
     no_microphone: bool = typer.Option(
         False,

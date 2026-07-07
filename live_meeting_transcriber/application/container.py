@@ -3,8 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from live_meeting_transcriber.audio.capture import FfmpegPulseAudioCapture
-from live_meeting_transcriber.audio.devices import PactlAudioDeviceProvider
+from live_meeting_transcriber.audio.backend import build_audio_capture, build_audio_device_provider
 from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.diarization.noop import NoopDiarizationProvider
 from live_meeting_transcriber.domain.ports import (
@@ -87,12 +86,11 @@ def build_diarization_provider(settings: Settings) -> DiarizationProvider:
 
 
 def build_container(settings: Settings) -> Container:
-    needs_openai = settings.transcription_provider == "openai" or settings.llm_provider == "openai"
-    if settings.openai_api_key is None and needs_openai:
-        raise ProviderSelectionError("OPENAI_API_KEY is required for OpenAI providers")
+    if settings.transcription_provider == "openai" and settings.openai_api_key is None:
+        raise ProviderSelectionError("OPENAI_API_KEY is required for OpenAI transcription")
 
-    devices: AudioDeviceProvider = PactlAudioDeviceProvider()
-    audio: AudioCapture = FfmpegPulseAudioCapture()
+    devices: AudioDeviceProvider = build_audio_device_provider()
+    audio: AudioCapture = build_audio_capture()
     diarizer: DiarizationProvider = build_diarization_provider(settings)
 
     if settings.transcription_provider == "openai":
@@ -113,11 +111,20 @@ def build_container(settings: Settings) -> Container:
         )
 
     if settings.llm_provider == "openai":
-        summarizer: SummarizationProvider = OpenAISummarizationProvider(
-            api_key=settings.openai_api_key or "",
-            model=settings.summary_model,
-            vault_meetings_dir=settings.obsidian_meetings_dir,
-        )
+        if settings.openai_api_key:
+            summarizer: SummarizationProvider = OpenAISummarizationProvider(
+                api_key=settings.openai_api_key,
+                model=settings.summary_model,
+                vault_meetings_dir=settings.obsidian_meetings_dir,
+            )
+        else:
+            from live_meeting_transcriber.summarization.unavailable import (
+                UnavailableSummarizationProvider,
+            )
+
+            summarizer = UnavailableSummarizationProvider(
+                reason="OPENAI_API_KEY is required for summaries (LLM_PROVIDER=openai)",
+            )
     else:
         raise ProviderSelectionError(f"Unsupported llm_provider={settings.llm_provider}")
 

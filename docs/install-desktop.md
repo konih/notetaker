@@ -5,13 +5,20 @@ Local desktop launcher for the Textual TUI on Linux (XDG). This is **not** a Sna
 ### Prerequisites
 
 - **Python 3.12+** and [uv](https://docs.astral.sh/uv/)
-- **System audio tools:** `ffmpeg`, `pactl` (PulseAudio/PipeWire)
+- **System audio tools:** `ffmpeg` (all platforms); `pactl` on Linux (PulseAudio/PipeWire)
 
 On Ubuntu/Debian:
 
 ```bash
 sudo apt install ffmpeg pulseaudio-utils
 # PipeWire: ensure pipewire-pulse or wireplumber provides pactl
+```
+
+On macOS:
+
+```bash
+brew install ffmpeg
+# System audio capture needs a virtual loopback (e.g. BlackHole or Microsoft Teams Audio).
 ```
 
 Optional extras (local STT, offline finalize) follow the same rules as the main README — pin Python 3.13 for PyTorch extras if needed.
