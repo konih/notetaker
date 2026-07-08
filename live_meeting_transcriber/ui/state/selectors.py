@@ -84,6 +84,69 @@ def select_elapsed_label(state: AppState, now: datetime) -> str | None:
     return format_duration(elapsed_seconds(state.recording_started_at, now))
 
 
+def select_short_session_id(state: AppState) -> str:
+    """First 8 hex chars of the current session UUID (retrieval hint), or ``—``.
+
+    The full UUID used to be rendered in the Live sidebar, wrapping onto a second
+    line and duplicating the identity already carried by the meeting title. A short
+    prefix is enough to correlate a live meeting with a Sessions-modal row (U8/U7).
+    """
+    sid = state.current_session_id
+    return "—" if sid is None else str(sid)[:8]
+
+
+def select_errors_compact_summary(state: AppState) -> str | None:
+    """Single-line "all clear" indicator when there is nothing to show, else ``None``.
+
+    Returning ``None`` signals the caller to render the full errors/warnings panel;
+    a non-``None`` string is a compact one-liner that lets the sidebar reclaim the
+    rows the empty bordered panel used to occupy (U8).
+    """
+    if select_unacknowledged_errors(state) or state.warnings:
+        return None
+    return "✓ No errors or warnings"
+
+
+def build_live_status_lines(state: AppState, now: datetime) -> list[str]:
+    """Rich-markup lines for the Live sidebar status block (pure, testable).
+
+    Extracted from ``TranscriberApp._render_status`` so the density rules (short
+    session id, compact labels) can be asserted without mounting the app (U8).
+    ``now`` is passed in so the elapsed line is deterministic in tests.
+    """
+    log_hint = (
+        state.log_file_path[:52] + "…" if len(state.log_file_path) > 55 else state.log_file_path
+    )
+    peak_pct = (
+        f"{state.current_level_meter * 100:.0f}%" if state.current_level_meter is not None else "—"
+    )
+    lines = [
+        f"[bold]Session[/] {select_short_session_id(state)}",
+        f"[bold]Title[/] {state.session_title or '—'}",
+        f"[bold]Status[/] {select_status_line(state)}",
+    ]
+    elapsed = select_elapsed_label(state, now)
+    if elapsed is not None:
+        lines.append(f"[bold]Elapsed[/] {elapsed}")
+    lines += [
+        f"[bold]Level[/] [{select_level_bar(state)}] {peak_pct} [dim](per chunk)[/]",
+        f"[bold]Chunk[/] {state.chunk_seconds}s",
+        f"[bold]Source[/] {state.audio_source or 'default monitor'} [dim](a: change)[/]",
+        f"[bold]Mic[/] {state.microphone_source or state.configured_microphone_source or ('—' if not state.audio_include_microphone else 'default')}",
+        f"[bold]Log[/] {log_hint or '—'}",
+        f"[bold]Sessions[/] {len(state.sessions_catalog)} in DB"
+        + (" (loading…)" if state.sessions_loading else ""),
+        f"[bold]Live speakers[/] {state.audio_stereo_mode} ({state.audio_channels}ch)"
+        + (
+            f" · heard: {', '.join(sorted(state.diarization_detected_speakers))}"
+            if state.diarization_detected_speakers
+            else ""
+        ),
+        f"[bold]Finalize[/] auto={state.finalize_on_session_stop} · HF={state.hf_token_configured}",
+    ]
+    return lines
+
+
 def select_status_line(state: AppState) -> str:
     """One-line, plain-language recording status for the Live sidebar.
 
