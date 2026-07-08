@@ -68,14 +68,24 @@ def configure_logging(
     level = parse_log_level(log_level)
 
     if log_file is not None:
-        log_file.parent.mkdir(parents=True, exist_ok=True)
-        _file_handler = logging.handlers.RotatingFileHandler(
-            str(log_file),
-            maxBytes=log_file_max_bytes,
-            backupCount=log_file_backup_count,
-            encoding="utf-8",
-        )
-        _file_handler.setFormatter(logging.Formatter("%(message)s"))
+        try:
+            log_file.parent.mkdir(parents=True, exist_ok=True)
+            _file_handler = logging.handlers.RotatingFileHandler(
+                str(log_file),
+                maxBytes=log_file_max_bytes,
+                backupCount=log_file_backup_count,
+                encoding="utf-8",
+            )
+            _file_handler.setFormatter(logging.Formatter("%(message)s"))
+        except OSError as e:
+            # A misconfigured LOG_FILE (e.g. an unwritable path such as the macOS
+            # autofs '/home' mount -> "Operation not supported") must not crash the
+            # whole app. Fall back to console-only logging with a warning.
+            _file_handler = None
+            print(
+                f"warning: file logging disabled; cannot use LOG_FILE {log_file}: {e}",
+                file=sys.stderr,
+            )
     else:
         _file_handler = None
 
