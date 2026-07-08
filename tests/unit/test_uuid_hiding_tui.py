@@ -6,6 +6,8 @@ still retrieve the ID when needed; selection behaviour is unchanged.
 
 from __future__ import annotations
 
+from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock
 from uuid import uuid4
 
@@ -18,18 +20,18 @@ from live_meeting_transcriber.ui.tui.app import SessionsScreen, TranscriberApp
 from textual.widgets import DataTable, TabbedContent
 
 
-def _column_labels(table: DataTable) -> list[str]:
+def _column_labels(table: DataTable[Any]) -> list[str]:
     return [str(col.label) for col in table.columns.values()]
 
 
-def _all_cells(table: DataTable) -> list[str]:
+def _all_cells(table: DataTable[Any]) -> list[str]:
     cells: list[str] = []
     for row_key in table.rows:
         cells.extend(str(c) for c in table.get_row(row_key))
     return cells
 
 
-def _row_keys(table: DataTable) -> list[str]:
+def _row_keys(table: DataTable[Any]) -> list[str]:
     return [rk.value for rk in table.rows if rk.value is not None]
 
 
@@ -40,7 +42,7 @@ def _make_app(container: MagicMock) -> TranscriberApp:
     return TranscriberApp(store=store, container=container, controller=controller)
 
 
-def _mock_container(tmp_path, session: MeetingSession) -> MagicMock:
+def _mock_container(tmp_path: Path, session: MeetingSession) -> MagicMock:
     container = MagicMock()
     container.sessions.list.return_value = [session]
     container.sessions.get.return_value = session
@@ -51,7 +53,7 @@ def _mock_container(tmp_path, session: MeetingSession) -> MagicMock:
     return container
 
 
-async def test_meetings_table_hides_uuid_but_keeps_selection_key(tmp_path) -> None:
+async def test_meetings_table_hides_uuid_but_keeps_selection_key(tmp_path: Path) -> None:
     sid = uuid4()
     session = MeetingSession(id=sid, title="Weekly sync")
     container = _mock_container(tmp_path, session)
@@ -71,7 +73,7 @@ async def test_meetings_table_hides_uuid_but_keeps_selection_key(tmp_path) -> No
         assert str(sid) in _row_keys(table)
 
 
-async def test_sessions_modal_hides_uuid_column(tmp_path) -> None:
+async def test_sessions_modal_hides_uuid_column(tmp_path: Path) -> None:
     sid = uuid4()
     session = MeetingSession(id=sid, title="Planning")
     container = _mock_container(tmp_path, session)
@@ -90,7 +92,7 @@ async def test_sessions_modal_hides_uuid_column(tmp_path) -> None:
         assert str(sid) in _row_keys(table)
 
 
-async def test_sessions_modal_copy_id_copies_full_uuid(tmp_path) -> None:
+async def test_sessions_modal_copy_id_copies_full_uuid(tmp_path: Path) -> None:
     sid = uuid4()
     session = MeetingSession(id=sid, title="Planning")
     container = _mock_container(tmp_path, session)

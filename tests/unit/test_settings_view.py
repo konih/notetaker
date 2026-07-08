@@ -6,14 +6,14 @@ from unittest.mock import MagicMock
 
 from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.ui.effects.controller import TuiController
-from live_meeting_transcriber.ui.state.model import initial_app_state
+from live_meeting_transcriber.ui.state.model import AppState, initial_app_state
 from live_meeting_transcriber.ui.state.store import Store
 from live_meeting_transcriber.ui.tui.app import SettingsScreen, TranscriberApp
 from live_meeting_transcriber.ui.tui.settings_view import build_settings_sections
 from textual.widgets import Static
 
 
-def _state(**updates: object):
+def _state(**updates: object) -> AppState:
     return initial_app_state().model_copy(update=updates)
 
 
