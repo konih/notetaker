@@ -1,16 +1,43 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta, timezone
 from uuid import uuid4
 
-from live_meeting_transcriber.ui.state.model import AppState, RecordingStatus, UiErrorState
+from live_meeting_transcriber.ui.state.model import (
+    AppState,
+    RecordingStatus,
+    TranscriptLineState,
+    UiErrorState,
+)
 from live_meeting_transcriber.ui.state.selectors import (
     select_display_speaker,
     select_header_title,
     select_is_recording,
     select_level_bar,
+    select_transcript_timestamp,
     select_unacknowledged_errors,
 )
 from live_meeting_transcriber.utils.time import utc_now
+
+PLUS2 = timezone(timedelta(hours=2))
+
+
+def _line(**over: object) -> TranscriptLineState:
+    base: dict[str, object] = dict(
+        id="1",
+        session_id="s",
+        started_at=datetime(2026, 7, 8, 9, 14, 0, tzinfo=UTC),
+        ended_at=datetime(2026, 7, 8, 9, 14, 8, tzinfo=UTC),
+        text="hello",
+        speaker="speaker_0",
+    )
+    base.update(over)
+    return TranscriptLineState(**base)  # type: ignore[arg-type]
+
+
+def test_select_transcript_timestamp_is_compact_local_clock() -> None:
+    # Was a full ISO range ("2026-07-08T09:14:00 → ...09:14:08"); now a compact local clock.
+    assert select_transcript_timestamp(_line(), tz=PLUS2) == "11:14:00"
 
 
 def test_select_header_title_uses_session_title() -> None:
