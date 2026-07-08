@@ -2,12 +2,16 @@ from __future__ import annotations
 
 from openai import AsyncOpenAI
 
-from live_meeting_transcriber.domain.exceptions import EmptyTranscriptionError
+from live_meeting_transcriber.domain.exceptions import (
+    EmptyTranscriptionError,
+    TranscriptionProviderError,
+)
 from live_meeting_transcriber.domain.models import AudioChunk, ProviderMetadata, TranscriptSegment
 
 
-class OpenAITranscriptionError(RuntimeError):
-    pass
+class OpenAITranscriptionError(TranscriptionProviderError):
+    """OpenAI-specific transcription failure. Recoverable by default: the application layer
+    catches the domain base type and skips the chunk without importing this class."""
 
 
 def _openai_error_message(exc: Exception) -> str:

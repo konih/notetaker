@@ -42,22 +42,11 @@ from live_meeting_transcriber.domain.ports import (
     TranscriptRepository,
 )
 from live_meeting_transcriber.observability.logging import get_logger
-from live_meeting_transcriber.transcription.faster_whisper_transcriber import (
-    FasterWhisperTranscriptionError,
-)
-from live_meeting_transcriber.transcription.openai_transcriber import OpenAITranscriptionError
 from live_meeting_transcriber.utils.time import utc_now
 
 
 class RecorderError(RuntimeError):
     pass
-
-
-_RECOVERABLE_TRANSCRIPTION_ERRORS = (
-    OpenAITranscriptionError,
-    FasterWhisperTranscriptionError,
-    TranscriptionProviderError,
-)
 
 
 def _emit(
@@ -174,7 +163,9 @@ class Recorder:
                     segments = await self.transcriber.transcribe_stereo_chunk(  # type: ignore[attr-defined]
                         chunk=chunk, mic_path=mic_path, sys_path=sys_path
                     )
-                except _RECOVERABLE_TRANSCRIPTION_ERRORS as e:
+                except TranscriptionProviderError as e:
+                    if not e.recoverable:
+                        raise
                     log.warning(
                         "transcription_chunk_failed",
                         chunk_id=str(chunk.id),
@@ -271,7 +262,9 @@ class Recorder:
                         log=log,
                     )
                     return
-                except _RECOVERABLE_TRANSCRIPTION_ERRORS as e:
+                except TranscriptionProviderError as e:
+                    if not e.recoverable:
+                        raise
                     log.warning(
                         "transcription_chunk_failed",
                         chunk_id=str(chunk.id),

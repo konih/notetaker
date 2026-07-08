@@ -5,12 +5,16 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
-from live_meeting_transcriber.domain.exceptions import EmptyTranscriptionError
+from live_meeting_transcriber.domain.exceptions import (
+    EmptyTranscriptionError,
+    TranscriptionProviderError,
+)
 from live_meeting_transcriber.domain.models import AudioChunk, ProviderMetadata, TranscriptSegment
 
 
-class FasterWhisperTranscriptionError(RuntimeError):
-    pass
+class FasterWhisperTranscriptionError(TranscriptionProviderError):
+    """faster-whisper-specific transcription failure. Recoverable by default: the application
+    layer catches the domain base type and skips the chunk without importing this class."""
 
 
 class FasterWhisperTranscriptionProvider:
