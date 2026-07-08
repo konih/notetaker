@@ -104,6 +104,8 @@ def reduce(state: AppState, action: act.Action) -> AppState:
             "chunk_seconds": action.chunk_seconds,
             "recording_status": RecordingStatus.recording,
             "transcription_status": TranscriptionStatus.active,
+            # Elapsed timer starts now; on resume it measures this segment, not the original.
+            "recording_started_at": action.at,
             "consecutive_empty_chunks": 0,
             "low_audio_warning_shown": False,
             "diarization_status": DiarizationStatus.active
@@ -143,6 +145,7 @@ def reduce(state: AppState, action: act.Action) -> AppState:
                     "transcription_status": TranscriptionStatus.idle,
                     "microphone_source": None,
                     "diarization_status": DiarizationStatus.disabled,
+                    "recording_started_at": None,
                 }
             ),
             action.at,
@@ -167,6 +170,7 @@ def reduce(state: AppState, action: act.Action) -> AppState:
                     "diarization_status": DiarizationStatus.failed
                     if state.diarization_status == DiarizationStatus.active
                     else DiarizationStatus.disabled,
+                    "recording_started_at": None,
                     "recent_errors": merged_errs,
                     "ui_log_lines": logs,
                 }

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import tzinfo
+from datetime import datetime, tzinfo
 
 from live_meeting_transcriber.domain.speaker_display import format_transcript_speaker_label
 from live_meeting_transcriber.ui.state.model import (
@@ -10,7 +10,7 @@ from live_meeting_transcriber.ui.state.model import (
     TranscriptLineState,
     UiErrorState,
 )
-from live_meeting_transcriber.utils.time import format_clock
+from live_meeting_transcriber.utils.time import format_clock, format_duration
 
 
 def select_header_title(state: AppState) -> str:
@@ -71,6 +71,17 @@ def _speakers_label(state: AppState) -> str:
             return "Speaker split: you vs. remote"
         return "Stereo (mixed)"
     return "Single channel"
+
+
+def select_elapsed_label(state: AppState, now: datetime) -> str | None:
+    """Elapsed recording time (``MM:SS`` / ``H:MM:SS``) while recording, else ``None``.
+
+    ``now`` is passed in (not read internally) so the caller owns the clock and tests
+    stay deterministic. Returns ``None`` unless actively recording with a known start.
+    """
+    if state.recording_status != RecordingStatus.recording or state.recording_started_at is None:
+        return None
+    return format_duration((now - state.recording_started_at).total_seconds())
 
 
 def select_status_line(state: AppState) -> str:

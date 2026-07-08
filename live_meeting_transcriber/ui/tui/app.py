@@ -42,7 +42,9 @@ from live_meeting_transcriber.ui.state import actions as act
 from live_meeting_transcriber.ui.state.model import AppState, RecordingStatus, TranscriptLineState
 from live_meeting_transcriber.ui.state.selectors import (
     select_display_speaker,
+    select_elapsed_label,
     select_header_title,
+    select_is_recording,
     select_level_bar,
     select_status_line,
     select_transcript_timestamp,
@@ -591,7 +593,21 @@ class TranscriberApp(App[None]):
     async def on_mount(self) -> None:
         self.store.subscribe(self._on_state)
         self._controller.confirm_export_overwrite = self._confirm_export_overwrite
+        # Tick the live elapsed-time display once a second while recording. The reducer owns
+        # recording_started_at; this only re-renders the status block against the wall clock.
+        self.set_interval(1.0, self._tick_elapsed)
         await self.store.dispatch_with_effects(act.AppStarted(at=utc_now()))
+
+    def _tick_elapsed(self) -> None:
+        state = self.store.get_state()
+        if not select_is_recording(state):
+            return
+        try:
+            status = self.query_one("#status", Static)
+        except NoMatches:
+            # Main screen not mounted (a modal is up or teardown) — skip; re-renders next tick.
+            return
+        status.update(self._render_status(state))
 
     def _on_state(self, state: AppState) -> None:
         self.sub_title = select_header_title(state)
@@ -668,6 +684,11 @@ class TranscriberApp(App[None]):
             f"[bold]Session[/] {state.current_session_id or '—'}",
             f"[bold]Title[/] {state.session_title or '—'}",
             f"[bold]Status[/] {select_status_line(state)}",
+        ]
+        elapsed = select_elapsed_label(state, utc_now())
+        if elapsed is not None:
+            lines.append(f"[bold]Elapsed[/] {elapsed}")
+        lines += [
             f"[bold]Level[/] [{select_level_bar(state)}] {peak_pct} [dim](per chunk)[/]",
             f"[bold]Chunk[/] {state.chunk_seconds}s",
             f"[bold]Source[/] {state.audio_source or 'default monitor'} [dim](a: change)[/]",
