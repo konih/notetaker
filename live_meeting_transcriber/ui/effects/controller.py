@@ -245,6 +245,31 @@ class TuiController:
                 )
             )
 
+        elif isinstance(action, act.SessionDetailsCommitRequested):
+            title = action.title.strip()
+            if not title:
+                store.dispatch(act.ErrorRaised(message="Title must not be empty.", at=utc_now()))
+                return
+            updated = self.container.sessions.update_details(
+                action.session_id,
+                title=title,
+                notes=action.notes,
+                attendees=action.attendees,
+            )
+            if updated is None:
+                store.dispatch(act.ErrorRaised(message="Session not found.", at=utc_now()))
+                return
+            # Reuse the title-updated path so the Live header refreshes immediately when this
+            # is the current session (reducer updates session_title on match). Notes/attendees
+            # live in the repo and are read back on demand (modal reopen, summarize pre-fill).
+            store.dispatch(
+                act.SessionTitleUpdated(
+                    session_id=action.session_id,
+                    title=updated.title,
+                    at=utc_now(),
+                )
+            )
+
         elif isinstance(action, act.RecordingStartRequested):
             if self._record_task is not None and not self._record_task.done():
                 store.dispatch(

@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from live_meeting_transcriber.domain.models import MeetingSession, TranscriptSegment
 from live_meeting_transcriber.summarization.service import build_summary_prompt
+from live_meeting_transcriber.utils.time import utc_now
 
 
 def test_build_summary_prompt_contains_segments() -> None:
     session = MeetingSession(title="Weekly")
-    t0 = datetime.utcnow()
+    t0 = utc_now()
     segs = [
         TranscriptSegment(
             session_id=session.id,

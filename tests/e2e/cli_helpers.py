@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 from uuid import UUID
 
@@ -24,6 +24,7 @@ from live_meeting_transcriber.storage.repositories import (
     SqliteTranscriptRepository,
 )
 from live_meeting_transcriber.storage.sqlite import open_connection
+from live_meeting_transcriber.utils.time import utc_now
 
 
 @dataclass(frozen=True)
@@ -56,8 +57,8 @@ class FakeRecorder:
     ) -> None:
         seg = TranscriptSegment(
             session_id=session_id,
-            started_at=datetime.utcnow(),
-            ended_at=datetime.utcnow() + timedelta(seconds=1),
+            started_at=utc_now(),
+            ended_at=utc_now() + timedelta(seconds=1),
             text="e2e smoke transcript",
         )
         on_segment(seg)

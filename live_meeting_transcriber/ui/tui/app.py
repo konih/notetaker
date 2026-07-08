@@ -16,6 +16,7 @@ from textual.containers import Horizontal, Vertical
 from textual.css.query import NoMatches
 from textual.screen import ModalScreen
 from textual.widgets import (
+    Button,
     DataTable,
     Footer,
     Header,
@@ -25,6 +26,7 @@ from textual.widgets import (
     Static,
     TabbedContent,
     TabPane,
+    TextArea,
 )
 
 from live_meeting_transcriber.application.cleanup_service import purge_session_artifacts
@@ -52,9 +54,14 @@ from live_meeting_transcriber.ui.tui.meeting_browser import (
     MeetingBrowser,
     SummaryContextModal,
 )
+from live_meeting_transcriber.ui.tui.people_suggesters import (
+    CommaSeparatedPeopleSuggester,
+    PeoplePrefixSuggester,
+)
 from live_meeting_transcriber.ui.tui.slide_preview_helpers import (
     ensure_textual_image_protocol_probe,
 )
+from live_meeting_transcriber.ui.tui.tab_complete_input import TabCompletableInput
 from live_meeting_transcriber.utils.time import utc_now
 
 
@@ -218,6 +225,148 @@ class EditSessionTitleScreen(ModalScreen[None]):
         self.dismiss()
 
 
+class EditMeetingDetailsScreen(ModalScreen[None]):
+    """Edit the current live meeting's title, context/notes, attendees, and speaker names.
+
+    Title/notes/attendees are persisted via SessionDetailsCommitRequested; the notes carry
+    into the summary-context prompt at summarize-time. Any speaker keys already detected in
+    the live session can be named here — the alias applies immediately (transcript relabels)
+    and persists, without waiting for post-stop cleanup.
+    """
+
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel", show=True, priority=True),
+        Binding("ctrl+enter,ctrl+return", "save", "Save", show=True, priority=True),
+    ]
+
+    def __init__(
+        self,
+        session_id: str,
+        *,
+        title: str,
+        notes: str,
+        attendees: list[str],
+        detected_speakers: list[str],
+        speaker_aliases: dict[str, str],
+    ) -> None:
+        super().__init__()
+        self.session_id = session_id
+        self._title = title
+        self._notes = notes
+        self._attendees = attendees
+        self._detected_speakers = detected_speakers
+        self._speaker_aliases = speaker_aliases
+
+    def compose(self) -> ComposeResult:
+        children: list[Static | TabCompletableInput | TextArea | Horizontal] = [
+            Static("Meeting details", classes="settings-title"),
+            Static("Ctrl+Enter: save   Esc: cancel", classes="dim"),
+            Static("Title"),
+            TabCompletableInput(value=self._title, placeholder="Title", id="details-title"),
+            Static("Context / notes (used to guide the summary)"),
+            TextArea(id="details-notes", language=None),
+            Static("Attendees (comma-separated)"),
+            TabCompletableInput(
+                value=", ".join(self._attendees),
+                placeholder="Alice, Bob, …",
+                id="details-attendees",
+            ),
+            Static("Speaker names"),
+        ]
+        if self._detected_speakers:
+            for key in self._detected_speakers:
+                children.append(
+                    Horizontal(
+                        Static(f"{key} →", classes="spk-label"),
+                        TabCompletableInput(
+                            value=self._speaker_aliases.get(key, ""),
+                            placeholder="Display name",
+                            id=f"details-spk-{key}",
+                        ),
+                        classes="spk-row",
+                    )
+                )
+        else:
+            children.append(
+                Static(
+                    "No speakers detected yet — names appear once the meeting has audio.",
+                    classes="dim",
+                )
+            )
+        children.append(
+            Horizontal(
+                Button("Save", id="details-save", variant="primary"),
+                Button("Cancel", id="details-cancel"),
+            )
+        )
+        yield Vertical(*children, classes="settings-dialog")
+
+    def on_mount(self) -> None:
+        app = self.app
+        assert isinstance(app, TranscriberApp)
+        notes = self.query_one("#details-notes", TextArea)
+        notes.text = self._notes
+        self.query_one(
+            "#details-attendees", TabCompletableInput
+        ).suggester = CommaSeparatedPeopleSuggester(app.container.people)
+        for key in self._detected_speakers:
+            self.query_one(
+                f"#details-spk-{key}", TabCompletableInput
+            ).suggester = PeoplePrefixSuggester(app.container.people)
+        self.query_one("#details-title", TabCompletableInput).focus()
+
+    async def action_save(self) -> None:
+        app = self.app
+        assert isinstance(app, TranscriberApp)
+        title = self.query_one("#details-title", TabCompletableInput).value.strip()
+        if not title:
+            app.notify("Title required.", severity="error")
+            return
+        notes = self.query_one("#details-notes", TextArea).text
+        raw_att = self.query_one("#details-attendees", TabCompletableInput).value
+        parts = [p.strip() for p in raw_att.replace("\n", ",").split(",")]
+        attendees = [p for p in parts if p]
+        await app.store.dispatch_with_effects(
+            act.SessionDetailsCommitRequested(
+                session_id=UUID(self.session_id),
+                title=title,
+                notes=notes,
+                attendees=attendees,
+                at=utc_now(),
+            )
+        )
+        for name in attendees:
+            app.container.people.touch(name)
+        self._save_speaker_aliases(app)
+        self.dismiss()
+
+    def _save_speaker_aliases(self, app: TranscriberApp) -> None:
+        """Persist detected-speaker display names and refresh live state so labels update."""
+        if not self._detected_speakers:
+            return
+        mapping = {
+            key: self.query_one(f"#details-spk-{key}", TabCompletableInput).value.strip()
+            for key in self._detected_speakers
+        }
+        app.container.session_speakers.replace_map(UUID(self.session_id), mapping)
+        for key, name in mapping.items():
+            if name:
+                app.store.dispatch(
+                    act.SpeakerAliasUpdated(speaker_key=key, alias=name, at=utc_now())
+                )
+                app.container.people.touch(name)
+
+    async def on_button_pressed(self, event: Button.Pressed) -> None:
+        bid = event.button.id or ""
+        if bid == "details-save":
+            await self.action_save()
+        elif bid == "details-cancel":
+            self.action_cancel()
+
+    def action_cancel(self) -> None:
+        self.dismiss()
+
+
 class SessionsScreen(ModalScreen[None]):
     """Browse and rename sessions from the local database."""
 
@@ -351,6 +500,7 @@ class TranscriberApp(App[None]):
         Binding("q", "quit", "Quit", show=True),
         Binding("r", "record", "Record", show=True),
         Binding("x", "stop", "Stop", show=True),
+        Binding("t", "meeting_details", "Meeting details", show=True),
         Binding("w", "export_md", "Export", show=True, priority=True),
         Binding("k", "summarize", "Summarize", show=True, priority=True),
         Binding("s", "settings", "Settings", show=True),
@@ -576,6 +726,28 @@ class TranscriberApp(App[None]):
     async def action_stop(self) -> None:
         await self.store.dispatch_with_effects(act.RecordingStopRequested(at=utc_now()))
 
+    def action_meeting_details(self) -> None:
+        """Edit the current live meeting's title/context/attendees/speakers (Live tab)."""
+        state = self.store.get_state()
+        sid = state.current_session_id
+        if sid is None:
+            self.notify("Start (or resume) a meeting on the Live tab first.", severity="warning")
+            return
+        session = self.container.sessions.get(sid)
+        if session is None:
+            self.notify("Session not found.", severity="warning")
+            return
+        self.push_screen(
+            EditMeetingDetailsScreen(
+                str(sid),
+                title=session.title,
+                notes=session.notes,
+                attendees=list(session.attendees),
+                detected_speakers=sorted(state.diarization_detected_speakers),
+                speaker_aliases=dict(state.speaker_aliases),
+            )
+        )
+
     async def action_export_md(self) -> None:
         tabs = self.query_one(TabbedContent)
         if tabs.active == "tab-meetings":
@@ -601,8 +773,17 @@ class TranscriberApp(App[None]):
                     "Select a meeting in the Meetings tab to summarize.", severity="warning"
                 )
                 return
+        else:
+            sid = self.store.get_state().current_session_id
+        # Pre-fill the context box with any notes the operator set during the live meeting
+        # (U20) so they don't have to re-enter them at summarize-time.
+        initial = ""
+        if sid is not None:
+            session = self.container.sessions.get(sid)
+            if session is not None:
+                initial = session.notes
         await self.push_screen(
-            SummaryContextModal(),
+            SummaryContextModal(initial=initial),
             callback=functools.partial(self._after_global_summary_context, sid),
         )
 

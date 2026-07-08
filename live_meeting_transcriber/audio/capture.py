@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import subprocess
-from datetime import datetime
 from pathlib import Path
 from typing import Literal
 from uuid import UUID, uuid4
 
 from live_meeting_transcriber.domain.models import AudioChunk
+from live_meeting_transcriber.utils.time import utc_now
 
 AudioBackend = Literal["pulse", "avfoundation"]
 
@@ -55,7 +55,7 @@ class FfmpegAudioCapture:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         chunk_id = uuid4()
-        started_at = datetime.utcnow()
+        started_at = utc_now()
         out_path = output_dir / f"{chunk_id}.wav"
 
         mic = microphone_source if microphone_source and microphone_source != source else None
@@ -134,7 +134,7 @@ class FfmpegAudioCapture:
         except subprocess.CalledProcessError as e:
             raise AudioCaptureError(f"ffmpeg failed: {e.stderr.strip()}") from e
 
-        ended_at = datetime.utcnow()
+        ended_at = utc_now()
         return AudioChunk(
             id=chunk_id,
             session_id=session_id,

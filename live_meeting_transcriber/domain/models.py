@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -28,7 +28,7 @@ class ProviderMetadata(BaseModel):
 class MeetingSession(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     title: str
-    started_at: datetime = Field(default_factory=lambda: datetime.utcnow())
+    started_at: datetime = Field(default_factory=lambda: datetime.now(tz=UTC))
     ended_at: datetime | None = None
     notes: str = ""
     attendees: list[str] = Field(default_factory=list)
@@ -165,7 +165,7 @@ class MeetingMetadataProposal(BaseModel):
 class Summary(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     session_id: UUID
-    created_at: datetime = Field(default_factory=lambda: datetime.utcnow())
+    created_at: datetime = Field(default_factory=lambda: datetime.now(tz=UTC))
     summary_markdown: str = Field(min_length=1)
     action_items: list[ActionItem] = Field(default_factory=list)
     decisions: list[Decision] = Field(default_factory=list)
