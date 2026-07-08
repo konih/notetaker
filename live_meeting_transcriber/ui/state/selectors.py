@@ -10,7 +10,7 @@ from live_meeting_transcriber.ui.state.model import (
     TranscriptLineState,
     UiErrorState,
 )
-from live_meeting_transcriber.utils.time import format_clock, format_duration
+from live_meeting_transcriber.utils.time import elapsed_seconds, format_clock, format_duration
 
 
 def select_header_title(state: AppState) -> str:
@@ -81,7 +81,7 @@ def select_elapsed_label(state: AppState, now: datetime) -> str | None:
     """
     if state.recording_status != RecordingStatus.recording or state.recording_started_at is None:
         return None
-    return format_duration((now - state.recording_started_at).total_seconds())
+    return format_duration(elapsed_seconds(state.recording_started_at, now))
 
 
 def select_status_line(state: AppState) -> str:

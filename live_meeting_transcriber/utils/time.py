@@ -31,6 +31,15 @@ def format_local_datetime(dt: datetime, tz: tzinfo | None = None) -> str:
     return to_local(dt, tz).strftime("%Y-%m-%d %H:%M")
 
 
+def elapsed_seconds(start: datetime, now: datetime) -> float:
+    """Seconds between ``start`` and ``now``, treating naive inputs as UTC (see A11).
+
+    Guards against the ``aware - naive`` ``TypeError`` that would otherwise crash callers
+    (e.g. the per-second elapsed timer) if a legacy naive timestamp slips through.
+    """
+    return (_ensure_aware(now) - _ensure_aware(start)).total_seconds()
+
+
 def format_duration(seconds: float) -> str:
     """Elapsed span as ``MM:SS``, or ``H:MM:SS`` once it reaches an hour. Negatives clamp to 0."""
     total = int(max(0.0, seconds))

@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta, timezone
 
 from live_meeting_transcriber.utils.time import (
+    elapsed_seconds,
     format_clock,
     format_duration,
     format_local_datetime,
@@ -51,6 +52,17 @@ def test_format_relative_labels() -> None:
     assert format_relative(now - timedelta(hours=2), now) == "2 hours ago"
     assert format_relative(now - timedelta(days=1), now) == "1 day ago"
     assert format_relative(now - timedelta(days=3), now) == "3 days ago"
+
+
+def test_elapsed_seconds_aware() -> None:
+    start = datetime(2026, 7, 8, 12, 0, 0, tzinfo=UTC)
+    assert elapsed_seconds(start, start + timedelta(seconds=90)) == 90.0
+
+
+def test_elapsed_seconds_treats_naive_as_utc() -> None:
+    naive_start = datetime(2026, 7, 8, 12, 0, 0)
+    now = datetime(2026, 7, 8, 12, 0, 30, tzinfo=UTC)
+    assert elapsed_seconds(naive_start, now) == 30.0
 
 
 def test_format_relative_future_clamps_to_just_now() -> None:
