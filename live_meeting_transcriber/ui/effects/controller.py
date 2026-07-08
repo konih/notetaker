@@ -12,6 +12,11 @@ from live_meeting_transcriber.application.export_overwrite import export_content
 from live_meeting_transcriber.application.recorder import Recorder
 from live_meeting_transcriber.application.session_service import SessionService
 from live_meeting_transcriber.audio.sources import resolve_microphone_source
+from live_meeting_transcriber.config.device_prefs import (
+    DevicePrefs,
+    load_device_prefs,
+    save_device_prefs,
+)
 from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.application_events import ApplicationEvent
 from live_meeting_transcriber.obsidian.meeting_export import (
@@ -198,8 +203,27 @@ class TuiController:
     async def handle(self, store: Store, action: act.Action) -> None:
         if isinstance(action, act.AppStarted):
             store.dispatch(_settings_loaded(self.settings, action.at))
+            prefs = load_device_prefs()
+            if prefs.monitor_source or prefs.microphone_source:
+                # Seed state from persisted selection (no save effect on plain dispatch).
+                store.dispatch(
+                    act.AudioSourcesSelected(
+                        monitor_source=prefs.monitor_source,
+                        microphone_source=prefs.microphone_source,
+                        at=action.at,
+                    )
+                )
             store.dispatch(act.SessionsRefreshRequested(at=utc_now()))
             await self._load_sessions_catalog(store)
+
+        elif isinstance(action, act.AudioSourcesSelected):
+            # Persist the UI-chosen devices so they survive restarts.
+            save_device_prefs(
+                DevicePrefs(
+                    monitor_source=action.monitor_source,
+                    microphone_source=action.microphone_source,
+                )
+            )
 
         elif isinstance(action, act.SessionsRefreshRequested):
             await self._load_sessions_catalog(store)
@@ -262,7 +286,11 @@ class TuiController:
                 )
                 return
 
-            mic = resolve_microphone_source(self.settings, self.container.devices)
+            mic = resolve_microphone_source(
+                self.settings,
+                self.container.devices,
+                cli_explicit=action.microphone_source,
+            )
             if self.settings.audio_include_microphone and mic is None:
                 store.dispatch(
                     act.WarningRaised(

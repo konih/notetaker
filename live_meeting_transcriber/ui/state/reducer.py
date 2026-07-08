@@ -332,6 +332,17 @@ def reduce(state: AppState, action: act.Action) -> AppState:
             action.at,
         )
 
+    if isinstance(action, act.AudioSourcesSelected):
+        return _touch(
+            state.model_copy(
+                update={
+                    "audio_source": action.monitor_source,
+                    "configured_microphone_source": action.microphone_source,
+                }
+            ),
+            action.at,
+        )
+
     if isinstance(action, act.TranscriptionChunkEmptyObserved):
         count = state.consecutive_empty_chunks + 1
         empty_updates: dict[str, object] = {"consecutive_empty_chunks": count}

@@ -76,6 +76,9 @@ class AppState(BaseModel):
     diarization_status: DiarizationStatus = DiarizationStatus.disabled
     audio_source: str | None = None
     microphone_source: str | None = None
+    # User-selected mic device (persisted, applied on next recording). Distinct from
+    # ``microphone_source`` which is the mic of the *active* recording (cleared on stop).
+    configured_microphone_source: str | None = None
     audio_include_microphone: bool = True
     chunk_seconds: int = 10
     transcription_provider: str = "openai"

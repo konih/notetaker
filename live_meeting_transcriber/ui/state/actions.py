@@ -49,6 +49,7 @@ class RecordingStartRequested:
     audio_source: str | None
     at: datetime
     resume_session_id: UUID | None = None
+    microphone_source: str | None = None
 
 
 @dataclass(frozen=True)
@@ -284,6 +285,18 @@ class TranscriptionChunkEmptyObserved:
     at: datetime
 
 
+@dataclass(frozen=True)
+class AudioSourcesSelected:
+    """User picked audio devices in the sources menu (persisted, applied next recording).
+
+    ``None`` for a field means "not configured — fall back to defaults".
+    """
+
+    monitor_source: str | None
+    microphone_source: str | None
+    at: datetime
+
+
 Action = (
     AppStarted
     | SettingsLoaded
@@ -320,4 +333,5 @@ Action = (
     | DiarizationStatusChanged
     | AudioLevelUpdated
     | TranscriptionChunkEmptyObserved
+    | AudioSourcesSelected
 )
