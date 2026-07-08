@@ -17,7 +17,7 @@ from live_meeting_transcriber.ui.effects.controller import TuiController
 from live_meeting_transcriber.ui.state.model import initial_app_state
 from live_meeting_transcriber.ui.state.store import Store
 from live_meeting_transcriber.ui.tui.app import SessionsScreen, TranscriberApp
-from textual.widgets import DataTable, TabbedContent
+from textual.widgets import DataTable, Static, TabbedContent
 
 
 def _column_labels(table: DataTable[Any]) -> list[str]:
@@ -71,6 +71,9 @@ async def test_meetings_table_hides_uuid_but_keeps_selection_key(tmp_path: Path)
         assert not any(str(sid)[:8] in cell for cell in _all_cells(table))
         # Selection still keyed by the full UUID (retrievable programmatically).
         assert str(sid) in _row_keys(table)
+        # Retrieval path preserved: the selected-session detail line shows the full UUID.
+        detail = str(app.query_one("#meeting-detail-status", Static).render())
+        assert str(sid) in detail
 
 
 async def test_sessions_modal_hides_uuid_column(tmp_path: Path) -> None:
