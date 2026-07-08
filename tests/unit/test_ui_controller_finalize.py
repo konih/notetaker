@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
@@ -32,9 +33,9 @@ from live_meeting_transcriber.ui.state import actions as act
 from live_meeting_transcriber.ui.state.store import Store
 
 
-def _settings(tmp_path, **overrides: object) -> Settings:  # type: ignore[no-untyped-def]
+def _settings(tmp_path: Path, **overrides: object) -> Settings:
     db = tmp_path / "controller_test.sqlite3"
-    return Settings(DATABASE_URL=f"sqlite:////{db}", **overrides)  # type: ignore[arg-type]
+    return Settings(database_url=f"sqlite:////{db}", **overrides)  # type: ignore[arg-type]
 
 
 def _container(settings: Settings) -> Container:
@@ -59,11 +60,11 @@ def _container(settings: Settings) -> Container:
 def _seed_ended_all_unknown_session(container: Container, *, ended_at: datetime) -> UUID:
     session = MeetingSession(title="dropped on exit")
     container.sessions.create(session)
-    container.sessions.conn.execute(
+    container._conn.execute(
         "UPDATE meeting_sessions SET ended_at = ? WHERE id = ?",
         (ended_at.isoformat(), str(session.id)),
     )
-    container.sessions.conn.commit()
+    container._conn.commit()
     container.transcripts.append(
         TranscriptSegment(
             session_id=session.id,
@@ -88,8 +89,8 @@ async def _cancel(task: asyncio.Task[None] | None) -> None:
 
 @pytest.mark.asyncio
 async def test_finalize_requested_runs_on_tracked_worker_not_inline(
-    monkeypatch: pytest.MonkeyPatch, tmp_path
-) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     settings = _settings(tmp_path)
     container = _container(settings)
     sid = _seed_ended_all_unknown_session(container, ended_at=datetime(2026, 1, 1, 10, 0, 0))
@@ -99,7 +100,7 @@ async def test_finalize_requested_runs_on_tracked_worker_not_inline(
     release = asyncio.Event()
     started = asyncio.Event()
 
-    async def fake_finalize_offline(**kwargs):  # type: ignore[no-untyped-def]
+    async def fake_finalize_offline(**kwargs: object) -> int:
         started.set()
         await release.wait()
         return 1
@@ -132,14 +133,14 @@ async def test_finalize_requested_runs_on_tracked_worker_not_inline(
 
 @pytest.mark.asyncio
 async def test_enqueue_dedups_and_tracks_worker(
-    monkeypatch: pytest.MonkeyPatch, tmp_path
-) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     settings = _settings(tmp_path)
     container = _container(settings)
     store = Store()
     controller = TuiController(store=store, container=container, settings=settings)
 
-    async def fake_finalize_offline(**kwargs):  # type: ignore[no-untyped-def]
+    async def fake_finalize_offline(**kwargs: object) -> int:
         return 0
 
     monkeypatch.setattr(
@@ -163,8 +164,8 @@ async def test_enqueue_dedups_and_tracks_worker(
 
 @pytest.mark.asyncio
 async def test_startup_recovery_enqueues_recent_all_unknown_session(
-    monkeypatch: pytest.MonkeyPatch, tmp_path
-) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     settings = _settings(tmp_path, FINALIZE_ON_SESSION_STOP=True, HF_TOKEN="fake-token")
     container = _container(settings)
     recent_sid = _seed_ended_all_unknown_session(
@@ -175,7 +176,7 @@ async def test_startup_recovery_enqueues_recent_all_unknown_session(
 
     finalized: list[UUID] = []
 
-    async def fake_finalize_offline(*, session_id, **kwargs):  # type: ignore[no-untyped-def]
+    async def fake_finalize_offline(*, session_id: UUID, **kwargs: object) -> int:
         finalized.append(session_id)
         return 0
 
@@ -194,8 +195,8 @@ async def test_startup_recovery_enqueues_recent_all_unknown_session(
 
 @pytest.mark.asyncio
 async def test_startup_recovery_skipped_without_hf_token(
-    monkeypatch: pytest.MonkeyPatch, tmp_path
-) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     settings = _settings(tmp_path, FINALIZE_ON_SESSION_STOP=True, HF_TOKEN=None)
     container = _container(settings)
     _seed_ended_all_unknown_session(container, ended_at=datetime.now(UTC) - timedelta(hours=1))
@@ -204,7 +205,7 @@ async def test_startup_recovery_skipped_without_hf_token(
 
     finalized: list[UUID] = []
 
-    async def fake_finalize_offline(*, session_id, **kwargs):  # type: ignore[no-untyped-def]
+    async def fake_finalize_offline(*, session_id: UUID, **kwargs: object) -> int:
         finalized.append(session_id)
         return 0
 
@@ -223,8 +224,8 @@ async def test_startup_recovery_skipped_without_hf_token(
 
 @pytest.mark.asyncio
 async def test_startup_recovery_skips_sessions_ended_outside_the_recovery_window(
-    monkeypatch: pytest.MonkeyPatch, tmp_path
-) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     settings = _settings(tmp_path, FINALIZE_ON_SESSION_STOP=True, HF_TOKEN="fake-token")
     container = _container(settings)
     _seed_ended_all_unknown_session(container, ended_at=datetime.now(UTC) - timedelta(days=10))
@@ -233,7 +234,7 @@ async def test_startup_recovery_skips_sessions_ended_outside_the_recovery_window
 
     finalized: list[UUID] = []
 
-    async def fake_finalize_offline(*, session_id, **kwargs):  # type: ignore[no-untyped-def]
+    async def fake_finalize_offline(*, session_id: UUID, **kwargs: object) -> int:
         finalized.append(session_id)
         return 0
 

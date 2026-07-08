@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from uuid import UUID
 
@@ -92,6 +92,11 @@ class TuiController:
     )
     _session_service: SessionService = field(init=False)
     _record_task: asyncio.Task[None] | None = field(default=None, init=False)
+    _finalize_queue: asyncio.Queue[UUID] = field(
+        default_factory=asyncio.Queue, init=False, repr=False
+    )
+    _finalize_worker_task: asyncio.Task[None] | None = field(default=None, init=False, repr=False)
+    _finalize_queued: set[UUID] = field(default_factory=set, init=False, repr=False)
 
     def __post_init__(self) -> None:
         self._session_service = SessionService(
@@ -102,8 +107,60 @@ class TuiController:
             session_speakers=self.container.session_speakers,
         )
 
-    async def _finalize_session_background(self, session_id: UUID) -> None:
-        await self._run_finalize_for_session(self.store, session_id)
+    def _enqueue_finalize(self, session_id: UUID) -> None:
+        """Schedule finalize on a tracked, sequential background worker.
+
+        Never ``await`` finalize directly from ``handle`` (it's awaited from
+        Textual's key-binding dispatch and would freeze the UI for the
+        multi-minute WhisperX pass) and never fire it via a bare
+        ``asyncio.create_task`` with no stored reference (the event loop only
+        holds a weak reference; the task silently dies if nothing keeps it
+        alive — e.g. the app exiting right after recording stops, which left
+        real users with 0-of-31 sessions ever diarized). The startup recovery
+        below is the safety net for anything still dropped on a quick quit.
+        """
+        if session_id in self._finalize_queued:
+            return
+        self._finalize_queued.add(session_id)
+        if self._finalize_worker_task is None or self._finalize_worker_task.done():
+            self._finalize_worker_task = asyncio.create_task(self._finalize_worker())
+        self._finalize_queue.put_nowait(session_id)
+
+    async def _finalize_worker(self) -> None:
+        """Run queued finalize jobs one at a time (avoids GPU/CPU contention)."""
+        while True:
+            session_id = await self._finalize_queue.get()
+            try:
+                await self._run_finalize_for_session(self.store, session_id)
+            finally:
+                self._finalize_queued.discard(session_id)
+                self._finalize_queue.task_done()
+
+    def _recover_unfinalized_sessions(self, store: Store) -> None:
+        """Bounded startup recovery for sessions dropped by the exit-kills-the-task bug.
+
+        Only looks at sessions ended in the last 24h: older orphans are the
+        user's own call via ``live-transcriber finalize-pending`` (a batch
+        re-diarize of dozens of sessions on every launch would be surprising
+        and expensive), and requiring ``hf_token`` avoids re-queuing forever
+        a session whose transcript is legitimately all-"unknown" because no
+        diarization credentials are configured.
+        """
+        if not self.settings.finalize_on_session_stop:
+            return
+        if not (self.settings.hf_token and self.settings.hf_token.strip()):
+            return
+        from live_meeting_transcriber.application.finalize_service import (
+            find_unfinalized_sessions,
+        )
+
+        cutoff = utc_now() - timedelta(hours=24)
+        try:
+            pending = find_unfinalized_sessions(container=self.container, ended_after=cutoff)
+        except Exception:
+            return
+        for session in pending:
+            self._enqueue_finalize(session.id)
 
     async def _run_finalize_for_session(self, store: Store, session_id: UUID) -> None:
         from live_meeting_transcriber.application.finalize_service import finalize_session_offline
@@ -215,6 +272,7 @@ class TuiController:
                 )
             store.dispatch(act.SessionsRefreshRequested(at=utc_now()))
             await self._load_sessions_catalog(store)
+            self._recover_unfinalized_sessions(store)
 
         elif isinstance(action, act.AudioSourcesSelected):
             # Persist the UI-chosen devices so they survive restarts.
@@ -377,7 +435,7 @@ class TuiController:
             self._record_task = asyncio.create_task(run())
 
         elif isinstance(action, act.FinalizeSessionRequested):
-            await self._run_finalize_for_session(store, action.session_id)
+            self._enqueue_finalize(action.session_id)
 
         elif isinstance(action, act.ExportMarkdownRequested):
             st = store.get_state()
@@ -518,6 +576,6 @@ class TuiController:
                 except Exception:
                     pass
                 if self.settings.finalize_on_session_stop:
-                    asyncio.create_task(self._finalize_session_background(sid))  # noqa: RUF006
+                    self._enqueue_finalize(sid)
 
             await self._load_sessions_catalog(store)

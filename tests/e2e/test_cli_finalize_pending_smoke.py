@@ -12,6 +12,7 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
+from live_meeting_transcriber.application.container import Container
 from live_meeting_transcriber.audio.session_recording import session_audio_dir
 from live_meeting_transcriber.cli.main import app
 from live_meeting_transcriber.config.settings import Settings
@@ -22,7 +23,9 @@ from tests.e2e.cli_helpers import build_e2e_container, patch_cli
 from tests.e2e.video_helpers import patch_data_dir
 
 
-def _seed_session(container, *, title: str, ended: bool, speaker: str, tmp_path: Path) -> UUID:  # type: ignore[no-untyped-def]
+def _seed_session(
+    container: Container, *, title: str, ended: bool, speaker: str, tmp_path: Path
+) -> UUID:
     session = container.sessions.create(MeetingSession(title=title))
     sid: UUID = session.id
     if ended:
@@ -47,7 +50,7 @@ def test_finalize_pending_backfills_only_all_unknown_ended_sessions(
 ) -> None:
     patch_data_dir(monkeypatch, tmp_path)
     db = tmp_path / "finalize_pending.sqlite3"
-    settings = Settings(OPENAI_API_KEY="test-key", DATABASE_URL=f"sqlite:////{db}")
+    settings = Settings(openai_api_key="test-key", database_url=f"sqlite:////{db}")
     container = build_e2e_container(tmp_path, settings)
 
     dropped_sid = _seed_session(
@@ -64,7 +67,7 @@ def test_finalize_pending_backfills_only_all_unknown_ended_sessions(
 
     finalized_ids: list[UUID] = []
 
-    def fake_finalize(*, session_id, **kwargs):  # type: ignore[no-untyped-def]
+    def fake_finalize(*, session_id: UUID, **kwargs: object) -> list[TranscriptSegment]:
         finalized_ids.append(session_id)
         return [
             TranscriptSegment(
@@ -98,7 +101,7 @@ def test_finalize_pending_dry_run_lists_without_running(
 ) -> None:
     patch_data_dir(monkeypatch, tmp_path)
     db = tmp_path / "finalize_pending_dry.sqlite3"
-    settings = Settings(OPENAI_API_KEY="test-key", DATABASE_URL=f"sqlite:////{db}")
+    settings = Settings(openai_api_key="test-key", database_url=f"sqlite:////{db}")
     container = build_e2e_container(tmp_path, settings)
     dropped_sid = _seed_session(
         container, title="Dropped on exit", ended=True, speaker="unknown", tmp_path=tmp_path
@@ -107,7 +110,7 @@ def test_finalize_pending_dry_run_lists_without_running(
 
     called = False
 
-    def fake_finalize(**kwargs):  # type: ignore[no-untyped-def]
+    def fake_finalize(**kwargs: object) -> list[TranscriptSegment]:
         nonlocal called
         called = True
         return []
