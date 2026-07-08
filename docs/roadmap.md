@@ -10,6 +10,7 @@ Shipped on `main` (see [`docs/configuration.md`](configuration.md) and [`docs/ar
 - **Cleanup** — `cleanup` CLI (dry-run default) and TUI session delete share `CleanupService`
 - **Offline speakers** — `finalize` (WhisperX + pyannote); live `dual_path` stereo hints with faster-whisper
 - **TUI** — session browser, slide preview with parameter tuning
+- **Live meeting details** — set title, context/notes, attendees, and name detected speakers for the *current* live meeting from the Live tab (`t`); notes pre-fill the summary context
 - **Tests / CI** — e2e smoke for video, slides, cleanup; CI installs ffmpeg for e2e job
 
 ### Phase 1 (current)
