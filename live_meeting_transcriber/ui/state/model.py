@@ -76,6 +76,9 @@ class AppState(BaseModel):
     diarization_status: DiarizationStatus = DiarizationStatus.disabled
     audio_source: str | None = None
     microphone_source: str | None = None
+    # User-selected mic device (persisted, applied on next recording). Distinct from
+    # ``microphone_source`` which is the mic of the *active* recording (cleared on stop).
+    configured_microphone_source: str | None = None
     audio_include_microphone: bool = True
     chunk_seconds: int = 10
     transcription_provider: str = "openai"
@@ -102,6 +105,8 @@ class AppState(BaseModel):
     speaker_aliases: dict[str, str] = Field(default_factory=dict)
     diarization_detected_speakers: frozenset[str] = frozenset()
     current_level_meter: float | None = None
+    consecutive_empty_chunks: int = 0
+    low_audio_warning_shown: bool = False
     last_updated_at: datetime | None = None
     settings_screen_open: bool = False
     sessions_screen_open: bool = False

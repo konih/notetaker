@@ -28,6 +28,7 @@ from live_meeting_transcriber.domain.application_events import (
     TranscriptionChunkEmpty,
     TranscriptionChunkFailed,
     TranscriptionChunkStarted,
+    TranscriptionUnavailable,
     TranscriptSegmentPersisted,
 )
 from live_meeting_transcriber.domain.exceptions import (
@@ -104,14 +105,12 @@ class Recorder:
         sample_rate_hz: int,
         on_application_event: Callable[[ApplicationEvent], None] | None,
         on_segment: Callable[[TranscriptSegment], None] | None,
+        transcription_enabled: bool = True,
     ) -> None:
         log = get_logger(component="recorder", session_id=str(session_id))
-        log.info("transcription_started", chunk_id=str(chunk.id))
-        _emit(
-            on_application_event,
-            TranscriptionChunkStarted(session_id=session_id, chunk_id=chunk.id, at=utc_now()),
-        )
 
+        # Persist audio to the full-session WAV first so the meeting can still be
+        # finalized offline even when live transcription is unavailable.
         file_dur = safe_wav_duration_seconds(chunk.path)
         if file_dur <= 0.0:
             file_dur = chunk.duration_seconds
@@ -138,6 +137,22 @@ class Recorder:
                 ),
             )
 
+        if not transcription_enabled:
+            # Live transcription disabled (e.g. model unavailable); audio is kept above.
+            if not self.keep_audio_chunks:
+                try:
+                    chunk.path.unlink(missing_ok=True)
+                except OSError:
+                    log.warning("audio_chunk_cleanup_failed", path=str(chunk.path))
+            await asyncio.sleep(0)
+            return
+
+        log.info("transcription_started", chunk_id=str(chunk.id))
+        _emit(
+            on_application_event,
+            TranscriptionChunkStarted(session_id=session_id, chunk_id=chunk.id, at=utc_now()),
+        )
+
         use_dual = (
             chunk.channels == 2
             and self.audio_stereo_mode == "dual_path"
@@ -160,7 +175,12 @@ class Recorder:
                         chunk=chunk, mic_path=mic_path, sys_path=sys_path
                     )
                 except _RECOVERABLE_TRANSCRIPTION_ERRORS as e:
-                    log.warning("transcription_chunk_failed", chunk_id=str(chunk.id), error=str(e))
+                    log.warning(
+                        "transcription_chunk_failed",
+                        chunk_id=str(chunk.id),
+                        error=str(e),
+                        exc_info=True,
+                    )
                     await self._skip_transcription_chunk(
                         chunk=chunk,
                         on_application_event=on_application_event,
@@ -252,7 +272,12 @@ class Recorder:
                     )
                     return
                 except _RECOVERABLE_TRANSCRIPTION_ERRORS as e:
-                    log.warning("transcription_chunk_failed", chunk_id=str(chunk.id), error=str(e))
+                    log.warning(
+                        "transcription_chunk_failed",
+                        chunk_id=str(chunk.id),
+                        error=str(e),
+                        exc_info=True,
+                    )
                     await self._skip_transcription_chunk(
                         chunk=chunk,
                         on_application_event=on_application_event,
@@ -358,6 +383,29 @@ class Recorder:
             ),
         )
 
+        # Load the transcription model once up front (downloads on first use). If it
+        # fails, keep recording audio for offline finalize but skip live transcription
+        # instead of retrying — and silently swallowing — the failure on every chunk.
+        transcription_enabled = True
+        warm_up = getattr(self.transcriber, "warm_up", None)
+        if callable(warm_up):
+            try:
+                await warm_up()
+            except Exception as e:
+                transcription_enabled = False
+                log.warning("transcription_warm_up_failed", error=str(e), exc_info=True)
+                _emit(
+                    on_application_event,
+                    TranscriptionUnavailable(
+                        session_id=session_id,
+                        message=(
+                            f"Live transcription unavailable: {e}. Audio is still being "
+                            "recorded — run Speaker ID / finalize afterwards to transcribe."
+                        ),
+                        at=utc_now(),
+                    ),
+                )
+
         try:
             while True:
                 try:
@@ -406,6 +454,7 @@ class Recorder:
                         sample_rate_hz=sample_rate_hz,
                         on_application_event=on_application_event,
                         on_segment=on_segment,
+                        transcription_enabled=transcription_enabled,
                     )
                 )
                 try:

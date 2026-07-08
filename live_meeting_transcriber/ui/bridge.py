@@ -23,7 +23,9 @@ def application_events_to_actions(event: ev.ApplicationEvent) -> tuple[act.Actio
         out.append(act.TranscriptionStatusChanged(status=TranscriptionStatus.active, at=event.at))
 
     elif isinstance(event, ev.TranscriptionChunkEmpty):
-        # Silent in UI (not an error); recorder already logs. Keep transcription status active.
+        # Not an error, but track it: repeated empties mean silent/misrouted audio and
+        # the reducer surfaces a one-time hint. Keep transcription status active.
+        out.append(act.TranscriptionChunkEmptyObserved(at=event.at))
         out.append(act.TranscriptionStatusChanged(status=TranscriptionStatus.active, at=event.at))
 
     elif isinstance(event, ev.TranscriptionChunkFailed):
@@ -33,6 +35,10 @@ def application_events_to_actions(event: ev.ApplicationEvent) -> tuple[act.Actio
             )
         )
         out.append(act.TranscriptionStatusChanged(status=TranscriptionStatus.active, at=event.at))
+
+    elif isinstance(event, ev.TranscriptionUnavailable):
+        out.append(act.WarningRaised(message=event.message, at=event.at))
+        out.append(act.TranscriptionStatusChanged(status=TranscriptionStatus.degraded, at=event.at))
 
     elif isinstance(event, ev.DiarizationChunkCompleted):
         # Speaker is already set on each TranscriptSegmentPersisted; avoid

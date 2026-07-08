@@ -13,6 +13,7 @@ from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
+from textual.css.query import NoMatches
 from textual.screen import ModalScreen
 from textual.widgets import (
     DataTable,
@@ -20,6 +21,7 @@ from textual.widgets import (
     Header,
     Input,
     RichLog,
+    Select,
     Static,
     TabbedContent,
     TabPane,
@@ -95,6 +97,87 @@ class SettingsScreen(ModalScreen[None]):
         app = self.app
         assert isinstance(app, TranscriberApp)
         app.store.dispatch(act.SettingsScreenClosed(at=utc_now()))
+        self.dismiss()
+
+
+class AudioSourcesScreen(ModalScreen[None]):
+    """Pick the monitor/system source and microphone from available devices.
+
+    The choice is persisted (device_prefs.json) and applied on the next recording.
+    """
+
+    BINDINGS = [
+        Binding("ctrl+s", "save", "Save", show=True, priority=True),
+        Binding("escape", "cancel", "Cancel", show=True),
+    ]
+
+    _MIC_NONE = "\x00none"  # sentinel option value for "monitor only / no microphone"
+
+    def compose(self) -> ComposeResult:
+        app = self.app
+        assert isinstance(app, TranscriberApp)
+        state = app.store.get_state()
+        try:
+            sources = app.container.devices.list_sources()
+        except Exception as e:  # device probing can fail (e.g. ffmpeg missing)
+            yield Vertical(
+                Static("Audio sources", classes="settings-title"),
+                Static(f"Could not list audio devices: {e}"),
+                Static("esc: close", classes="hint"),
+                classes="settings-dialog",
+            )
+            return
+
+        device_opts = [(f"{s.description}  [{s.name}]", s.name) for s in sources]
+
+        def _value_for(current: str | None) -> object:
+            names = [name for _label, name in device_opts]
+            return current if current in names else Select.BLANK
+
+        mic_current = state.configured_microphone_source or state.microphone_source
+        mic_opts = [("(monitor only — no microphone)", self._MIC_NONE), *device_opts]
+        mic_value: object = self._MIC_NONE if mic_current is None else _value_for(mic_current)
+
+        yield Vertical(
+            Static("Audio sources", classes="settings-title"),
+            Static("Applied on the next recording. ctrl+s: save   esc: cancel", classes="hint"),
+            Static("Monitor / system source (meeting audio):"),
+            Select(device_opts, value=_value_for(state.audio_source), id="monitor-select"),
+            Static("Microphone source (you):"),
+            Select(mic_opts, value=mic_value, allow_blank=True, id="mic-select"),
+            classes="settings-dialog",
+        )
+
+    async def action_save(self) -> None:
+        app = self.app
+        assert isinstance(app, TranscriberApp)
+        try:
+            monitor = self.query_one("#monitor-select", Select)
+            mic = self.query_one("#mic-select", Select)
+        except NoMatches:
+            self.dismiss()
+            return
+
+        mon_val = monitor.value
+        monitor_source = None if mon_val is Select.BLANK else str(mon_val)
+
+        mic_val = mic.value
+        if mic_val is Select.BLANK or mic_val == self._MIC_NONE:
+            microphone_source: str | None = None
+        else:
+            microphone_source = str(mic_val)
+
+        await app.store.dispatch_with_effects(
+            act.AudioSourcesSelected(
+                monitor_source=monitor_source,
+                microphone_source=microphone_source,
+                at=utc_now(),
+            )
+        )
+        app.notify("Audio sources saved (applies next recording).", severity="information")
+        self.dismiss()
+
+    def action_cancel(self) -> None:
         self.dismiss()
 
 
@@ -271,6 +354,7 @@ class TranscriberApp(App[None]):
         Binding("w", "export_md", "Export", show=True, priority=True),
         Binding("k", "summarize", "Summarize", show=True, priority=True),
         Binding("s", "settings", "Settings", show=True),
+        Binding("a", "audio_sources", "Audio sources", show=True),
         Binding("m", "sessions", "Sessions", show=True),
         Binding("c", "ack_errors", "Ack errors", show=True),
         Binding("ctrl+1", "focus_live_tab", "Live tab", show=True),
@@ -360,10 +444,17 @@ class TranscriberApp(App[None]):
 
     def _on_state(self, state: AppState) -> None:
         self.sub_title = select_header_title(state)
-        status = self.query_one("#status", Static)
-        notices = self.query_one("#notices", Static)
-        err_panel = self.query_one("#errors", Static)
-        log = self.query_one("#transcript", RichLog)
+        try:
+            status = self.query_one("#status", Static)
+            notices = self.query_one("#notices", Static)
+            err_panel = self.query_one("#errors", Static)
+            log = self.query_one("#transcript", RichLog)
+        except NoMatches:
+            # Main screen isn't mounted (app shutting down, or a modal screen is active).
+            # State updates dispatched during teardown — e.g. background finalize progress —
+            # can arrive after the widgets are gone; skip rendering (a live app re-renders
+            # on the next dispatch).
+            return
 
         status.update(self._render_status(state))
         if state.notices:
@@ -428,7 +519,8 @@ class TranscriberApp(App[None]):
             f"[bold]Status[/] {select_status_line(state)}",
             f"[bold]Level[/] [{select_level_bar(state)}] {peak_pct} [dim](per chunk)[/]",
             f"[bold]Chunk[/] {state.chunk_seconds}s",
-            f"[bold]Mic[/] {state.microphone_source or ('—' if not state.audio_include_microphone else 'none (monitor only)')}",
+            f"[bold]Source[/] {state.audio_source or 'default monitor'} [dim](a: change)[/]",
+            f"[bold]Mic[/] {state.microphone_source or state.configured_microphone_source or ('—' if not state.audio_include_microphone else 'default')}",
             f"[bold]Log[/] {log_hint or '—'}",
             f"[bold]Sessions[/] {len(state.sessions_catalog)} in DB"
             + (" (loading…)" if state.sessions_loading else ""),
@@ -477,6 +569,7 @@ class TranscriberApp(App[None]):
                 audio_source=st.audio_source,
                 at=utc_now(),
                 resume_session_id=resume_session_id,
+                microphone_source=st.configured_microphone_source,
             )
         )
 
@@ -554,6 +647,9 @@ class TranscriberApp(App[None]):
     def action_settings(self) -> None:
         self.store.dispatch(act.SettingsScreenOpened(at=utc_now()))
         self.push_screen(SettingsScreen())
+
+    def action_audio_sources(self) -> None:
+        self.push_screen(AudioSourcesScreen())
 
     def action_sessions(self) -> None:
         self.store.dispatch(act.SessionsScreenOpened(at=utc_now()))
