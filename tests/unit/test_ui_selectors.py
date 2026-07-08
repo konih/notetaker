@@ -112,6 +112,15 @@ def test_select_elapsed_label_none_without_start() -> None:
     assert select_elapsed_label(s, datetime(2026, 7, 8, 12, 0, 0, tzinfo=UTC)) is None
 
 
+def test_select_elapsed_label_handles_naive_start_without_crashing() -> None:
+    # A legacy/naive recording_started_at (see A11) must not crash the per-second timer:
+    # a raw aware-minus-naive subtraction would raise TypeError. Naive is treated as UTC.
+    naive_start = datetime(2026, 7, 8, 12, 0, 0)
+    s = AppState(recording_status=RecordingStatus.recording, recording_started_at=naive_start)
+    now = datetime(2026, 7, 8, 12, 0, 30, tzinfo=UTC)
+    assert select_elapsed_label(s, now) == "00:30"
+
+
 def test_select_header_title_uses_session_title() -> None:
     s = AppState(session_title="Sync")
     assert select_header_title(s) == "Sync"
