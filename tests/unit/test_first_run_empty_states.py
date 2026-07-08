@@ -130,9 +130,7 @@ async def test_live_hint_clears_when_first_segment_streams_in() -> None:
             text="First words",
             speaker="speaker_1",
         )
-        new_state = app.store.get_state().model_copy(
-            update={"recent_transcript_segments": (seg,)}
-        )
+        new_state = app.store.get_state().model_copy(update={"recent_transcript_segments": (seg,)})
         app._on_state(new_state)
         await pilot.pause()
         text = _richlog_text(transcript)

@@ -683,9 +683,10 @@ class TranscriberApp(App[None]):
         old_keys = self._last_segment_keys
 
         if (
-            old_keys is not None
-            and len(new_keys) > len(old_keys)
-            and new_keys[: len(old_keys)] == old_keys
+            # Truthy (not None *and* non-empty): an empty prior transcript must fall
+            # through to the clearing branch below so the first-run hint is wiped
+            # before the first segment is written, not left pinned above it (U10).
+            old_keys and len(new_keys) > len(old_keys) and new_keys[: len(old_keys)] == old_keys
         ):
             for line in state.recent_transcript_segments[len(old_keys) :]:
                 sp = select_display_speaker(state, line.speaker)
