@@ -377,6 +377,7 @@ class SessionsScreen(ModalScreen[None]):
         Binding("escape", "close", "Close", show=True),
         Binding("r", "refresh", "Refresh", show=True),
         Binding("e", "edit_title", "Edit title", show=True),
+        Binding("c", "copy_id", "Copy ID", show=True),
         Binding("d", "delete_selected", "Delete", show=True, priority=True),
     ]
 
@@ -390,7 +391,7 @@ class SessionsScreen(ModalScreen[None]):
             Static("Sessions (local SQLite)", classes="settings-title"),
             DataTable(id="sessions-table", cursor_type="row", zebra_stripes=True),
             Static(
-                "r: refresh   e: rename   d: delete selected   esc: close",
+                "r: refresh   e: rename   c: copy id   d: delete selected   esc: close",
                 classes="hint",
             ),
             classes="settings-dialog",
@@ -400,7 +401,7 @@ class SessionsScreen(ModalScreen[None]):
         app = self.app
         assert isinstance(app, TranscriberApp)
         table = self.query_one("#sessions-table", DataTable)
-        table.add_columns("Title", "Started", "Ended", "Id")
+        table.add_columns("Title", "Started", "Ended")
         self._unsub = app.store.subscribe(self._on_store)
         self._on_store(app.store.get_state())
 
@@ -419,9 +420,23 @@ class SessionsScreen(ModalScreen[None]):
                 row.title[:56] + ("…" if len(row.title) > 56 else ""),
                 format_local_datetime(row.started_at),
                 ended,
-                row.id[:8] + "…",
                 key=row.id,
             )
+
+    def _selected_row_id(self) -> str | None:
+        table = self.query_one("#sessions-table", DataTable)
+        coord = table.cursor_coordinate
+        if coord is None or coord.row < 0 or coord.row >= len(self._row_ids):
+            return None
+        return self._row_ids[coord.row]
+
+    async def action_copy_id(self) -> None:
+        sid = self._selected_row_id()
+        if sid is None:
+            self.app.notify("Select a session row first.", severity="warning")
+            return
+        self.app.copy_to_clipboard(sid)
+        self.app.notify(f"Copied session ID: {sid}")
 
     async def action_refresh(self) -> None:
         app = self.app

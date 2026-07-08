@@ -345,7 +345,7 @@ class MeetingBrowser(Vertical):
 
     def on_mount(self) -> None:
         st = self.query_one("#meeting-sessions-table", DataTable)
-        st.add_columns("Type", "Title", "Started", "Session")
+        st.add_columns("Type", "Title", "Started")
         attendees = self.query_one("#meeting-attendees", TabCompletableInput)
         attendees.suggester = self._comma_suggester
         self.refresh_session_list()
@@ -383,13 +383,11 @@ class MeetingBrowser(Vertical):
         data_dir = self.container.settings.ensure_data_dir()
         table.clear()
         for s in self.container.sessions.list():
-            short = str(s.id)[:8] + "…"
             is_video = session_is_video_import(data_dir, s.id)
             table.add_row(
                 format_session_type_label(is_video=is_video),
                 s.title[:40] + ("…" if len(s.title) > 40 else ""),
                 format_local_datetime(s.started_at),
-                short,
                 key=str(s.id),
             )
         if selected:
