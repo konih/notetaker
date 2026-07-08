@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key>
+  <string>com.notetaker.systemtap</string>
+  <key>CFBundleName</key>
+  <string>NotetakerSystemTap</string>
+  <!-- Required for the "System Audio Recording Only" (kTCCServiceAudioCapture) prompt to fire. -->
+  <key>NSAudioCaptureUsageDescription</key>
+  <string>Notetaker captures system audio so it can transcribe your meetings locally.</string>
+</dict>
+</plist>

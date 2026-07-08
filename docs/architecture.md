@@ -5,7 +5,7 @@ This project follows **clean / hexagonal architecture**:
 - **Domain** (`live_meeting_transcriber/domain`): pure models, events, and ports (interfaces). No provider code.
 - **Application** (`live_meeting_transcriber/application`): orchestration and use-cases (record session, summarize session).
 - **Adapters**:
-  - **Audio** (`live_meeting_transcriber/audio`): Linux system audio capture + device listing.
+  - **Audio** (`live_meeting_transcriber/audio`): system audio capture + device listing. Linux uses ffmpeg + PipeWire/PulseAudio; macOS uses ffmpeg + AVFoundation, and on macOS 14.4+ a driver-free **Core Audio process tap** (`coreaudio_tap.py` + the Swift helper in `native/macos/`) captures system output without BlackHole. Backend selection lives in `backend.py`/`platform.py`.
   - **Transcription** (`live_meeting_transcriber/transcription`): provider implementations (OpenAI, faster-whisper) behind ports.
   - **Summarization** (`live_meeting_transcriber/summarization`): provider implementations behind ports.
   - **Diarization** (`live_meeting_transcriber/diarization`): pyannote adapters (`NoopDiarizationProvider`, `PyannoteDiarizationProvider`) and overlap-based **merge** into `TranscriptSegment.speaker`. **Live `record` does not call pyannote per chunk**; speaker labels from clustering appear after offline **`finalize`** (WhisperX + pyannote on `full_session.wav`). Legacy batch code can still diarize stored chunk WAVs if wired manually.

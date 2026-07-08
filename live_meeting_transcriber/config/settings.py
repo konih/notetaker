@@ -85,6 +85,13 @@ class Settings(BaseSettings):
     keep_audio_chunks: bool = Field(default=False, alias="KEEP_AUDIO_CHUNKS")
     audio_include_microphone: bool = Field(default=True, alias="AUDIO_INCLUDE_MICROPHONE")
     audio_microphone_source: str | None = Field(default=None, alias="AUDIO_MICROPHONE_SOURCE")
+    # macOS system-audio capture strategy. ``auto`` (default) uses the driver-free Core Audio
+    # tap on macOS 14.4+ and otherwise falls back to an avfoundation loopback device
+    # (BlackHole/Loopback). ``coreaudio_tap`` forces the native tap; ``avfoundation`` forces the
+    # BlackHole/loopback device path. Ignored on Linux.
+    audio_macos_system_capture: Literal["auto", "coreaudio_tap", "avfoundation"] = Field(
+        default="auto", alias="AUDIO_MACOS_SYSTEM_CAPTURE"
+    )
 
     # Logging
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")

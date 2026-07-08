@@ -89,8 +89,8 @@ def build_container(settings: Settings) -> Container:
     if settings.transcription_provider == "openai" and settings.openai_api_key is None:
         raise ProviderSelectionError("OPENAI_API_KEY is required for OpenAI transcription")
 
-    devices: AudioDeviceProvider = build_audio_device_provider()
-    audio: AudioCapture = build_audio_capture()
+    devices: AudioDeviceProvider = build_audio_device_provider(settings.audio_macos_system_capture)
+    audio: AudioCapture = build_audio_capture(settings.audio_macos_system_capture)
     diarizer: DiarizationProvider = build_diarization_provider(settings)
 
     if settings.transcription_provider == "openai":
