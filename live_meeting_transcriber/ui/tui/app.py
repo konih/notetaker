@@ -13,6 +13,7 @@ from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
+from textual.content import Content
 from textual.css.query import NoMatches
 from textual.screen import ModalScreen
 from textual.widgets import (
@@ -559,6 +560,14 @@ class TranscriberApp(App[None]):
         self._controller = controller
         self._last_segment_keys: tuple[tuple[str, str, str], ...] | None = None
         self._last_ui_log_len: int = 0
+
+    def format_title(self, title: str, sub_title: str) -> Content:
+        """Header shows meeting context only — the app name (``title``) is not repeated
+        inside the app (U19). ``self.title`` stays set so app identity remains available
+        for the command palette and terminal title. Falls back to the app name only when
+        there is no context to show.
+        """
+        return Content(sub_title or title)
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
