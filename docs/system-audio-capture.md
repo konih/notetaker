@@ -9,6 +9,7 @@ then capture the microphone and that loopback as two channels.
 This is why "I could transcribe my own voice but Teams wasn't captured": there was no
 loopback device, so only the mic leg had signal.
 
+- [macOS 14.4+ — native Core Audio tap (no BlackHole)](#macos-144--native-core-audio-tap-no-blackhole)
 - [macOS — BlackHole loopback](#macos--blackhole-loopback)
 - [Linux — PipeWire/PulseAudio monitor](#linux--pipewirepulseaudio-monitor)
 - [Verify with a YouTube video](#verify-with-a-youtube-video)
@@ -16,7 +17,43 @@ loopback device, so only the mic leg had signal.
 
 ---
 
+## macOS 14.4+ — native Core Audio tap (no BlackHole)
+
+On **macOS 14.4 or newer** the recommended path needs **no third-party driver**. The app uses
+**Core Audio process taps** to capture system output directly, via a tiny bundled Swift helper
+(`native/macos/systemaudiotap.swift`). This is the default (`AUDIO_MACOS_SYSTEM_CAPTURE=auto`).
+
+You still hear the meeting normally while it is captured (`muteBehavior = .unmuted`), and the
+prompt is the **audio-only** "System Audio Recording Only" grant — not the screen-recording
+prompt that ScreenCaptureKit-based tools require.
+
+### Setup
+
+1. Install the Xcode command line tools once (provides `swiftc`/`codesign`):
+   ```bash
+   xcode-select --install
+   ```
+2. Keep `AUDIO_MACOS_SYSTEM_CAPTURE=auto` (default). The helper is compiled and ad-hoc signed on
+   first use into `~/.cache/live-meeting-transcriber/`.
+3. `live-transcriber devices` shows **"System Audio (Core Audio tap — no BlackHole needed)"** as
+   the default monitor source.
+4. Start recording. The **first** capture triggers a one-time macOS prompt — click **Allow**.
+   (Manage later under *System Settings ▸ Privacy & Security ▸ Audio Recording*.)
+
+Your microphone is still captured and mixed in exactly as before, so both sides of a call are
+transcribed. To force the old driver path instead, set `AUDIO_MACOS_SYSTEM_CAPTURE=avfoundation`
+(see below). More detail: [`native/macos/README.md`](../native/macos/README.md).
+
+> **Requirements:** macOS 14.4+, Xcode command line tools, and `ffmpeg` on `PATH`. On macOS 13
+> or without `swiftc`, use the BlackHole path below.
+
+---
+
 ## macOS — BlackHole loopback
+
+> Only needed on **macOS 13 or older**, or if you set `AUDIO_MACOS_SYSTEM_CAPTURE=avfoundation`.
+> On macOS 14.4+ prefer the [native Core Audio tap](#macos-144--native-core-audio-tap-no-blackhole)
+> above — it needs no driver.
 
 macOS has no built-in system-audio capture usable by ffmpeg. The supported path is a
 free virtual loopback driver, **BlackHole**, combined with a **Multi-Output Device** so

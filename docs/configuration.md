@@ -28,10 +28,18 @@ Only existing files are loaded. See [`install-desktop.md`](install-desktop.md) f
 - `AUDIO_CHANNELS`: default `1`
 - `AUDIO_INCLUDE_MICROPHONE`: default `true` — mix **default monitor** (system/meeting playback) with **default microphone** (your voice) via ffmpeg `amix`
 - `AUDIO_MICROPHONE_SOURCE`: optional explicit PulseAudio source name for the mic leg (see `live-transcriber devices`, marked with `^`)
+- `AUDIO_MACOS_SYSTEM_CAPTURE`: macOS only, default `auto`. Controls how system/output audio is captured:
+  - `auto` — use the driver-free **Core Audio process tap** on macOS 14.4+ (no BlackHole needed); fall back to an avfoundation loopback device on older macOS.
+  - `coreaudio_tap` — always use the native tap (requires macOS 14.4+).
+  - `avfoundation` — always use a BlackHole/Loopback device (the pre-F7 behaviour).
+
+  The native tap uses a tiny bundled Swift helper compiled on first use (needs the Xcode command line tools) and, on first capture, triggers the **"System Audio Recording Only"** permission prompt — approve it once. See **[system-audio-capture.md](system-audio-capture.md)**.
 
 > **Capturing Teams/Zoom/Meet audio (both sides of a call):** the default captures only
-> your microphone. To also transcribe remote participants you must add a loopback source
-> (BlackHole on macOS; PipeWire/PulseAudio `.monitor` on Linux). See
+> your microphone. On **macOS 14.4+** the native Core Audio tap (default `AUDIO_MACOS_SYSTEM_CAPTURE=auto`)
+> captures remote participants with **no extra software** — just approve the one-time system-audio
+> prompt. On older macOS or when forced to `avfoundation`, add a loopback source (BlackHole);
+> on Linux use a PipeWire/PulseAudio `.monitor`. See
 > **[system-audio-capture.md](system-audio-capture.md)** for the full setup and the
 > two-channel `dual_path` command.
 - `LOG_LEVEL`: default `INFO`; use `DEBUG` for verbose recorder/offline finalize steps (also sets UI action dispatch to DEBUG). Put this in **project `.env`** if your IDE/shell does not load `.envrc` before `live-transcriber` starts.

@@ -57,6 +57,12 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["live_meeting_transcriber"]
 
+# Ship the macOS Core Audio tap helper sources at the wheel root so they resolve at
+# `<install-root>/native/macos` — matching the repo-relative path used in dev/editable installs
+# (see live_meeting_transcriber/audio/coreaudio_tap.py:_NATIVE_DIR). macOS-only at runtime.
+[tool.hatch.build.targets.wheel.force-include]
+"native" = "native"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
