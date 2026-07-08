@@ -205,7 +205,9 @@ def test_slide_captured_utc_prefers_timestamp_seconds() -> None:
 def test_list_session_screenshots_loads_video_slides_without_gnome_dir(tmp_path: Path) -> None:
     sid = uuid4()
     t0 = datetime(2026, 6, 3, 10, 0, 0)
-    session = MeetingSession(id=sid, title="Video", started_at=t0, ended_at=t0 + timedelta(minutes=5))
+    session = MeetingSession(
+        id=sid, title="Video", started_at=t0, ended_at=t0 + timedelta(minutes=5)
+    )
     slides_dir = tmp_path / "sessions" / str(sid) / "slides"
     slides_dir.mkdir(parents=True)
     img = slides_dir / "slide_000_30.0s.png"
@@ -235,7 +237,9 @@ def test_list_session_screenshots_loads_video_slides_without_gnome_dir(tmp_path:
 def test_merge_video_slide_at_timestamp_not_end_of_export(tmp_path: Path) -> None:
     sid = uuid4()
     t0 = datetime(2026, 6, 3, 10, 0, 0)
-    session = MeetingSession(id=sid, title="Video", started_at=t0, ended_at=t0 + timedelta(minutes=5))
+    session = MeetingSession(
+        id=sid, title="Video", started_at=t0, ended_at=t0 + timedelta(minutes=5)
+    )
     s1 = TranscriptSegment(
         session_id=sid,
         started_at=t0,
@@ -269,7 +273,9 @@ def test_write_dual_export_includes_video_slides_without_screenshots_dir(
 ) -> None:
     sid = uuid4()
     t0 = datetime(2026, 6, 3, 10, 0, 0)
-    session = MeetingSession(id=sid, title="Video", started_at=t0, ended_at=t0 + timedelta(minutes=5))
+    session = MeetingSession(
+        id=sid, title="Video", started_at=t0, ended_at=t0 + timedelta(minutes=5)
+    )
     seg = TranscriptSegment(
         session_id=sid,
         started_at=t0,

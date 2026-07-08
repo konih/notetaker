@@ -50,7 +50,6 @@ def test_openai_providers_behind_ports(tmp_path) -> None:
         c.close()
 
 
-
 def test_faster_whisper_transcription_builds_with_openai_summaries(tmp_path) -> None:
     from live_meeting_transcriber.transcription.faster_whisper_transcriber import (
         FasterWhisperTranscriptionProvider,

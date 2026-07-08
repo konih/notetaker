@@ -25,7 +25,9 @@ def test_load_pyannote_audio_input_mono(tmp_path: Path) -> None:
     assert payload["waveform"].shape == (1, 4)
 
 
-def test_load_pyannote_audio_input_requires_torch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_pyannote_audio_input_requires_torch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     import builtins
 
     real_import = builtins.__import__

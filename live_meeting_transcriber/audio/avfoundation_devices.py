@@ -75,16 +75,16 @@ class AvfoundationAudioDeviceProvider:
                 text=True,
             )
         except FileNotFoundError as e:
-            raise AudioDeviceError("ffmpeg not found; install ffmpeg (e.g. brew install ffmpeg)") from e
+            raise AudioDeviceError(
+                "ffmpeg not found; install ffmpeg (e.g. brew install ffmpeg)"
+            ) from e
 
         # ffmpeg exits non-zero when listing devices; stderr/stdout both carry the list.
         combined = f"{proc.stdout}\n{proc.stderr}"
         sources = parse_avfoundation_audio_devices(combined)
         if not sources:
             detail = (proc.stderr or proc.stdout or "").strip()
-            raise AudioDeviceError(
-                detail or "ffmpeg listed no AVFoundation audio devices"
-            )
+            raise AudioDeviceError(detail or "ffmpeg listed no AVFoundation audio devices")
         return sources
 
     def get_default_monitor_source(self) -> str | None:
