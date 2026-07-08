@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from live_meeting_transcriber.application.container import (
     ProviderSelectionError,
@@ -9,7 +11,7 @@ from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.diarization.noop import NoopDiarizationProvider
 
 
-def test_build_diarization_noop_when_disabled(tmp_path) -> None:
+def test_build_diarization_noop_when_disabled(tmp_path: Path) -> None:
     s = Settings(
         openai_api_key="x",
         database_url=f"sqlite:////{tmp_path}/db.sqlite3",
@@ -20,7 +22,7 @@ def test_build_diarization_noop_when_disabled(tmp_path) -> None:
     assert isinstance(p, NoopDiarizationProvider)
 
 
-def test_build_diarization_noop_explicit(tmp_path) -> None:
+def test_build_diarization_noop_explicit(tmp_path: Path) -> None:
     s = Settings(
         openai_api_key="x",
         database_url=f"sqlite:////{tmp_path}/db.sqlite3",
@@ -31,7 +33,7 @@ def test_build_diarization_noop_explicit(tmp_path) -> None:
     assert isinstance(p, NoopDiarizationProvider)
 
 
-def test_build_diarization_pyannote_requires_token(tmp_path) -> None:
+def test_build_diarization_pyannote_requires_token(tmp_path: Path) -> None:
     s = Settings(
         openai_api_key="x",
         database_url=f"sqlite:////{tmp_path}/db.sqlite3",

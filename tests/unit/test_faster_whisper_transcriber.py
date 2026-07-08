@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Iterator, Mapping, Sequence
 from datetime import datetime, timedelta
+from pathlib import Path
 from types import ModuleType
+from typing import Any
 from uuid import uuid4
 
 import pytest
@@ -15,13 +18,13 @@ from live_meeting_transcriber.transcription.faster_whisper_transcriber import (
 
 
 @pytest.mark.asyncio
-async def test_faster_whisper_transcribe_joins_segments(tmp_path) -> None:
+async def test_faster_whisper_transcribe_joins_segments(tmp_path: Path) -> None:
     wav = tmp_path / "chunk.wav"
     wav.write_bytes(b"")
 
     real = sys.modules.pop("faster_whisper", None)
     try:
-        m = ModuleType("faster_whisper")
+        m: Any = ModuleType("faster_whisper")
 
         class WhisperModel:
             def __init__(self, model_size: str, device: str, compute_type: str) -> None:
@@ -29,7 +32,7 @@ async def test_faster_whisper_transcribe_joins_segments(tmp_path) -> None:
                 self._device = device
                 self._compute_type = compute_type
 
-            def transcribe(self, path: str, **kwargs: object):
+            def transcribe(self, path: str, **kwargs: object) -> tuple[Iterator[object], object]:
                 assert path == str(wav)
                 assert kwargs.get("vad_filter") is True
 
@@ -40,7 +43,7 @@ async def test_faster_whisper_transcribe_joins_segments(tmp_path) -> None:
                 class Info:
                     language = "en"
 
-                def gen():
+                def gen() -> Iterator[object]:
                     yield Seg("Hello")
                     yield Seg("there")
 
@@ -67,6 +70,7 @@ async def test_faster_whisper_transcribe_joins_segments(tmp_path) -> None:
         )
         seg = await prov.transcribe(chunk=chunk)
         assert seg.text == "Hello there"
+        assert seg.metadata is not None
         assert seg.metadata.provider == "faster_whisper"
         assert seg.metadata.model == "tiny"
         assert seg.metadata.extra.get("language") == "en"
@@ -78,19 +82,19 @@ async def test_faster_whisper_transcribe_joins_segments(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_faster_whisper_empty_raises(tmp_path) -> None:
+async def test_faster_whisper_empty_raises(tmp_path: Path) -> None:
     wav = tmp_path / "chunk.wav"
     wav.write_bytes(b"")
 
     real = sys.modules.pop("faster_whisper", None)
     try:
-        m = ModuleType("faster_whisper")
+        m: Any = ModuleType("faster_whisper")
 
         class WhisperModel:
             def __init__(self, *a: object, **k: object) -> None:
                 pass
 
-            def transcribe(self, path: str, **kwargs: object):
+            def transcribe(self, path: str, **kwargs: object) -> tuple[Iterator[object], object]:
                 class Info:
                     language = None
 
@@ -125,17 +129,25 @@ async def test_faster_whisper_empty_raises(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_faster_whisper_runtime_error_when_package_missing(tmp_path, monkeypatch) -> None:
+async def test_faster_whisper_runtime_error_when_package_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     wav = tmp_path / "chunk.wav"
     wav.write_bytes(b"")
 
     real = sys.modules.pop("faster_whisper", None)
     try:
 
-        def boom(name: str, *a: object, **k: object):
+        def boom(
+            name: str,
+            globals: Mapping[str, object] | None = None,
+            locals: Mapping[str, object] | None = None,
+            fromlist: Sequence[str] = (),
+            level: int = 0,
+        ) -> ModuleType:
             if name == "faster_whisper":
                 raise ImportError("no package")
-            return real_import(name, *a, **k)
+            return real_import(name, globals, locals, fromlist, level)
 
         import builtins
 
@@ -166,19 +178,19 @@ async def test_faster_whisper_runtime_error_when_package_missing(tmp_path, monke
 
 
 @pytest.mark.asyncio
-async def test_faster_whisper_maps_model_errors(tmp_path) -> None:
+async def test_faster_whisper_maps_model_errors(tmp_path: Path) -> None:
     wav = tmp_path / "chunk.wav"
     wav.write_bytes(b"")
 
     real = sys.modules.pop("faster_whisper", None)
     try:
-        m = ModuleType("faster_whisper")
+        m: Any = ModuleType("faster_whisper")
 
         class WhisperModel:
             def __init__(self, *a: object, **k: object) -> None:
                 pass
 
-            def transcribe(self, path: str, **kwargs: object):
+            def transcribe(self, path: str, **kwargs: object) -> tuple[Iterator[object], object]:
                 raise ValueError("bad audio")
 
         m.WhisperModel = WhisperModel
@@ -213,7 +225,7 @@ async def test_faster_whisper_maps_model_errors(tmp_path) -> None:
 async def test_faster_whisper_warm_up_loads_model_once() -> None:
     real = sys.modules.pop("faster_whisper", None)
     try:
-        m = ModuleType("faster_whisper")
+        m: Any = ModuleType("faster_whisper")
         loads: list[int] = []
 
         class WhisperModel:
@@ -240,7 +252,7 @@ async def test_faster_whisper_warm_up_loads_model_once() -> None:
 async def test_faster_whisper_warm_up_wraps_load_failure() -> None:
     real = sys.modules.pop("faster_whisper", None)
     try:
-        m = ModuleType("faster_whisper")
+        m: Any = ModuleType("faster_whisper")
 
         class WhisperModel:
             def __init__(self, *a: object, **k: object) -> None:

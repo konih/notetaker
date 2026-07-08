@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from pathlib import Path
 from uuid import uuid4
 
 from live_meeting_transcriber.domain.models import (
@@ -21,7 +22,7 @@ from live_meeting_transcriber.storage.repositories import (
 from live_meeting_transcriber.storage.sqlite import open_connection
 
 
-def test_repositories_create_list_get_sessions(tmp_path) -> None:
+def test_repositories_create_list_get_sessions(tmp_path: Path) -> None:
     conn = open_connection(f"sqlite:////{tmp_path}/db.sqlite3")
     try:
         repo = SqliteMeetingSessionRepository(conn)
@@ -40,7 +41,7 @@ def test_repositories_create_list_get_sessions(tmp_path) -> None:
         conn.close()
 
 
-def test_meeting_session_update_title(tmp_path) -> None:
+def test_meeting_session_update_title(tmp_path: Path) -> None:
     conn = open_connection(f"sqlite:////{tmp_path}/db.sqlite3")
     try:
         sessions = SqliteMeetingSessionRepository(conn)
@@ -48,13 +49,14 @@ def test_meeting_session_update_title(tmp_path) -> None:
         updated = sessions.update_title(s.id, "New title")
         assert updated is not None
         assert updated.title == "New title"
-        assert sessions.get(s.id) is not None
-        assert sessions.get(s.id).title == "New title"
+        fetched = sessions.get(s.id)
+        assert fetched is not None
+        assert fetched.title == "New title"
     finally:
         conn.close()
 
 
-def test_repository_append_list_transcript_segments(tmp_path) -> None:
+def test_repository_append_list_transcript_segments(tmp_path: Path) -> None:
     conn = open_connection(f"sqlite:////{tmp_path}/db.sqlite3")
     try:
         sessions = SqliteMeetingSessionRepository(conn)
@@ -76,7 +78,7 @@ def test_repository_append_list_transcript_segments(tmp_path) -> None:
         conn.close()
 
 
-def test_transcript_replace_session(tmp_path) -> None:
+def test_transcript_replace_session(tmp_path: Path) -> None:
     conn = open_connection(f"sqlite:////{tmp_path}/db.sqlite3")
     try:
         sessions = SqliteMeetingSessionRepository(conn)
@@ -115,7 +117,7 @@ def test_transcript_replace_session(tmp_path) -> None:
         conn.close()
 
 
-def test_meeting_session_notes_and_attendees(tmp_path) -> None:
+def test_meeting_session_notes_and_attendees(tmp_path: Path) -> None:
     conn = open_connection(f"sqlite:////{tmp_path}/db.sqlite3")
     try:
         sessions = SqliteMeetingSessionRepository(conn)
@@ -132,7 +134,7 @@ def test_meeting_session_notes_and_attendees(tmp_path) -> None:
         conn.close()
 
 
-def test_known_people_and_session_speaker_names(tmp_path) -> None:
+def test_known_people_and_session_speaker_names(tmp_path: Path) -> None:
     conn = open_connection(f"sqlite:////{tmp_path}/db.sqlite3")
     try:
         people = SqliteKnownPeopleRepository(conn)
@@ -148,7 +150,7 @@ def test_known_people_and_session_speaker_names(tmp_path) -> None:
         conn.close()
 
 
-def test_transcript_update_segment_text(tmp_path) -> None:
+def test_transcript_update_segment_text(tmp_path: Path) -> None:
     conn = open_connection(f"sqlite:////{tmp_path}/db.sqlite3")
     try:
         sessions = SqliteMeetingSessionRepository(conn)
@@ -171,14 +173,15 @@ def test_transcript_update_segment_text(tmp_path) -> None:
         conn.close()
 
 
-def test_meeting_session_reopen_clears_ended_at(tmp_path) -> None:
+def test_meeting_session_reopen_clears_ended_at(tmp_path: Path) -> None:
     conn = open_connection(f"sqlite:////{tmp_path}/db.sqlite3")
     try:
         sessions = SqliteMeetingSessionRepository(conn)
         s = sessions.create(MeetingSession(title="Reopen me"))
         sessions.end(s.id)
-        assert sessions.get(s.id) is not None
-        assert sessions.get(s.id).ended_at is not None
+        ended = sessions.get(s.id)
+        assert ended is not None
+        assert ended.ended_at is not None
         reopened = sessions.reopen(s.id)
         assert reopened is not None
         assert reopened.ended_at is None
@@ -187,7 +190,7 @@ def test_meeting_session_reopen_clears_ended_at(tmp_path) -> None:
         conn.close()
 
 
-def test_meeting_session_delete_cascades_related_rows(tmp_path) -> None:
+def test_meeting_session_delete_cascades_related_rows(tmp_path: Path) -> None:
     conn = open_connection(f"sqlite:////{tmp_path}/db.sqlite3")
     try:
         sessions = SqliteMeetingSessionRepository(conn)
@@ -222,7 +225,7 @@ def test_meeting_session_delete_cascades_related_rows(tmp_path) -> None:
         conn.close()
 
 
-def test_diarization_repository_and_session_delete(tmp_path) -> None:
+def test_diarization_repository_and_session_delete(tmp_path: Path) -> None:
     conn = open_connection(f"sqlite:////{tmp_path}/db.sqlite3")
     try:
         sessions = SqliteMeetingSessionRepository(conn)
@@ -241,7 +244,7 @@ def test_diarization_repository_and_session_delete(tmp_path) -> None:
         conn.close()
 
 
-def test_session_speaker_set_alias_and_list(tmp_path) -> None:
+def test_session_speaker_set_alias_and_list(tmp_path: Path) -> None:
     conn = open_connection(f"sqlite:////{tmp_path}/db.sqlite3")
     try:
         sessions = SqliteMeetingSessionRepository(conn)
@@ -256,7 +259,7 @@ def test_session_speaker_set_alias_and_list(tmp_path) -> None:
         conn.close()
 
 
-def test_transcript_update_segment_speaker(tmp_path) -> None:
+def test_transcript_update_segment_speaker(tmp_path: Path) -> None:
     conn = open_connection(f"sqlite:////{tmp_path}/db.sqlite3")
     try:
         sessions = SqliteMeetingSessionRepository(conn)

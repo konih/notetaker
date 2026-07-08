@@ -87,7 +87,7 @@ def test_accepted_candidates_filters_kept_rows() -> None:
         SlideCandidate(timestamp_seconds=2.0, change_score=0.2),
         SlideCandidate(timestamp_seconds=3.0, change_score=0.3),
     ]
-    review = {0: True, 1: False, 2: True}
+    review: dict[int, bool | None] = {0: True, 1: False, 2: True}
     accepted = accepted_candidates(cands, review)
     assert accepted == [cands[0], cands[2]]
 
@@ -187,7 +187,7 @@ async def test_slide_preview_screen_populates_table_after_async_preview(tmp_path
         preview_dir=tmp_path / "previews",
     )
 
-    class PreviewTestApp(App):
+    class PreviewTestApp(App[None]):
         CSS = """
         #slide-preview-dialog { height: 40; layout: vertical; overflow: hidden; }
         #slide-preview-split { height: 1fr; min-height: 8; }

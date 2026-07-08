@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -48,7 +49,7 @@ def test_parse_structured_summary_rejects_missing_summary() -> None:
         parse_structured_summary_output({"decisions": []})
 
 
-def test_render_meeting_note_applies_confident_metadata(tmp_path) -> None:
+def test_render_meeting_note_applies_confident_metadata(tmp_path: Path) -> None:
     tpl = tmp_path / "Meeting.md"
     tpl.write_text(
         "---\n"

@@ -4,7 +4,7 @@ from datetime import datetime
 from uuid import uuid4
 
 from live_meeting_transcriber.ui.state import actions as act
-from live_meeting_transcriber.ui.state.model import initial_app_state
+from live_meeting_transcriber.ui.state.model import AppState, initial_app_state
 from live_meeting_transcriber.ui.state.reducer import (
     _EMPTY_CHUNKS_WARN_THRESHOLD,
     reduce,
@@ -15,7 +15,7 @@ def _t() -> datetime:
     return datetime(2026, 5, 11, 12, 0, 0)
 
 
-def _empty(state):
+def _empty(state: AppState) -> AppState:
     return reduce(state, act.TranscriptionChunkEmptyObserved(at=_t()))
 
 
