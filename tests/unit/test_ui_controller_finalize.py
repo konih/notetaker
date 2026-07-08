@@ -163,6 +163,38 @@ async def test_enqueue_dedups_and_tracks_worker(
 
 
 @pytest.mark.asyncio
+async def test_auto_finalize_on_stop_enqueues_via_tracked_worker(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # The exact regression: stopping a recording with FINALIZE_ON_SESSION_STOP must go
+    # through the tracked queue, never a bare create_task that a quick quit would kill.
+    settings = _settings(tmp_path, FINALIZE_ON_SESSION_STOP=True)
+    container = _container(settings)
+    session = MeetingSession(title="live")
+    container.sessions.create(session)
+    sid = session.id
+    store = Store()
+    controller = TuiController(store=store, container=container, settings=settings)
+    store.dispatch(
+        act.RecordingStarted(
+            session_id=sid,
+            title="live",
+            audio_source="default",
+            microphone_source=None,
+            chunk_seconds=10,
+            at=datetime.now(UTC),
+        )
+    )
+
+    enqueued: list[UUID] = []
+    monkeypatch.setattr(controller, "_enqueue_finalize", enqueued.append)
+
+    await controller.handle(store, act.RecordingStopRequested(at=datetime.now(UTC)))
+
+    assert enqueued == [sid]
+
+
+@pytest.mark.asyncio
 async def test_startup_recovery_enqueues_recent_all_unknown_session(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
