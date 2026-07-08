@@ -24,6 +24,19 @@ Provider-specific code must not leak into application/domain logic.
 - Application depends only on ports.
 - Adapters implement those ports (OpenAI now; replaceable later).
 
+### Enforcement (import-linter)
+
+Boundaries are checked automatically, not just by review. [Import Linter](https://import-linter.readthedocs.io/)
+contracts live in [`.importlinter`](../.importlinter); the decision memo, violation inventory, and
+rollout plan are in [`architecture-guardrails.md`](architecture-guardrails.md).
+
+- **Blocking today:** `domain-independence` — the domain layer must import nothing from
+  application/adapters/UI/CLI. Gated by `tests/architecture/test_import_contracts.py`, so it runs
+  in `task check` and CI.
+- **Report-only (pilot):** `application-independent-of-adapters` and `adapters-do-not-import-upward`
+  document known debt. Run `task arch:check` (never fails) for the full report; a non-blocking CI
+  `arch` job does the same. These promote to blocking per story **A9** as the A-epic refactors land.
+
 ### Audio pipeline
 
 Phase 1 uses robust Linux tooling:

@@ -65,6 +65,15 @@ tasks:
     cmds:
       - uv run mypy .
 
+  arch:check:
+    desc: "Report hexagonal boundary violations (import-linter pilot; non-blocking)"
+    cmds:
+      # Pilot/report-only: prints the full contract report but never fails the task,
+      # so known boundary debt does not block merges. The enforced subset
+      # (domain-independence) is gated by tests/architecture/ + `task check`.
+      # See docs/architecture-guardrails.md.
+      - uv run lint-imports || true
+
   check:
     desc: Lint + format check + typecheck + tests
     cmds:

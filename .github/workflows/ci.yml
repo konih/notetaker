@@ -79,6 +79,28 @@ jobs:
       - name: E2E pytest
         run: uv run pytest tests/e2e -q
 
+  arch:
+    name: Architecture boundaries (import-linter, non-blocking)
+    runs-on: ubuntu-latest
+    # Pilot: reports hexagonal boundary violations but does not block merges yet.
+    # The enforced subset (domain-independence) is covered by the unit test suite.
+    # Promote to blocking per agent-context (story A9).
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - run: uv python install 3.12
+
+      - name: Sync dev tools
+        run: uv sync --python 3.12 --extra dev
+
+      - name: Import Linter (report)
+        run: uv run lint-imports
+
   secrets:
     name: Secret scan (gitleaks)
     runs-on: ubuntu-latest

@@ -1,0 +1,75 @@
+# Import Linter — hexagonal architecture guardrail (pilot, story A10).
+#
+# STATUS: PILOT / REPORT-ONLY. Only the `domain-independence` contract is enforced
+# (blocking) — via tests/architecture/test_import_contracts.py and CI. The other
+# contracts document known boundary debt and are expected to FAIL today; they run in
+# `task arch:check` (non-blocking) so we can watch the inventory shrink without blocking
+# merges. See docs/architecture-guardrails.md for the rollout plan and violation
+# inventory, and story A9 for the upgrade-to-blocking follow-up.
+
+[importlinter]
+root_package = live_meeting_transcriber
+
+# --- Enforced (blocking) -----------------------------------------------------------
+# The innermost invariant: the domain layer must not know about any outer layer.
+# This holds today and is gated in the test suite + CI.
+[importlinter:contract:domain-independence]
+name = Domain layer imports nothing from application, adapters, UI or CLI
+type = forbidden
+source_modules =
+    live_meeting_transcriber.domain
+forbidden_modules =
+    live_meeting_transcriber.application
+    live_meeting_transcriber.audio
+    live_meeting_transcriber.cli
+    live_meeting_transcriber.config
+    live_meeting_transcriber.storage
+    live_meeting_transcriber.transcription
+    live_meeting_transcriber.summarization
+    live_meeting_transcriber.diarization
+    live_meeting_transcriber.ui
+    live_meeting_transcriber.video
+    live_meeting_transcriber.obsidian
+    live_meeting_transcriber.offline
+    live_meeting_transcriber.observability
+
+# --- Report-only (known debt; expected to fail) ------------------------------------
+# The application layer should depend on domain + ports only, never concrete adapters.
+# The composition root (container.py) is the one legitimate place that wires adapters,
+# so its imports are ignored. Remaining violations are the A4/A2 refactor backlog.
+[importlinter:contract:application-independent-of-adapters]
+name = Application layer depends on domain + ports, not concrete adapters
+type = forbidden
+source_modules =
+    live_meeting_transcriber.application
+forbidden_modules =
+    live_meeting_transcriber.audio
+    live_meeting_transcriber.storage
+    live_meeting_transcriber.transcription
+    live_meeting_transcriber.summarization
+    live_meeting_transcriber.diarization
+    live_meeting_transcriber.ui
+    live_meeting_transcriber.video
+    live_meeting_transcriber.obsidian
+    live_meeting_transcriber.offline
+ignore_imports =
+    live_meeting_transcriber.application.container -> live_meeting_transcriber.**
+
+# Adapters must not reach back up into application / CLI / UI. Today `obsidian` breaks
+# this (imports application export helpers) — captured for the A-epic backlog.
+[importlinter:contract:adapters-do-not-import-upward]
+name = Adapters do not import application, CLI or UI
+type = forbidden
+source_modules =
+    live_meeting_transcriber.audio
+    live_meeting_transcriber.storage
+    live_meeting_transcriber.transcription
+    live_meeting_transcriber.summarization
+    live_meeting_transcriber.diarization
+    live_meeting_transcriber.video
+    live_meeting_transcriber.obsidian
+    live_meeting_transcriber.offline
+forbidden_modules =
+    live_meeting_transcriber.application
+    live_meeting_transcriber.cli
+    live_meeting_transcriber.ui
