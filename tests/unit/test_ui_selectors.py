@@ -12,6 +12,7 @@ from live_meeting_transcriber.ui.state.model import (
 )
 from live_meeting_transcriber.ui.state.selectors import (
     select_display_speaker,
+    select_elapsed_label,
     select_header_title,
     select_is_recording,
     select_level_bar,
@@ -91,6 +92,24 @@ def test_status_line_surfaces_transcription_failure() -> None:
         transcription_status=TranscriptionStatus.failed,
     )
     assert "failed" in select_status_line(s).lower()
+
+
+def test_select_elapsed_label_while_recording() -> None:
+    start = datetime(2026, 7, 8, 12, 0, 0, tzinfo=UTC)
+    s = AppState(recording_status=RecordingStatus.recording, recording_started_at=start)
+    now = start + timedelta(seconds=65)
+    assert select_elapsed_label(s, now) == "01:05"
+
+
+def test_select_elapsed_label_none_when_not_recording() -> None:
+    start = datetime(2026, 7, 8, 12, 0, 0, tzinfo=UTC)
+    s = AppState(recording_status=RecordingStatus.stopped, recording_started_at=start)
+    assert select_elapsed_label(s, start + timedelta(seconds=65)) is None
+
+
+def test_select_elapsed_label_none_without_start() -> None:
+    s = AppState(recording_status=RecordingStatus.recording, recording_started_at=None)
+    assert select_elapsed_label(s, datetime(2026, 7, 8, 12, 0, 0, tzinfo=UTC)) is None
 
 
 def test_select_header_title_uses_session_title() -> None:

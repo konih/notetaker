@@ -89,6 +89,41 @@ def test_recording_lifecycle() -> None:
     assert s4.transcription_status == TranscriptionStatus.idle
 
 
+def test_recording_started_at_set_on_start_and_cleared_on_stop() -> None:
+    s0 = initial_app_state()
+    assert s0.recording_started_at is None
+    started = reduce(
+        s0,
+        act.RecordingStarted(
+            session_id=uuid4(),
+            title="T",
+            audio_source="sink.monitor",
+            microphone_source=None,
+            chunk_seconds=10,
+            at=_t(),
+        ),
+    )
+    assert started.recording_started_at == _t()
+    stopped = reduce(started, act.RecordingStopped(at=_t() + timedelta(seconds=42)))
+    assert stopped.recording_started_at is None
+
+
+def test_recording_started_at_cleared_on_failure() -> None:
+    s0 = reduce(
+        initial_app_state(),
+        act.RecordingStarted(
+            session_id=uuid4(),
+            title="T",
+            audio_source="sink.monitor",
+            microphone_source=None,
+            chunk_seconds=10,
+            at=_t(),
+        ),
+    )
+    failed = reduce(s0, act.RecordingFailed(message="boom", at=_t()))
+    assert failed.recording_started_at is None
+
+
 def test_recording_stop_ignored_when_idle() -> None:
     s0 = initial_app_state()
     s1 = reduce(s0, act.RecordingStopRequested(at=_t()))
