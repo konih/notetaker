@@ -29,7 +29,7 @@ uv run ruff format .  # format
 
 - **Unit tests (default):** `uv run pytest` or `task test:unit` (`-m "not integration"`).
 - **Integration tests:** `RUN_INTEGRATION_TESTS=1 uv run pytest -m integration` or `task test:integration`.
-- **CI parity:** `task check` matches GitHub Actions (pytest + Ruff; mypy may report issues locally).
+- **CI parity:** `task check` runs the same pytest + Ruff gates as GitHub Actions, plus a clean mypy typecheck (mypy is green locally; wiring it into CI is tracked separately).
 
 ### Python version and optional extras
 
