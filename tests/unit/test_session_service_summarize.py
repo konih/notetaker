@@ -56,7 +56,7 @@ def test_summarize_applies_confident_title(tmp_path) -> None:
             sessions=sessions,
             transcripts=transcripts,
             summaries=summaries,
-            summarizer=_FakeSummarizer(),  # type: ignore[arg-type]
+            summarizer=_FakeSummarizer(),
         )
         asyncio.run(svc.summarize_session(session_id=session.id))
         updated = sessions.get(session.id)

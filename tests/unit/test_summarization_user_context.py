@@ -76,7 +76,7 @@ def test_session_service_passes_user_context_to_summarizer(tmp_path) -> None:
             sessions=sessions,
             transcripts=transcripts,
             summaries=summaries,
-            summarizer=summarizer,  # type: ignore[arg-type]
+            summarizer=summarizer,
         )
         asyncio.run(
             svc.summarize_session(session_id=session.id, user_context="  emphasize risks  ")

@@ -53,7 +53,7 @@ def _container(tmp_path: Path, settings: Settings) -> Container:
         _conn=conn,
         devices=None,  # type: ignore[arg-type]
         audio=None,  # type: ignore[arg-type]
-        transcriber=_FakeTranscriber(),  # type: ignore[arg-type]
+        transcriber=_FakeTranscriber(),
         summarizer=None,  # type: ignore[arg-type]
         diarizer=None,  # type: ignore[arg-type]
         diarization_segments=SqliteDiarizationRepository(conn),

@@ -547,8 +547,8 @@ class SqliteSummaryRepository:
                 meeting_metadata = MeetingMetadataProposal.model_validate(raw_meta)
             metadata = ProviderMetadata(provider=row["provider"], model=row["model"], extra=extra)  # type: ignore[arg-type]
 
-        action_items = [ActionItem(**ai) for ai in loads_json(row["action_items_json"])]  # type: ignore[arg-type]
-        decisions = [Decision(**d) for d in loads_json(row["decisions_json"])]  # type: ignore[arg-type]
+        action_items = [ActionItem(**ai) for ai in loads_json(row["action_items_json"])]
+        decisions = [Decision(**d) for d in loads_json(row["decisions_json"])]
 
         return Summary(
             id=UUID(row["id"]),

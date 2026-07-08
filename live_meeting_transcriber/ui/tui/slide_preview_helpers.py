@@ -169,7 +169,7 @@ def normalize_strategy(raw: str, *, settings: Settings) -> SlideStrategyName:
     text = raw.strip().lower()
     if text in ("frame_diff", "ffmpeg_scene"):
         return text  # type: ignore[return-value]
-    return settings.video_slide_strategy  # type: ignore[return-value]
+    return settings.video_slide_strategy
 
 
 def format_candidate_label(index: int, cand: SlideCandidate, *, keep: bool | None) -> str:
