@@ -131,6 +131,34 @@ def test_terminal_supports_inline_images_cached(monkeypatch: pytest.MonkeyPatch)
     assert terminal_supports_inline_images() is True
 
 
+def test_image_probe_survives_terminal_probe_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """textual-image auto-detection calls termios on import; on a non-TTY stdin it
+
+    raises ``termios.error: Operation not supported by device`` (not an ImportError).
+    The probe and widget lookup must swallow it so the TUI still starts.
+    """
+    import builtins
+    import termios
+
+    import live_meeting_transcriber.ui.tui.slide_preview_helpers as helpers
+
+    real_import = builtins.__import__
+
+    def _raising_import(name: str, *args: object, **kwargs: object) -> object:
+        if name.startswith("textual_image"):
+            raise termios.error(19, "Operation not supported by device")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.delenv("TERM_PROGRAM", raising=False)
+    monkeypatch.setattr(builtins, "__import__", _raising_import)
+    monkeypatch.setattr(helpers, "_IMAGE_WIDGET_CHECKED", False)
+    monkeypatch.setattr(helpers, "_IMAGE_WIDGET_CLASS", None)
+
+    helpers.ensure_textual_image_protocol_probe()  # must not raise
+    assert helpers.image_widget_class() is None
+    assert helpers._probe_inline_image_mode() == "none"
+
+
 def test_try_chafa_ascii_preview_without_chafa(tmp_path: Path) -> None:
     png = tmp_path / "slide.png"
     png.write_bytes(b"png")
