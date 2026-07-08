@@ -122,6 +122,10 @@ class SummaryContextModal(ModalScreen[str | None]):
         Binding("ctrl+enter,ctrl+return", "submit", "Summarize", show=True, priority=True),
     ]
 
+    def __init__(self, initial: str = "") -> None:
+        super().__init__()
+        self._initial = initial
+
     def compose(self) -> ComposeResult:
         yield Vertical(
             Static("Optional context for summary", classes="settings-title"),
@@ -140,7 +144,10 @@ class SummaryContextModal(ModalScreen[str | None]):
         )
 
     def on_mount(self) -> None:
-        self.query_one("#summary-context-area", TextArea).focus()
+        area = self.query_one("#summary-context-area", TextArea)
+        if self._initial:
+            area.text = self._initial
+        area.focus()
 
     def action_submit(self) -> None:
         area = self.query_one("#summary-context-area", TextArea)

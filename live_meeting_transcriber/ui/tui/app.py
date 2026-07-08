@@ -16,6 +16,7 @@ from textual.containers import Horizontal, Vertical
 from textual.css.query import NoMatches
 from textual.screen import ModalScreen
 from textual.widgets import (
+    Button,
     DataTable,
     Footer,
     Header,
@@ -25,6 +26,7 @@ from textual.widgets import (
     Static,
     TabbedContent,
     TabPane,
+    TextArea,
 )
 
 from live_meeting_transcriber.application.cleanup_service import purge_session_artifacts
@@ -52,9 +54,11 @@ from live_meeting_transcriber.ui.tui.meeting_browser import (
     MeetingBrowser,
     SummaryContextModal,
 )
+from live_meeting_transcriber.ui.tui.people_suggesters import CommaSeparatedPeopleSuggester
 from live_meeting_transcriber.ui.tui.slide_preview_helpers import (
     ensure_textual_image_protocol_probe,
 )
+from live_meeting_transcriber.ui.tui.tab_complete_input import TabCompletableInput
 from live_meeting_transcriber.utils.time import utc_now
 
 
@@ -218,6 +222,91 @@ class EditSessionTitleScreen(ModalScreen[None]):
         self.dismiss()
 
 
+class EditMeetingDetailsScreen(ModalScreen[None]):
+    """Edit the current live meeting's title, context/notes, and attendees up front.
+
+    Values apply to the session immediately (persisted via SessionDetailsCommitRequested);
+    the notes carry into the summary-context prompt at summarize-time.
+    """
+
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel", show=True, priority=True),
+        Binding("ctrl+enter,ctrl+return", "save", "Save", show=True, priority=True),
+    ]
+
+    def __init__(self, session_id: str, *, title: str, notes: str, attendees: list[str]) -> None:
+        super().__init__()
+        self.session_id = session_id
+        self._title = title
+        self._notes = notes
+        self._attendees = attendees
+
+    def compose(self) -> ComposeResult:
+        yield Vertical(
+            Static("Meeting details", classes="settings-title"),
+            Static("Ctrl+Enter: save   Esc: cancel", classes="dim"),
+            Static("Title"),
+            TabCompletableInput(value=self._title, placeholder="Title", id="details-title"),
+            Static("Context / notes (used to guide the summary)"),
+            TextArea(id="details-notes", language=None),
+            Static("Attendees (comma-separated)"),
+            TabCompletableInput(
+                value=", ".join(self._attendees),
+                placeholder="Alice, Bob, …",
+                id="details-attendees",
+            ),
+            Horizontal(
+                Button("Save", id="details-save", variant="primary"),
+                Button("Cancel", id="details-cancel"),
+            ),
+            classes="settings-dialog",
+        )
+
+    def on_mount(self) -> None:
+        app = self.app
+        assert isinstance(app, TranscriberApp)
+        notes = self.query_one("#details-notes", TextArea)
+        notes.text = self._notes
+        self.query_one(
+            "#details-attendees", TabCompletableInput
+        ).suggester = CommaSeparatedPeopleSuggester(app.container.people)
+        self.query_one("#details-title", TabCompletableInput).focus()
+
+    async def action_save(self) -> None:
+        app = self.app
+        assert isinstance(app, TranscriberApp)
+        title = self.query_one("#details-title", TabCompletableInput).value.strip()
+        if not title:
+            app.notify("Title required.", severity="error")
+            return
+        notes = self.query_one("#details-notes", TextArea).text
+        raw_att = self.query_one("#details-attendees", TabCompletableInput).value
+        parts = [p.strip() for p in raw_att.replace("\n", ",").split(",")]
+        attendees = [p for p in parts if p]
+        await app.store.dispatch_with_effects(
+            act.SessionDetailsCommitRequested(
+                session_id=UUID(self.session_id),
+                title=title,
+                notes=notes,
+                attendees=attendees,
+                at=utc_now(),
+            )
+        )
+        for name in attendees:
+            app.container.people.touch(name)
+        self.dismiss()
+
+    async def on_button_pressed(self, event: Button.Pressed) -> None:
+        bid = event.button.id or ""
+        if bid == "details-save":
+            await self.action_save()
+        elif bid == "details-cancel":
+            self.action_cancel()
+
+    def action_cancel(self) -> None:
+        self.dismiss()
+
+
 class SessionsScreen(ModalScreen[None]):
     """Browse and rename sessions from the local database."""
 
@@ -351,6 +440,7 @@ class TranscriberApp(App[None]):
         Binding("q", "quit", "Quit", show=True),
         Binding("r", "record", "Record", show=True),
         Binding("x", "stop", "Stop", show=True),
+        Binding("t", "meeting_details", "Meeting details", show=True),
         Binding("w", "export_md", "Export", show=True, priority=True),
         Binding("k", "summarize", "Summarize", show=True, priority=True),
         Binding("s", "settings", "Settings", show=True),
@@ -576,6 +666,25 @@ class TranscriberApp(App[None]):
     async def action_stop(self) -> None:
         await self.store.dispatch_with_effects(act.RecordingStopRequested(at=utc_now()))
 
+    def action_meeting_details(self) -> None:
+        """Edit the current live meeting's title/context/attendees (Live tab)."""
+        sid = self.store.get_state().current_session_id
+        if sid is None:
+            self.notify("Start (or resume) a meeting on the Live tab first.", severity="warning")
+            return
+        session = self.container.sessions.get(sid)
+        if session is None:
+            self.notify("Session not found.", severity="warning")
+            return
+        self.push_screen(
+            EditMeetingDetailsScreen(
+                str(sid),
+                title=session.title,
+                notes=session.notes,
+                attendees=list(session.attendees),
+            )
+        )
+
     async def action_export_md(self) -> None:
         tabs = self.query_one(TabbedContent)
         if tabs.active == "tab-meetings":
@@ -601,8 +710,17 @@ class TranscriberApp(App[None]):
                     "Select a meeting in the Meetings tab to summarize.", severity="warning"
                 )
                 return
+        else:
+            sid = self.store.get_state().current_session_id
+        # Pre-fill the context box with any notes the operator set during the live meeting
+        # (U20) so they don't have to re-enter them at summarize-time.
+        initial = ""
+        if sid is not None:
+            session = self.container.sessions.get(sid)
+            if session is not None:
+                initial = session.notes
         await self.push_screen(
-            SummaryContextModal(),
+            SummaryContextModal(initial=initial),
             callback=functools.partial(self._after_global_summary_context, sid),
         )
 
