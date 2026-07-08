@@ -57,6 +57,11 @@ from live_meeting_transcriber.ui.tui.meeting_browser import (
     MeetingBrowser,
     SummaryContextModal,
 )
+from live_meeting_transcriber.ui.tui.empty_states import (
+    LIVE_EMPTY_HINT,
+    SESSIONS_EMPTY_HINT,
+    audio_prerequisite_warnings,
+)
 from live_meeting_transcriber.ui.tui.people_suggesters import (
     CommaSeparatedPeopleSuggester,
     PeoplePrefixSuggester,
@@ -375,6 +380,7 @@ class SessionsScreen(ModalScreen[None]):
         yield Vertical(
             Static("Sessions (local SQLite)", classes="settings-title"),
             DataTable(id="sessions-table", cursor_type="row", zebra_stripes=True),
+            Static("", id="sessions-empty", classes="dim"),
             Static(
                 "r: refresh   e: rename   c: copy id   d: delete selected   esc: close",
                 classes="hint",
@@ -407,6 +413,9 @@ class SessionsScreen(ModalScreen[None]):
                 ended,
                 key=row.id,
             )
+        # First-run/empty state: guide the user instead of showing an empty grid (U10).
+        empty = self.query_one("#sessions-empty", Static)
+        empty.update(SESSIONS_EMPTY_HINT if not state.sessions_catalog else "")
 
     def _selected_row_id(self) -> str | None:
         table = self.query_one("#sessions-table", DataTable)
@@ -605,6 +614,17 @@ class TranscriberApp(App[None]):
         # recording_started_at; this only re-renders the status block against the wall clock.
         self.set_interval(1.0, self._tick_elapsed)
         await self.store.dispatch_with_effects(act.AppStarted(at=utc_now()))
+        self._run_startup_checks()
+
+    def _run_startup_checks(self) -> None:
+        """Non-blocking first-run prerequisite checks (U10).
+
+        Surfaces missing audio prerequisites as warnings in the errors/warnings
+        panel with remediation text. Never blocks launch — a failing probe is
+        reported, not raised.
+        """
+        for message in audio_prerequisite_warnings(self.container.devices.list_sources):
+            self.store.dispatch(act.WarningRaised(message=message, at=utc_now()))
 
     def _tick_elapsed(self) -> None:
         state = self.store.get_state()
@@ -673,6 +693,10 @@ class TranscriberApp(App[None]):
                 log.write(Text.from_markup(f"[dim]{ts}[/] [bold]{sp}[/]\n{line.text}"))
         elif old_keys != new_keys:
             log.clear()
+            if not state.recent_transcript_segments:
+                # First-run / emptied transcript: show a guidance line instead of a
+                # blank pane (U10). Replaced as soon as real segments arrive.
+                log.write(Text.from_markup(LIVE_EMPTY_HINT))
             for line in state.recent_transcript_segments:
                 sp = select_display_speaker(state, line.speaker)
                 ts = select_transcript_timestamp(line)

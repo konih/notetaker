@@ -95,6 +95,9 @@ def test_errors_compact_summary_none_when_warning() -> None:
 def _app(**updates: object) -> TranscriberApp:
     container = MagicMock()
     container.sessions.list.return_value = []
+    # Healthy audio env so the U10 startup check raises no warning — the compact
+    # errors panel only holds when there is genuinely nothing to report.
+    container.devices.list_sources.return_value = [object()]
     store = Store(state=initial_app_state().model_copy(update=updates))
     controller = TuiController(store=store, container=container, settings=Settings())
     store.register_effects(controller.handle)

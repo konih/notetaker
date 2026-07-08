@@ -23,6 +23,7 @@ from live_meeting_transcriber.domain.models import Summary, TranscriptSegment
 from live_meeting_transcriber.ui.state import actions as act
 from live_meeting_transcriber.ui.state.model import AppState, RecordingStatus
 from live_meeting_transcriber.ui.state.store import Store
+from live_meeting_transcriber.ui.tui.empty_states import MEETINGS_EMPTY_HINT
 from live_meeting_transcriber.ui.tui.meeting_session_helpers import (
     count_preview_candidates,
     count_saved_slides,
@@ -395,6 +396,11 @@ class MeetingBrowser(Vertical):
                 if str(s.id) == selected:
                     table.move_cursor(row=i)
                     break
+        # First-run/empty state: no meetings → guide the user instead of leaving the
+        # detail pane showing a bare "No meeting selected." (U10). A row selection
+        # overwrites this via _load_detail.
+        if table.row_count == 0:
+            self.query_one("#meeting-detail-status", Static).update(MEETINGS_EMPTY_HINT)
 
     async def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
         if event.control.id != "meeting-sessions-table":
