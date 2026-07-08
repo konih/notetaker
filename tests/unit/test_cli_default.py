@@ -11,7 +11,7 @@ class _FakeContainer:
 
 
 def test_cli_no_args_launches_tui(monkeypatch, tmp_path) -> None:
-    settings = Settings(OPENAI_API_KEY="x", DATABASE_URL=f"sqlite:////{tmp_path}/db.sqlite3")
+    settings = Settings(openai_api_key="x", database_url=f"sqlite:////{tmp_path}/db.sqlite3")
     called: dict[str, bool] = {}
 
     def fake_run_tui_attached(**kwargs: object) -> None:

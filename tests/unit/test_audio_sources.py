@@ -17,21 +17,21 @@ class _Dev:
 def test_resolve_microphone_disabled_in_settings(monkeypatch) -> None:
     monkeypatch.setenv("AUDIO_INCLUDE_MICROPHONE", "false")
     s = Settings(
-        OPENAI_API_KEY="x",
-        DATABASE_URL="sqlite:////tmp/t.db",
+        openai_api_key="x",
+        database_url="sqlite:////tmp/t.db",
     )
     assert resolve_microphone_source(s, _Dev()) is None
 
 
 def test_resolve_microphone_cli_no_mic() -> None:
     s = Settings(
-        OPENAI_API_KEY="x", DATABASE_URL="sqlite:////tmp/t.db", AUDIO_INCLUDE_MICROPHONE=True
+        openai_api_key="x", database_url="sqlite:////tmp/t.db", audio_include_microphone=True
     )
     assert resolve_microphone_source(s, _Dev(), cli_no_microphone=True) is None
 
 
 def test_resolve_microphone_explicit_cli() -> None:
     s = Settings(
-        OPENAI_API_KEY="x", DATABASE_URL="sqlite:////tmp/t.db", AUDIO_INCLUDE_MICROPHONE=True
+        openai_api_key="x", database_url="sqlite:////tmp/t.db", audio_include_microphone=True
     )
     assert resolve_microphone_source(s, _Dev(mic=None), cli_explicit="  my-mic  ") == "my-mic"

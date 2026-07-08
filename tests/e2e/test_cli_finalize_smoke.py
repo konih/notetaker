@@ -22,7 +22,7 @@ from tests.fixtures.paths import MEETING_EN_WAV
 def test_cli_finalize_smoke_e2e(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     patch_data_dir(monkeypatch, tmp_path)
     db = tmp_path / "finalize.sqlite3"
-    settings = Settings(OPENAI_API_KEY="test-key", DATABASE_URL=f"sqlite:////{db}")
+    settings = Settings(openai_api_key="test-key", database_url=f"sqlite:////{db}")
     container = build_e2e_container(tmp_path, settings)
     session = container.sessions.create(MeetingSession(title="Finalize Me"))
     sid: UUID = session.id

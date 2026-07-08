@@ -14,30 +14,30 @@ from pydantic import ValidationError
 def test_settings_diarization_min_gt_max_raises(tmp_path) -> None:
     with pytest.raises(ValidationError):
         Settings(
-            OPENAI_API_KEY="x",
-            DATABASE_URL=f"sqlite:////{tmp_path}/db.sqlite3",
-            DIARIZATION_MIN_SPEAKERS=3,
-            DIARIZATION_MAX_SPEAKERS=2,
+            openai_api_key="x",
+            database_url=f"sqlite:////{tmp_path}/db.sqlite3",
+            diarization_min_speakers=3,
+            diarization_max_speakers=2,
         )
 
 
 def test_pyannote_pipeline_kwargs_num_only_when_set(tmp_path) -> None:
     s = Settings(
-        OPENAI_API_KEY="x",
-        DATABASE_URL=f"sqlite:////{tmp_path}/db.sqlite3",
-        DIARIZATION_NUM_SPEAKERS=2,
-        DIARIZATION_MIN_SPEAKERS=2,
-        DIARIZATION_MAX_SPEAKERS=4,
+        openai_api_key="x",
+        database_url=f"sqlite:////{tmp_path}/db.sqlite3",
+        diarization_num_speakers=2,
+        diarization_min_speakers=2,
+        diarization_max_speakers=4,
     )
     assert s.pyannote_diarization_pipeline_kwargs() == {"num_speakers": 2}
 
 
 def test_pyannote_pipeline_kwargs_min_max(tmp_path) -> None:
     s = Settings(
-        OPENAI_API_KEY="x",
-        DATABASE_URL=f"sqlite:////{tmp_path}/db.sqlite3",
-        DIARIZATION_MIN_SPEAKERS=2,
-        DIARIZATION_MAX_SPEAKERS=4,
+        openai_api_key="x",
+        database_url=f"sqlite:////{tmp_path}/db.sqlite3",
+        diarization_min_speakers=2,
+        diarization_max_speakers=4,
     )
     assert s.pyannote_diarization_pipeline_kwargs() == {
         "min_speakers": 2,
@@ -47,12 +47,12 @@ def test_pyannote_pipeline_kwargs_min_max(tmp_path) -> None:
 
 def test_build_pyannote_passes_pipeline_kwargs(tmp_path) -> None:
     s = Settings(
-        OPENAI_API_KEY="x",
-        DATABASE_URL=f"sqlite:////{tmp_path}/db.sqlite3",
-        DIARIZATION_ENABLED=True,
-        DIARIZATION_PROVIDER="pyannote",
-        HF_TOKEN="t",
-        DIARIZATION_NUM_SPEAKERS=2,
+        openai_api_key="x",
+        database_url=f"sqlite:////{tmp_path}/db.sqlite3",
+        diarization_enabled=True,
+        diarization_provider="pyannote",
+        hf_token="t",
+        diarization_num_speakers=2,
     )
     p = build_diarization_provider(s)
     assert isinstance(p, PyannoteDiarizationProvider)

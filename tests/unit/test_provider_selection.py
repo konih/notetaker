@@ -8,9 +8,9 @@ from live_meeting_transcriber.domain.ports import SummarizationProvider, Transcr
 
 def test_provider_selection_requires_key_for_openai_transcription(tmp_path) -> None:
     s = Settings(
-        OPENAI_API_KEY=None,
+        openai_api_key=None,
         transcription_provider="openai",
-        DATABASE_URL=f"sqlite:////{tmp_path}/db.sqlite3",
+        database_url=f"sqlite:////{tmp_path}/db.sqlite3",
     )
     with pytest.raises(ProviderSelectionError):
         build_container(s)
@@ -25,9 +25,9 @@ def test_faster_whisper_starts_without_openai_key(tmp_path) -> None:
     )
 
     s = Settings(
-        OPENAI_API_KEY=None,
+        openai_api_key=None,
         transcription_provider="faster_whisper",
-        DATABASE_URL=f"sqlite:////{tmp_path}/db.sqlite3",
+        database_url=f"sqlite:////{tmp_path}/db.sqlite3",
     )
     c = build_container(s)
     try:
@@ -39,8 +39,8 @@ def test_faster_whisper_starts_without_openai_key(tmp_path) -> None:
 
 def test_openai_providers_behind_ports(tmp_path) -> None:
     s = Settings(
-        OPENAI_API_KEY="test-key",
-        DATABASE_URL=f"sqlite:////{tmp_path}/db.sqlite3",
+        openai_api_key="test-key",
+        database_url=f"sqlite:////{tmp_path}/db.sqlite3",
     )
     c = build_container(s)
     try:
@@ -56,9 +56,9 @@ def test_faster_whisper_transcription_builds_with_openai_summaries(tmp_path) -> 
     )
 
     s = Settings(
-        OPENAI_API_KEY="k",
+        openai_api_key="k",
         transcription_provider="faster_whisper",
-        DATABASE_URL=f"sqlite:////{tmp_path}/db.sqlite3",
+        database_url=f"sqlite:////{tmp_path}/db.sqlite3",
     )
     c = build_container(s)
     try:

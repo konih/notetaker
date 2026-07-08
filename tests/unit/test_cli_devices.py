@@ -33,7 +33,7 @@ class _FakeDevices:
 
 
 def test_cli_devices_lists_sources(monkeypatch, tmp_path) -> None:
-    settings = Settings(OPENAI_API_KEY="x", DATABASE_URL=f"sqlite:////{tmp_path}/db.sqlite3")
+    settings = Settings(openai_api_key="x", database_url=f"sqlite:////{tmp_path}/db.sqlite3")
     conn = open_connection(settings.database_url)
     container = Container(
         settings=settings,

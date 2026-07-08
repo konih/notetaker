@@ -14,7 +14,7 @@ from tests.e2e.cli_helpers import build_e2e_container, patch_cli, patch_fake_rec
 
 def test_cli_record_smoke_e2e(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     db = tmp_path / "e2e.sqlite3"
-    settings = Settings(OPENAI_API_KEY="test-key", DATABASE_URL=f"sqlite:////{db}")
+    settings = Settings(openai_api_key="test-key", database_url=f"sqlite:////{db}")
     container = build_e2e_container(tmp_path, settings)
     patch_cli(monkeypatch, settings=settings, container=container)
     patch_fake_recorder(monkeypatch)

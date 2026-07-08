@@ -73,7 +73,7 @@ class _FakeRecorderCtrlC:
 
 def test_cli_record_uses_mocked_recorder(monkeypatch, tmp_path) -> None:
     conn = open_connection(f"sqlite:////{tmp_path}/db.sqlite3")
-    settings = Settings(OPENAI_API_KEY="x", DATABASE_URL=f"sqlite:////{tmp_path}/db.sqlite3")
+    settings = Settings(openai_api_key="x", database_url=f"sqlite:////{tmp_path}/db.sqlite3")
 
     container = Container(
         settings=settings,
@@ -110,7 +110,7 @@ def test_cli_record_uses_mocked_recorder(monkeypatch, tmp_path) -> None:
 
 def test_cli_record_ctrl_c_exits_cleanly(monkeypatch, tmp_path) -> None:
     conn = open_connection(f"sqlite:////{tmp_path}/db.sqlite3")
-    settings = Settings(OPENAI_API_KEY="x", DATABASE_URL=f"sqlite:////{tmp_path}/db.sqlite3")
+    settings = Settings(openai_api_key="x", database_url=f"sqlite:////{tmp_path}/db.sqlite3")
 
     container = Container(
         settings=settings,
