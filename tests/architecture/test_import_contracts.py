@@ -4,7 +4,7 @@ Enforces the *innermost* hexagonal invariant — the domain layer must not impor
 any outer layer — by running Import Linter's ``domain-independence`` contract in
 process. This is the one contract the pilot enforces (blocking); the remaining
 contracts in ``.importlinter`` document known boundary debt and run report-only
-via ``task arch:check`` (see agent-context/coordination/ARCH-GUARDRAIL-DECISION.md).
+via ``task arch:check`` (see docs/architecture-guardrails.md).
 """
 
 from __future__ import annotations
