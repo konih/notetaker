@@ -23,8 +23,14 @@ task install
 ### Quality checks
 
 ```bash
-task check
+task check        # ruff format check + ruff + mypy + unit tests (incl. the arch guard)
+task arch:check   # report hexagonal boundary violations (import-linter pilot; never fails)
 ```
+
+`task check` enforces the `domain-independence` import contract (the domain layer must not import
+outer layers). `task arch:check` prints the full boundary report — including the currently-broken
+application/adapter contracts — without failing, so known debt does not block work. See
+[`architecture-guardrails.md`](architecture-guardrails.md) for the ruleset and rollout plan.
 
 ### Running locally
 
