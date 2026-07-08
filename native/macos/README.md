@@ -41,6 +41,10 @@ codesign -s - --force systemaudiotap        # ad-hoc signature
 
 > The embedded `Info.plist` (`NSAudioCaptureUsageDescription`) **and** a code signature are both
 > required, or the macOS permission prompt never fires and capture returns silence.
+>
+> Note: the app uses an **ad-hoc** signature, which changes the binary's cdhash on every
+> rebuild. macOS ties the grant to the cdhash, so a rebuild (e.g. after updating the app) can
+> re-trigger the one-time "System Audio Recording" prompt — approve it again if asked.
 
 ## Manual operator checklist (the permission step needs a human)
 
