@@ -80,7 +80,7 @@ def test_transcribe_video_from_downloaded_url(
         settings=settings,
         sessions=SqliteMeetingSessionRepository(conn),
         transcripts=SqliteTranscriptRepository(conn),
-        transcriber=_FakeTranscriber(),  # type: ignore[arg-type]
+        transcriber=_FakeTranscriber(),
     )
 
     result = asyncio.run(

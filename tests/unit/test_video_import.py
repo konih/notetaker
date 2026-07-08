@@ -160,7 +160,7 @@ async def test_import_video_preview_only_skips_transcribe(
         transcriber=transcriber,
     )
 
-    def _resolve(*_a, **_k):
+    def _resolve(*_a: object, **_k: object) -> Path:
         return video
 
     monkeypatch.setattr(
@@ -172,8 +172,8 @@ async def test_import_video_preview_only_skips_transcribe(
         lambda _p: 45.0,
     )
 
-    def _extract(**kwargs):
-        dest = kwargs["dest_wav"]
+    def _extract(*, video_path: Path, dest_wav: Path, sample_rate_hz: int, channels: int) -> None:
+        dest = dest_wav
         dest.parent.mkdir(parents=True, exist_ok=True)
         _write_silent_wav(dest, seconds=45.0)
 
@@ -343,8 +343,9 @@ async def test_transcribe_wav_in_chunks_api_failure_returns_partial_summary(
     assert summary.failed == 2
     assert summary.chunks == 3
     assert summary.has_failures
-    assert summary.status_message() is not None
-    assert "Partial transcription" in summary.status_message()
+    status_message = summary.status_message()
+    assert status_message is not None
+    assert "Partial transcription" in status_message
     assert len(transcriber.calls) == 3
 
 
@@ -372,7 +373,7 @@ async def test_import_video_raises_when_all_chunks_fail(
         transcriber=transcriber,
     )
 
-    def _resolve(*_a, **_k):
+    def _resolve(*_a: object, **_k: object) -> Path:
         return video
 
     monkeypatch.setattr(
@@ -384,8 +385,8 @@ async def test_import_video_raises_when_all_chunks_fail(
         lambda _p: 30.0,
     )
 
-    def _extract(**kwargs):
-        dest = kwargs["dest_wav"]
+    def _extract(*, video_path: Path, dest_wav: Path, sample_rate_hz: int, channels: int) -> None:
+        dest = dest_wav
         dest.parent.mkdir(parents=True, exist_ok=True)
         _write_silent_wav(dest, seconds=30.0)
 

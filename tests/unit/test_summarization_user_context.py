@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Iterable
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from live_meeting_transcriber.application.session_service import SessionService
 from live_meeting_transcriber.domain.models import (
@@ -55,7 +56,7 @@ class _RecordingSummarizer:
         return Summary(session_id=session.id, summary_markdown="## Done")
 
 
-def test_session_service_passes_user_context_to_summarizer(tmp_path) -> None:
+def test_session_service_passes_user_context_to_summarizer(tmp_path: Path) -> None:
     conn = open_connection(f"sqlite:////{tmp_path}/t.db")
     try:
         sessions = SqliteMeetingSessionRepository(conn)
@@ -76,7 +77,7 @@ def test_session_service_passes_user_context_to_summarizer(tmp_path) -> None:
             sessions=sessions,
             transcripts=transcripts,
             summaries=summaries,
-            summarizer=summarizer,  # type: ignore[arg-type]
+            summarizer=summarizer,
         )
         asyncio.run(
             svc.summarize_session(session_id=session.id, user_context="  emphasize risks  ")

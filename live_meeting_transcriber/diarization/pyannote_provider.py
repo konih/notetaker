@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import timedelta
+from typing import Any
 
 from live_meeting_transcriber.diarization.labels import normalize_pyannote_speaker_label
 from live_meeting_transcriber.diarization.wav_input import load_pyannote_audio_input
@@ -24,9 +25,9 @@ class PyannoteDiarizationProvider:
         self._hf_token = hf_token
         self._model_id = model_id
         self._pipeline_call_kw: dict[str, int] = dict(pipeline_call_kw or ())
-        self._pipeline: object | None = None
+        self._pipeline: Any = None
 
-    def _ensure_pipeline(self) -> object:
+    def _ensure_pipeline(self) -> Any:
         if self._pipeline is not None:
             return self._pipeline
         try:
@@ -39,7 +40,11 @@ class PyannoteDiarizationProvider:
         try:
             pipeline = Pipeline.from_pretrained(self._model_id, token=self._hf_token)
         except TypeError:
-            pipeline = Pipeline.from_pretrained(self._model_id, use_auth_token=self._hf_token)
+            # Older pyannote.audio releases use ``use_auth_token`` instead of ``token``.
+            pipeline = Pipeline.from_pretrained(
+                self._model_id,
+                use_auth_token=self._hf_token,  # type: ignore[call-arg]
+            )
         self._pipeline = pipeline
         return pipeline
 

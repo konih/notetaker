@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from pathlib import Path
 from uuid import uuid4
 
 from live_meeting_transcriber.domain.models import (
@@ -20,7 +21,7 @@ from live_meeting_transcriber.storage.repositories import SqliteKnownPeopleRepos
 from live_meeting_transcriber.storage.sqlite import open_connection
 
 
-def test_list_people_from_vault(tmp_path) -> None:
+def test_list_people_from_vault(tmp_path: Path) -> None:
     p = tmp_path / "People"
     p.mkdir()
     (p / "Alice One.md").write_text("x", encoding="utf-8")
@@ -29,7 +30,7 @@ def test_list_people_from_vault(tmp_path) -> None:
     assert names == ["Alice One", "Bob Two"]
 
 
-def test_create_person_note_uses_template(tmp_path) -> None:
+def test_create_person_note_uses_template(tmp_path: Path) -> None:
     people = tmp_path / "People"
     tpl = tmp_path / "Person.md"
     tpl.write_text("# {{title}}\n\ndate: {{date}}\n", encoding="utf-8")
@@ -54,7 +55,7 @@ def test_create_person_note_uses_template(tmp_path) -> None:
     )
 
 
-def test_render_meeting_note(tmp_path) -> None:
+def test_render_meeting_note(tmp_path: Path) -> None:
     tpl = tmp_path / "Meeting.md"
     tpl.write_text(
         '---\ntype: meeting\ndate: "{{date}}"\nattendees: []\n---\n\n# {{title}}\n\n'
@@ -97,7 +98,7 @@ def test_render_meeting_note(tmp_path) -> None:
     assert "**Alice**" in text or "Alice**" in text
 
 
-def test_composite_merges_vault_and_sqlite(tmp_path) -> None:
+def test_composite_merges_vault_and_sqlite(tmp_path: Path) -> None:
     vault = tmp_path / "People"
     vault.mkdir()
     (vault / "Vault Only.md").write_text("-", encoding="utf-8")
@@ -118,7 +119,7 @@ def test_composite_merges_vault_and_sqlite(tmp_path) -> None:
         conn.close()
 
 
-def test_touch_creates_person_file_when_configured(tmp_path) -> None:
+def test_touch_creates_person_file_when_configured(tmp_path: Path) -> None:
     vault = tmp_path / "People"
     vault.mkdir()
     tpl = tmp_path / "Person.md"

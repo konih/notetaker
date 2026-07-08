@@ -8,7 +8,7 @@ from typing import Annotated
 from uuid import UUID
 
 import typer
-from rich.progress import BarColumn, Progress, TextColumn, TimeElapsedColumn
+from rich.progress import BarColumn, Progress, TaskID, TextColumn, TimeElapsedColumn
 
 from live_meeting_transcriber.application.cleanup_service import run_cleanup
 from live_meeting_transcriber.application.container import Container, build_container
@@ -27,7 +27,7 @@ from live_meeting_transcriber.application.video_import_service import (
 )
 from live_meeting_transcriber.audio.platform import audio_backend
 from live_meeting_transcriber.audio.sources import resolve_microphone_source
-from live_meeting_transcriber.config.settings import load_settings
+from live_meeting_transcriber.config.settings import Settings, load_settings
 from live_meeting_transcriber.diarization.labels import normalize_pyannote_speaker_label
 from live_meeting_transcriber.domain.models import SlideDetectionParams
 from live_meeting_transcriber.observability.logging import configure_logging, get_logger
@@ -367,7 +367,7 @@ def _slide_params_from_cli(
     threshold: float | None,
     min_interval: float | None,
     max_candidates: int | None,
-    settings,
+    settings: Settings,
 ) -> SlideDetectionParams | None:
     if all(v is None for v in (sample_interval, threshold, min_interval, max_candidates)):
         return None
@@ -475,7 +475,7 @@ def transcribe_video(
                 )
             return
 
-        progress_task: int | None = None
+        progress_task: TaskID | None = None
         progress: Progress | None = None
 
         def _on_progress(p: VideoImportProgress) -> None:

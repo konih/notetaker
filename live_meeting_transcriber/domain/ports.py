@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+import builtins
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 from uuid import UUID
@@ -18,13 +19,17 @@ from live_meeting_transcriber.domain.models import (
 
 
 class AudioSource(Protocol):
-    name: str
-    description: str
+    # Read-only members so frozen dataclasses (e.g. PactlAudioSource) satisfy the protocol.
+    @property
+    def name(self) -> str: ...
+
+    @property
+    def description(self) -> str: ...
 
 
 @runtime_checkable
 class AudioDeviceProvider(Protocol):
-    def list_sources(self) -> list[AudioSource]: ...
+    def list_sources(self) -> Sequence[AudioSource]: ...
 
     def get_default_monitor_source(self) -> str | None: ...
 
@@ -110,7 +115,7 @@ class MeetingSessionRepository(Protocol):
         *,
         title: str | None = None,
         notes: str | None = None,
-        attendees: list[str] | None = None,
+        attendees: builtins.list[str] | None = None,
     ) -> MeetingSession | None: ...
 
     def delete(self, session_id: UUID) -> bool:

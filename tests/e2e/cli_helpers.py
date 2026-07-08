@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -12,6 +13,7 @@ import pytest
 from live_meeting_transcriber.application.container import Container
 from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.models import TranscriptSegment
+from live_meeting_transcriber.domain.ports import AudioSource
 from live_meeting_transcriber.storage.people_composite import CompositeKnownPeopleRepository
 from live_meeting_transcriber.storage.repositories import (
     SqliteDiarizationRepository,
@@ -26,7 +28,7 @@ from live_meeting_transcriber.storage.sqlite import open_connection
 
 @dataclass(frozen=True)
 class FakeDevices:
-    def list_sources(self) -> list[object]:
+    def list_sources(self) -> list[AudioSource]:
         return []
 
     def get_default_monitor_source(self) -> str | None:
@@ -37,7 +39,7 @@ class FakeDevices:
 
 
 class FakeRecorder:
-    def __init__(self, **_kwargs) -> None:
+    def __init__(self, **_kwargs: object) -> None:
         pass
 
     async def record_forever(
@@ -49,8 +51,8 @@ class FakeRecorder:
         chunk_seconds: int,
         sample_rate_hz: int,
         channels: int,
-        on_segment,
-        **_kwargs,
+        on_segment: Callable[[TranscriptSegment], object],
+        **_kwargs: object,
     ) -> None:
         seg = TranscriptSegment(
             session_id=session_id,

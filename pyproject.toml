@@ -108,5 +108,5 @@ init_typed = true
 warn_required_dynamic_aliases = true
 
 [[tool.mypy.overrides]]
-module = ["textual.*"]
+module = ["textual.*", "faster_whisper.*", "whisperx.*"]
 ignore_missing_imports = true

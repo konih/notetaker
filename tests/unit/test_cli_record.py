@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from pathlib import Path
 from uuid import UUID
 
+import pytest
 from live_meeting_transcriber.application.container import Container
 from live_meeting_transcriber.cli.main import app
 from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.models import TranscriptSegment
+from live_meeting_transcriber.domain.ports import AudioSource
 from live_meeting_transcriber.storage.people_composite import CompositeKnownPeopleRepository
 from live_meeting_transcriber.storage.repositories import (
     SqliteDiarizationRepository,
@@ -28,7 +32,7 @@ class _FakeConn:
 
 
 class _FakeDevices:
-    def list_sources(self) -> list[object]:
+    def list_sources(self) -> list[AudioSource]:
         return []
 
     def get_default_monitor_source(self) -> str | None:
@@ -39,7 +43,7 @@ class _FakeDevices:
 
 
 class _FakeRecorder:
-    def __init__(self, **_kwargs) -> None:
+    def __init__(self, **_kwargs: object) -> None:
         pass
 
     async def record_forever(
@@ -51,7 +55,7 @@ class _FakeRecorder:
         chunk_seconds: int,
         sample_rate_hz: int,
         channels: int,
-        on_segment,
+        on_segment: Callable[[TranscriptSegment], object],
     ) -> None:
         seg = TranscriptSegment(
             session_id=session_id,
@@ -64,16 +68,16 @@ class _FakeRecorder:
 
 
 class _FakeRecorderCtrlC:
-    def __init__(self, **_kwargs) -> None:
+    def __init__(self, **_kwargs: object) -> None:
         pass
 
-    async def record_forever(self, **_kwargs) -> None:
+    async def record_forever(self, **_kwargs: object) -> None:
         raise KeyboardInterrupt
 
 
-def test_cli_record_uses_mocked_recorder(monkeypatch, tmp_path) -> None:
+def test_cli_record_uses_mocked_recorder(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     conn = open_connection(f"sqlite:////{tmp_path}/db.sqlite3")
-    settings = Settings(OPENAI_API_KEY="x", DATABASE_URL=f"sqlite:////{tmp_path}/db.sqlite3")
+    settings = Settings(openai_api_key="x", database_url=f"sqlite:////{tmp_path}/db.sqlite3")
 
     container = Container(
         settings=settings,
@@ -108,9 +112,9 @@ def test_cli_record_uses_mocked_recorder(monkeypatch, tmp_path) -> None:
     assert sessions[0].title == "Test"
 
 
-def test_cli_record_ctrl_c_exits_cleanly(monkeypatch, tmp_path) -> None:
+def test_cli_record_ctrl_c_exits_cleanly(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     conn = open_connection(f"sqlite:////{tmp_path}/db.sqlite3")
-    settings = Settings(OPENAI_API_KEY="x", DATABASE_URL=f"sqlite:////{tmp_path}/db.sqlite3")
+    settings = Settings(openai_api_key="x", database_url=f"sqlite:////{tmp_path}/db.sqlite3")
 
     container = Container(
         settings=settings,

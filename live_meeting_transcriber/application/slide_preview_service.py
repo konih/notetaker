@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import shutil
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
@@ -104,8 +105,8 @@ class SlidePreviewService:
         candidates: list[SlideCandidate],
         accept_all: bool = False,
         reject_all: bool = False,
-        prompt_fn=None,
-        echo_fn=None,
+        prompt_fn: Callable[[str], str] | None = None,
+        echo_fn: Callable[[str], None] | None = None,
     ) -> int:
         session = self.sessions.get(session_id)
         if session is None:

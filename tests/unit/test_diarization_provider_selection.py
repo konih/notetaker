@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from live_meeting_transcriber.application.container import (
     ProviderSelectionError,
@@ -9,35 +11,35 @@ from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.diarization.noop import NoopDiarizationProvider
 
 
-def test_build_diarization_noop_when_disabled(tmp_path) -> None:
+def test_build_diarization_noop_when_disabled(tmp_path: Path) -> None:
     s = Settings(
-        OPENAI_API_KEY="x",
-        DATABASE_URL=f"sqlite:////{tmp_path}/db.sqlite3",
-        DIARIZATION_ENABLED=False,
-        DIARIZATION_PROVIDER="pyannote",
+        openai_api_key="x",
+        database_url=f"sqlite:////{tmp_path}/db.sqlite3",
+        diarization_enabled=False,
+        diarization_provider="pyannote",
     )
     p = build_diarization_provider(s)
     assert isinstance(p, NoopDiarizationProvider)
 
 
-def test_build_diarization_noop_explicit(tmp_path) -> None:
+def test_build_diarization_noop_explicit(tmp_path: Path) -> None:
     s = Settings(
-        OPENAI_API_KEY="x",
-        DATABASE_URL=f"sqlite:////{tmp_path}/db.sqlite3",
-        DIARIZATION_ENABLED=True,
-        DIARIZATION_PROVIDER="noop",
+        openai_api_key="x",
+        database_url=f"sqlite:////{tmp_path}/db.sqlite3",
+        diarization_enabled=True,
+        diarization_provider="noop",
     )
     p = build_diarization_provider(s)
     assert isinstance(p, NoopDiarizationProvider)
 
 
-def test_build_diarization_pyannote_requires_token(tmp_path) -> None:
+def test_build_diarization_pyannote_requires_token(tmp_path: Path) -> None:
     s = Settings(
-        OPENAI_API_KEY="x",
-        DATABASE_URL=f"sqlite:////{tmp_path}/db.sqlite3",
-        DIARIZATION_ENABLED=True,
-        DIARIZATION_PROVIDER="pyannote",
-        HF_TOKEN=None,
+        openai_api_key="x",
+        database_url=f"sqlite:////{tmp_path}/db.sqlite3",
+        diarization_enabled=True,
+        diarization_provider="pyannote",
+        hf_token=None,
     )
     with pytest.raises(ProviderSelectionError, match="HF_TOKEN"):
         build_diarization_provider(s)

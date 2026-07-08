@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import timedelta
+from pathlib import Path
 
 from live_meeting_transcriber.application.session_service import SessionService
 from live_meeting_transcriber.domain.models import (
@@ -37,7 +38,7 @@ class _FakeSummarizer:
         )
 
 
-def test_summarize_applies_confident_title(tmp_path) -> None:
+def test_summarize_applies_confident_title(tmp_path: Path) -> None:
     conn = open_connection(f"sqlite:////{tmp_path}/db.sqlite3")
     try:
         sessions: MeetingSessionRepository = SqliteMeetingSessionRepository(conn)
@@ -56,7 +57,7 @@ def test_summarize_applies_confident_title(tmp_path) -> None:
             sessions=sessions,
             transcripts=transcripts,
             summaries=summaries,
-            summarizer=_FakeSummarizer(),  # type: ignore[arg-type]
+            summarizer=_FakeSummarizer(),
         )
         asyncio.run(svc.summarize_session(session_id=session.id))
         updated = sessions.get(session.id)

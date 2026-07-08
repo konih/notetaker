@@ -67,6 +67,7 @@ def rms_mixdown_to_mono_wav(stereo_path: Path, *, sample_rate_hz: int) -> Path:
     left_rms = float(np.sqrt(np.mean(left_active**2))) if len(left_active) > 0 else 0.0
     right_rms = float(np.sqrt(np.mean(right_active**2))) if len(right_active) > 0 else 0.0
 
+    mono: np.ndarray[Any, np.dtype[np.floating[Any]]]
     if left_rms > 0 and right_rms > 0:
         target_rms = max(left_rms, right_rms)
         left_scaled = left * (target_rms / left_rms)

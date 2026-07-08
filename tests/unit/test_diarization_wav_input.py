@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import struct
 import wave
+from collections.abc import Mapping, Sequence
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 from live_meeting_transcriber.diarization.wav_input import load_pyannote_audio_input
@@ -32,10 +34,16 @@ def test_load_pyannote_audio_input_requires_torch(
 
     real_import = builtins.__import__
 
-    def blocked_import(name: str, *args: object, **kwargs: object):
+    def blocked_import(
+        name: str,
+        globals: Mapping[str, object] | None = None,
+        locals: Mapping[str, object] | None = None,
+        fromlist: Sequence[str] = (),
+        level: int = 0,
+    ) -> ModuleType:
         if name == "torch":
             raise ImportError("blocked")
-        return real_import(name, *args, **kwargs)
+        return real_import(name, globals, locals, fromlist, level)
 
     monkeypatch.setattr(builtins, "__import__", blocked_import)
     wav_path = tmp_path / "mono.wav"

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
 from live_meeting_transcriber.cli.main import app
 from live_meeting_transcriber.config.settings import Settings
 from typer.testing import CliRunner
@@ -10,8 +13,8 @@ class _FakeContainer:
         return None
 
 
-def test_cli_no_args_launches_tui(monkeypatch, tmp_path) -> None:
-    settings = Settings(OPENAI_API_KEY="x", DATABASE_URL=f"sqlite:////{tmp_path}/db.sqlite3")
+def test_cli_no_args_launches_tui(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    settings = Settings(openai_api_key="x", database_url=f"sqlite:////{tmp_path}/db.sqlite3")
     called: dict[str, bool] = {}
 
     def fake_run_tui_attached(**kwargs: object) -> None:

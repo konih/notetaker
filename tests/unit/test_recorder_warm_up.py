@@ -4,18 +4,19 @@ import asyncio
 from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from live_meeting_transcriber.application.recorder import Recorder
 from live_meeting_transcriber.domain import application_events as ev
-from live_meeting_transcriber.domain.models import AudioChunk
+from live_meeting_transcriber.domain.models import AudioChunk, TranscriptSegment
+from live_meeting_transcriber.domain.ports import AudioCapture
 from live_meeting_transcriber.transcription.faster_whisper_transcriber import (
     FasterWhisperTranscriptionError,
 )
 
 
-def _make_audio(sid, tmp_path: Path, calls: list[str]):
+def _make_audio(sid: UUID, tmp_path: Path, calls: list[str]) -> AudioCapture:
     class _Audio:
         def capture_chunk(self, **_kwargs: object) -> AudioChunk:
             n = len(calls)
@@ -49,7 +50,7 @@ async def test_warm_up_failure_keeps_recording_but_skips_transcription(tmp_path:
         async def warm_up(self) -> None:
             raise FasterWhisperTranscriptionError("bad value(s) in fds_to_keep")
 
-        async def transcribe(self, *, chunk: AudioChunk):
+        async def transcribe(self, *, chunk: AudioChunk) -> TranscriptSegment:
             _Transcriber.transcribe_calls += 1
             raise AssertionError("transcribe must not be called when warm-up failed")
 
@@ -77,7 +78,7 @@ async def test_warm_up_failure_keeps_recording_but_skips_transcription(tmp_path:
             chunk_seconds=1,
             sample_rate_hz=16000,
             channels=1,
-            on_application_event=lambda e: (events.append(e), _on_audio("x"))[-1],
+            on_application_event=lambda e: (events.append(e), _on_audio("x"))[-1],  # type: ignore[func-returns-value]
         )
 
     task = asyncio.create_task(_run())
@@ -111,7 +112,7 @@ async def test_warm_up_success_allows_transcription(tmp_path: Path) -> None:
         async def warm_up(self) -> None:
             warmed["n"] += 1
 
-        async def transcribe(self, *, chunk: AudioChunk):
+        async def transcribe(self, *, chunk: AudioChunk) -> TranscriptSegment:
             from live_meeting_transcriber.domain.exceptions import EmptyTranscriptionError
 
             raise EmptyTranscriptionError("empty")

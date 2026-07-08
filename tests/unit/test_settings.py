@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
 from live_meeting_transcriber.config.settings import (
     Settings,
     app_config_dir,
@@ -9,7 +12,7 @@ from live_meeting_transcriber.config.settings import (
 )
 
 
-def test_settings_load_from_env(monkeypatch) -> None:
+def test_settings_load_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     monkeypatch.setenv("TRANSCRIPTION_PROVIDER", "openai")
     monkeypatch.setenv("LLM_PROVIDER", "openai")
@@ -36,7 +39,7 @@ def test_settings_load_from_env(monkeypatch) -> None:
     assert s.keep_audio_chunks is True
 
 
-def test_log_level_stripped_from_env(monkeypatch) -> None:
+def test_log_level_stripped_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "k")
     monkeypatch.setenv("LOG_LEVEL", "  debug  ")
     monkeypatch.setenv("DATABASE_URL", "sqlite:////tmp/t.db")
@@ -60,7 +63,7 @@ def test_effective_transcription_model_display() -> None:
     assert fw_s.effective_transcription_model_display() == "base"
 
 
-def test_xdg_config_home_uses_env(monkeypatch, tmp_path) -> None:
+def test_xdg_config_home_uses_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     custom = tmp_path / "my-config"
     custom.mkdir()
     monkeypatch.setenv("XDG_CONFIG_HOME", str(custom))
@@ -68,7 +71,9 @@ def test_xdg_config_home_uses_env(monkeypatch, tmp_path) -> None:
     assert app_config_dir() == (custom / "live-meeting-transcriber").resolve()
 
 
-def test_discover_env_file_paths_xdg_then_cwd(monkeypatch, tmp_path) -> None:
+def test_discover_env_file_paths_xdg_then_cwd(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     work = tmp_path / "work"
     work.mkdir()
     xdg = tmp_path / "xdg"
@@ -85,7 +90,9 @@ def test_discover_env_file_paths_xdg_then_cwd(monkeypatch, tmp_path) -> None:
     assert discover_env_file_paths() == (xdg_env, cwd_env)
 
 
-def test_load_settings_cwd_env_overrides_xdg(monkeypatch, tmp_path) -> None:
+def test_load_settings_cwd_env_overrides_xdg(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     work = tmp_path / "work"
     work.mkdir()
     xdg = tmp_path / "xdg"

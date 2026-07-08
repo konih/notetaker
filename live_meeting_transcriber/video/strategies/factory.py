@@ -35,4 +35,4 @@ def build_slide_strategy(
         allowed = ", ".join(_STRATEGIES)
         msg = f"Unknown slide strategy {name!r}; choose one of: {allowed}"
         raise ValueError(msg)
-    return _STRATEGIES[key]()  # type: ignore[index]
+    return _STRATEGIES[key]()

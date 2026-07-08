@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 
 from textual.app import ComposeResult
@@ -19,7 +20,7 @@ from live_meeting_transcriber.application.slide_preview_service import (
     SlidePreviewService,
 )
 from live_meeting_transcriber.application.slide_review import format_timestamp
-from live_meeting_transcriber.domain.models import SlideCandidate
+from live_meeting_transcriber.domain.models import SlideCandidate, SlideDetectionParams
 from live_meeting_transcriber.ui.tui.slide_preview_helpers import (
     accepted_candidates,
     build_slide_params,
@@ -256,7 +257,7 @@ class SlidePreviewScreen(ModalScreen[None]):
         table.add_columns("Candidate", "Time", "Score", "Keep")
         self.run_worker(self._run_preview(), exclusive=True)
 
-    def _get_candidates_table(self) -> DataTable | None:
+    def _get_candidates_table(self) -> DataTable[Any] | None:
         if not self.is_mounted:
             return None
         for node in self.query("#slide-candidates-table"):
@@ -268,7 +269,7 @@ class SlidePreviewScreen(ModalScreen[None]):
         select = self.query_one("#slide-strategy", Select)
         return str(select.value)
 
-    def _read_params(self):
+    def _read_params(self) -> SlideDetectionParams:
         return build_slide_params(
             sample_interval=self.query_one("#slide-sample", Input).value,
             threshold=self.query_one("#slide-threshold", Input).value,
@@ -439,12 +440,17 @@ class SlidePreviewScreen(ModalScreen[None]):
 
     def on_focus(self, event: Focus) -> None:
         node = event.control
-        if node.id and node.id in (
-            "slide-strategy",
-            "slide-sample",
-            "slide-threshold",
-            "slide-min-interval",
-            "slide-max-candidates",
+        if (
+            node is not None
+            and node.id
+            and node.id
+            in (
+                "slide-strategy",
+                "slide-sample",
+                "slide-threshold",
+                "slide-min-interval",
+                "slide-max-candidates",
+            )
         ):
             self.query_one("#slide-param-hint", Static).update(slide_param_focus_hint(node.id))
 

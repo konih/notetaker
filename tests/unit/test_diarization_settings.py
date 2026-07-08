@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -11,33 +13,33 @@ from live_meeting_transcriber.domain.models import AudioChunk
 from pydantic import ValidationError
 
 
-def test_settings_diarization_min_gt_max_raises(tmp_path) -> None:
+def test_settings_diarization_min_gt_max_raises(tmp_path: Path) -> None:
     with pytest.raises(ValidationError):
         Settings(
-            OPENAI_API_KEY="x",
-            DATABASE_URL=f"sqlite:////{tmp_path}/db.sqlite3",
-            DIARIZATION_MIN_SPEAKERS=3,
-            DIARIZATION_MAX_SPEAKERS=2,
+            openai_api_key="x",
+            database_url=f"sqlite:////{tmp_path}/db.sqlite3",
+            diarization_min_speakers=3,
+            diarization_max_speakers=2,
         )
 
 
-def test_pyannote_pipeline_kwargs_num_only_when_set(tmp_path) -> None:
+def test_pyannote_pipeline_kwargs_num_only_when_set(tmp_path: Path) -> None:
     s = Settings(
-        OPENAI_API_KEY="x",
-        DATABASE_URL=f"sqlite:////{tmp_path}/db.sqlite3",
-        DIARIZATION_NUM_SPEAKERS=2,
-        DIARIZATION_MIN_SPEAKERS=2,
-        DIARIZATION_MAX_SPEAKERS=4,
+        openai_api_key="x",
+        database_url=f"sqlite:////{tmp_path}/db.sqlite3",
+        diarization_num_speakers=2,
+        diarization_min_speakers=2,
+        diarization_max_speakers=4,
     )
     assert s.pyannote_diarization_pipeline_kwargs() == {"num_speakers": 2}
 
 
-def test_pyannote_pipeline_kwargs_min_max(tmp_path) -> None:
+def test_pyannote_pipeline_kwargs_min_max(tmp_path: Path) -> None:
     s = Settings(
-        OPENAI_API_KEY="x",
-        DATABASE_URL=f"sqlite:////{tmp_path}/db.sqlite3",
-        DIARIZATION_MIN_SPEAKERS=2,
-        DIARIZATION_MAX_SPEAKERS=4,
+        openai_api_key="x",
+        database_url=f"sqlite:////{tmp_path}/db.sqlite3",
+        diarization_min_speakers=2,
+        diarization_max_speakers=4,
     )
     assert s.pyannote_diarization_pipeline_kwargs() == {
         "min_speakers": 2,
@@ -45,21 +47,21 @@ def test_pyannote_pipeline_kwargs_min_max(tmp_path) -> None:
     }
 
 
-def test_build_pyannote_passes_pipeline_kwargs(tmp_path) -> None:
+def test_build_pyannote_passes_pipeline_kwargs(tmp_path: Path) -> None:
     s = Settings(
-        OPENAI_API_KEY="x",
-        DATABASE_URL=f"sqlite:////{tmp_path}/db.sqlite3",
-        DIARIZATION_ENABLED=True,
-        DIARIZATION_PROVIDER="pyannote",
-        HF_TOKEN="t",
-        DIARIZATION_NUM_SPEAKERS=2,
+        openai_api_key="x",
+        database_url=f"sqlite:////{tmp_path}/db.sqlite3",
+        diarization_enabled=True,
+        diarization_provider="pyannote",
+        hf_token="t",
+        diarization_num_speakers=2,
     )
     p = build_diarization_provider(s)
     assert isinstance(p, PyannoteDiarizationProvider)
     assert p._pipeline_call_kw == {"num_speakers": 2}
 
 
-def test_pyannote_run_sync_typeerror_falls_back_without_kwargs(tmp_path) -> None:
+def test_pyannote_run_sync_typeerror_falls_back_without_kwargs(tmp_path: Path) -> None:
     import struct
     import wave
 
@@ -81,7 +83,7 @@ def test_pyannote_run_sync_typeerror_falls_back_without_kwargs(tmp_path) -> None
     )
 
     class _Ann:
-        def itertracks(self, yield_label: bool = False):
+        def itertracks(self, yield_label: bool = False) -> Iterator[object]:
             return iter([])
 
     calls: list[tuple[object, dict[str, int]]] = []

@@ -221,9 +221,9 @@ def reduce(state: AppState, action: act.Action) -> AppState:
         )
 
     if isinstance(action, act.DiarizationSpeakersDetected):
-        merged = state.diarization_detected_speakers | action.speakers
+        merged_speakers = state.diarization_detected_speakers | action.speakers
         return _touch(
-            state.model_copy(update={"diarization_detected_speakers": merged}),
+            state.model_copy(update={"diarization_detected_speakers": merged_speakers}),
             action.at,
         )
 
@@ -234,19 +234,19 @@ def reduce(state: AppState, action: act.Action) -> AppState:
             at=action.at,
             acknowledged=False,
         )
-        merged = (*state.recent_errors, err)[-_MAX_ERRORS:]
+        merged_errors = (*state.recent_errors, err)[-_MAX_ERRORS:]
         logs = _append_ui_log(state, "error", action.message, action.at)
         return _touch(
-            state.model_copy(update={"recent_errors": merged, "ui_log_lines": logs}),
+            state.model_copy(update={"recent_errors": merged_errors, "ui_log_lines": logs}),
             action.at,
         )
 
     if isinstance(action, act.ErrorAcknowledged):
-        merged = tuple(
+        acked_errors = tuple(
             e.model_copy(update={"acknowledged": True}) if e.id == action.error_id else e
             for e in state.recent_errors
         )
-        return _touch(state.model_copy(update={"recent_errors": merged}), action.at)
+        return _touch(state.model_copy(update={"recent_errors": acked_errors}), action.at)
 
     if isinstance(action, act.WarningRaised):
         w = (*state.warnings, action.message)[-_MAX_WARNINGS:]
@@ -268,13 +268,13 @@ def reduce(state: AppState, action: act.Action) -> AppState:
             f"for session {action.session_id}."
         )
         n = (*state.notices, msg)[-_MAX_NOTICES:]
-        updates: dict[str, object] = {
+        finalize_updates: dict[str, object] = {
             "pending_meeting_detail_reload": action.session_id,
             "notices": n,
         }
         if action.live_lines is not None:
-            updates["recent_transcript_segments"] = action.live_lines
-        return _touch(state.model_copy(update=updates), action.at)
+            finalize_updates["recent_transcript_segments"] = action.live_lines
+        return _touch(state.model_copy(update=finalize_updates), action.at)
 
     if isinstance(action, act.DetailReloadAcknowledged):
         return _touch(
@@ -309,10 +309,10 @@ def reduce(state: AppState, action: act.Action) -> AppState:
             r.model_copy(update={"title": action.title}) if r.id == sid else r
             for r in state.sessions_catalog
         )
-        updates: dict[str, object] = {"sessions_catalog": new_catalog}
+        title_updates: dict[str, object] = {"sessions_catalog": new_catalog}
         if state.current_session_id == action.session_id:
-            updates["session_title"] = action.title
-        return _touch(state.model_copy(update=updates), action.at)
+            title_updates["session_title"] = action.title
+        return _touch(state.model_copy(update=title_updates), action.at)
 
     if isinstance(action, act.TranscriptionStatusChanged):
         return _touch(

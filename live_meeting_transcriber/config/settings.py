@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -175,7 +175,7 @@ class Settings(BaseSettings):
     def _optional_diarization_int(cls, v: object) -> int | None:
         if v is None or v == "":
             return None
-        return int(v)
+        return int(cast("str | int | float", v))
 
     @model_validator(mode="after")
     def _diarization_speaker_bounds(self) -> Settings:

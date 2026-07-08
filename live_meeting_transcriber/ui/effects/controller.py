@@ -336,9 +336,11 @@ class TuiController:
                 for ui_action in application_events_to_actions(ev):
                     self.store.dispatch(ui_action)
 
+            active_session_id = session.id
+
             async def run() -> None:
                 await recorder.record_forever(
-                    session_id=session.id,
+                    session_id=active_session_id,
                     source=source,
                     microphone_source=mic,
                     chunk_seconds=chunk_seconds,
@@ -372,18 +374,20 @@ class TuiController:
             segments = self.container.transcripts.list_by_session(sid)
             summary = self.container.summaries.get_by_session(sid)
             spk = self.container.session_speakers.get_map(sid)
-            export_kwargs = dict(
-                app_base_dir=self.settings.ensure_data_dir(),
+            speaker_display = spk if spk else None
+            data_dir = self.settings.ensure_data_dir()
+            screenshots_source_dir = self.settings.effective_screenshots_source_dir()
+            prepared = prepare_dual_export(
+                app_base_dir=data_dir,
                 session=session,
                 segments=segments,
                 summary=summary,
-                speaker_display=spk if spk else None,
+                speaker_display=speaker_display,
                 obsidian_meetings_dir=self.settings.obsidian_meetings_dir,
                 obsidian_meeting_template=self.settings.obsidian_meeting_template,
-                screenshots_source_dir=self.settings.effective_screenshots_source_dir(),
+                screenshots_source_dir=screenshots_source_dir,
                 obsidian_screenshots_dir=self.settings.obsidian_screenshots_dir,
             )
-            prepared = prepare_dual_export(**export_kwargs)
             targets = [(prepared.app_path, prepared.app_content)]
             if prepared.obs_path is not None and prepared.obs_content is not None:
                 targets.append((prepared.obs_path, prepared.obs_content))
@@ -397,7 +401,18 @@ class TuiController:
                         store.dispatch(act.NoticeRaised(message="Export cancelled.", at=utc_now()))
                         return
             try:
-                result = write_dual_export(**export_kwargs, confirm_overwrite=lambda _: True)
+                result = write_dual_export(
+                    app_base_dir=data_dir,
+                    session=session,
+                    segments=segments,
+                    summary=summary,
+                    speaker_display=speaker_display,
+                    obsidian_meetings_dir=self.settings.obsidian_meetings_dir,
+                    obsidian_meeting_template=self.settings.obsidian_meeting_template,
+                    screenshots_source_dir=screenshots_source_dir,
+                    obsidian_screenshots_dir=self.settings.obsidian_screenshots_dir,
+                    confirm_overwrite=lambda _: True,
+                )
             except ExportCancelledError as e:
                 store.dispatch(act.ErrorRaised(message=f"Export cancelled: {e.path}", at=utc_now()))
                 return
@@ -443,8 +458,8 @@ class TuiController:
             session = self.container.sessions.get(sid)
             msg = "Summary generated and saved to the database."
             if session is not None and summary.meeting_metadata is not None:
-                title = summary.meeting_metadata.confident_str("title")
-                if title and session.title == title:
+                meta_title = summary.meeting_metadata.confident_str("title")
+                if meta_title and session.title == meta_title:
                     msg += f" Title: {session.title}."
             store.dispatch(
                 act.NoticeRaised(
