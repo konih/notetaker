@@ -42,10 +42,18 @@ _SLIDE_PARAM_HINTS: dict[str, str] = {
 
 
 def ensure_textual_image_protocol_probe() -> None:
-    """Import textual-image before Textual starts (required for protocol detection)."""
+    """Import textual-image before Textual starts (required for protocol detection).
+
+    Importing ``textual_image.renderable`` auto-detects the terminal graphics
+    protocol, which puts stdin into cbreak mode via ``termios``. When stdout is a
+    TTY but stdin is not (e.g. launched through ``task tui`` or with redirected
+    stdin), that raises ``termios.error: Operation not supported by device`` —
+    which is not an ``ImportError``. Swallow any probe failure so the TUI still
+    starts; inline-image detection just falls back gracefully.
+    """
     try:
         import textual_image.renderable  # noqa: F401
-    except ImportError:
+    except Exception:
         pass
 
 
@@ -59,7 +67,9 @@ def image_widget_class() -> type | None:
         from textual_image.widget import Image as TUIImage
 
         _IMAGE_WIDGET_CLASS = TUIImage
-    except ImportError:
+    except Exception:
+        # Not installed (ImportError) or terminal-probe failure (termios.error on
+        # non-TTY stdin); either way inline images are unavailable.
         _IMAGE_WIDGET_CLASS = None
     return _IMAGE_WIDGET_CLASS
 
@@ -74,7 +84,8 @@ def _probe_inline_image_mode() -> str:
         from textual_image.renderable.halfcell import Image as HalfcellImage
         from textual_image.renderable.sixel import Image as SixelImage
         from textual_image.renderable.tgp import Image as TGPImage
-    except ImportError:
+    except Exception:
+        # Missing dependency or terminal-probe failure (termios.error on non-TTY stdin).
         return "none"
     if AutoImage is TGPImage or AutoImage is SixelImage:
         return "graphics"
