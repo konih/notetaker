@@ -6,6 +6,7 @@ from live_meeting_transcriber.domain.speaker_display import format_transcript_sp
 from live_meeting_transcriber.ui.state.model import (
     AppState,
     RecordingStatus,
+    TranscriptionStatus,
     TranscriptLineState,
     UiErrorState,
 )
@@ -53,30 +54,41 @@ def select_transcript_timestamp(line: TranscriptLineState, tz: tzinfo | None = N
     return format_clock(line.started_at, tz)
 
 
-def select_status_line(state: AppState) -> str:
-    rec = state.recording_status.value
-    if state.recording_status == RecordingStatus.recording:
-        rec = "● recording"
-    elif state.recording_status == RecordingStatus.starting:
-        rec = "◯ starting"
-    elif state.recording_status == RecordingStatus.stopping:
-        rec = "■ stopping"
+_RECORDING_LABELS = {
+    RecordingStatus.recording: "● Recording",
+    RecordingStatus.starting: "◯ Starting…",
+    RecordingStatus.stopping: "■ Stopping…",
+    RecordingStatus.stopped: "Stopped",
+    RecordingStatus.failed: "Recording failed",
+    RecordingStatus.idle: "Idle",
+}
+
+
+def _speakers_label(state: AppState) -> str:
+    """Plain-language description of how live audio is captured for speaker separation."""
     if state.audio_channels >= 2:
-        live_spk = (
-            "dual" if state.audio_stereo_mode.strip().lower() == "dual_path" else "mixdown→unknown"
-        )
-    else:
-        live_spk = "mono"
-    parts = [
-        f"rec={rec}",
-        f"asr={state.transcription_status.value}",
-        f"live_spk={live_spk}",
-        f"diar_ui={state.diarization_status.value}",
-    ]
-    if state.finalize_on_session_stop:
-        parts.append("auto_finalize")
-    if state.diarization_detected_speakers:
-        parts.append(f"heard={','.join(sorted(state.diarization_detected_speakers))}")
-    if state.audio_source:
-        parts.append(f"src={state.audio_source}")
-    return " | ".join(parts)
+        if state.audio_stereo_mode.strip().lower() == "dual_path":
+            return "Speaker split: you vs. remote"
+        return "Stereo (mixed)"
+    return "Single channel"
+
+
+def select_status_line(state: AppState) -> str:
+    """One-line, plain-language recording status for the Live sidebar.
+
+    Speaks the user's language, not the code's: no ``rec=``/``asr=``/``live_spk=``/``diar_ui=``
+    internal keys. Detected speakers ("heard") and audio source are intentionally *not*
+    repeated here — they have dedicated sidebar lines, so surfacing them again would duplicate.
+    """
+    parts = [_RECORDING_LABELS.get(state.recording_status, "Idle")]
+
+    ts = state.transcription_status
+    if ts == TranscriptionStatus.active:
+        parts.append("transcribing")
+    elif ts == TranscriptionStatus.degraded:
+        parts.append("transcription degraded")
+    elif ts == TranscriptionStatus.failed:
+        parts.append("transcription failed")
+
+    parts.append(_speakers_label(state))
+    return " · ".join(parts)
