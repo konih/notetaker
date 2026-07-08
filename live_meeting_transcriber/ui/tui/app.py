@@ -13,6 +13,7 @@ from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
+from textual.content import Content
 from textual.css.query import NoMatches
 from textual.screen import ModalScreen
 from textual.widgets import (
@@ -61,6 +62,7 @@ from live_meeting_transcriber.ui.tui.people_suggesters import (
     CommaSeparatedPeopleSuggester,
     PeoplePrefixSuggester,
 )
+from live_meeting_transcriber.ui.tui.settings_view import build_settings_sections
 from live_meeting_transcriber.ui.tui.slide_preview_helpers import (
     ensure_textual_image_protocol_probe,
 )
@@ -76,30 +78,14 @@ class SettingsScreen(ModalScreen[None]):
     def compose(self) -> ComposeResult:
         app = self.app
         assert isinstance(app, TranscriberApp)
-        s = app.store.get_state()
-        hf = "yes" if s.hf_token_configured else "no (needed for finalize)"
-        lines = [
-            f"Transcription: {s.transcription_provider} / {s.transcription_model}",
-            f"Summarization: {s.summarization_provider} / {s.summary_model}",
-            f"Database: {s.database_url}",
-            f"Log file: {s.log_file_path or '—'}",
-            "",
-            f"Audio: chunk {s.chunk_seconds}s · {s.audio_sample_rate} Hz · {s.audio_channels} ch",
-            f"  stereo mode: {s.audio_stereo_mode} (dual_path = YOU/REMOTE live w/ faster-whisper)",
-            f"Mic mix: {'on' if s.audio_include_microphone else 'off'}",
-            "",
-            "Logs tab (ctrl+3): Live errors/warnings, WhisperX finalize progress.",
-            "Offline finalize (WhisperX): ctrl+i from Live or Meetings, or "
-            "`live-transcriber finalize --session-id …`",
-            f"  auto on stop: {s.finalize_on_session_stop} · HF_TOKEN set: {hf}",
-            f"  model: {s.whisperx_model or '—'} · skip alignment: {s.whisperx_skip_alignment}",
-            "",
-            f"Legacy DIARIZATION_* (chunk pyannote removed): enabled={s.diarization_enabled} "
-            f"provider={s.diarization_provider}",
-        ]
+        state = app.store.get_state()
+        blocks: list[str] = []
+        for title, lines in build_settings_sections(state):
+            body = "\n".join(f"  {line}" for line in lines)
+            blocks.append(f"[bold]{title}[/]\n{body}")
         yield Vertical(
             Static("Settings (read-only)", classes="settings-title"),
-            Static("\n".join(lines), id="settings-body"),
+            Static("\n\n".join(blocks), id="settings-body"),
             classes="settings-dialog",
         )
 
@@ -377,6 +363,7 @@ class SessionsScreen(ModalScreen[None]):
         Binding("escape", "close", "Close", show=True),
         Binding("r", "refresh", "Refresh", show=True),
         Binding("e", "edit_title", "Edit title", show=True),
+        Binding("c", "copy_id", "Copy ID", show=True),
         Binding("d", "delete_selected", "Delete", show=True, priority=True),
     ]
 
@@ -390,7 +377,7 @@ class SessionsScreen(ModalScreen[None]):
             Static("Sessions (local SQLite)", classes="settings-title"),
             DataTable(id="sessions-table", cursor_type="row", zebra_stripes=True),
             Static(
-                "r: refresh   e: rename   d: delete selected   esc: close",
+                "r: refresh   e: rename   c: copy id   d: delete selected   esc: close",
                 classes="hint",
             ),
             classes="settings-dialog",
@@ -400,7 +387,7 @@ class SessionsScreen(ModalScreen[None]):
         app = self.app
         assert isinstance(app, TranscriberApp)
         table = self.query_one("#sessions-table", DataTable)
-        table.add_columns("Title", "Started", "Ended", "Id")
+        table.add_columns("Title", "Started", "Ended")
         self._unsub = app.store.subscribe(self._on_store)
         self._on_store(app.store.get_state())
 
@@ -419,9 +406,23 @@ class SessionsScreen(ModalScreen[None]):
                 row.title[:56] + ("…" if len(row.title) > 56 else ""),
                 format_local_datetime(row.started_at),
                 ended,
-                row.id[:8] + "…",
                 key=row.id,
             )
+
+    def _selected_row_id(self) -> str | None:
+        table = self.query_one("#sessions-table", DataTable)
+        coord = table.cursor_coordinate
+        if coord is None or coord.row < 0 or coord.row >= len(self._row_ids):
+            return None
+        return self._row_ids[coord.row]
+
+    async def action_copy_id(self) -> None:
+        sid = self._selected_row_id()
+        if sid is None:
+            self.app.notify("Select a session row first.", severity="warning")
+            return
+        self.app.copy_to_clipboard(sid)
+        self.app.notify(f"Copied session ID: {sid}")
 
     async def action_refresh(self) -> None:
         app = self.app
@@ -559,6 +560,14 @@ class TranscriberApp(App[None]):
         self._controller = controller
         self._last_segment_keys: tuple[tuple[str, str, str], ...] | None = None
         self._last_ui_log_len: int = 0
+
+    def format_title(self, title: str, sub_title: str) -> Content:
+        """Header shows meeting context only — the app name (``title``) is not repeated
+        inside the app (U19). ``self.title`` stays set so app identity remains available
+        for the command palette and terminal title. Falls back to the app name only when
+        there is no context to show.
+        """
+        return Content(sub_title or title)
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
