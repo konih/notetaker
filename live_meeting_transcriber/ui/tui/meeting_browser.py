@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import functools
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from uuid import UUID
 
@@ -9,7 +9,8 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Button, DataTable, Static, TextArea
+from textual.widgets import Button, DataTable, OptionList, Static, TextArea
+from textual.widgets.option_list import Option
 
 from live_meeting_transcriber.application.cleanup_service import purge_session_artifacts
 from live_meeting_transcriber.application.container import Container
@@ -32,6 +33,13 @@ from live_meeting_transcriber.ui.tui.meeting_session_helpers import (
     list_preview_candidate_timestamps,
     session_has_slide_source,
     session_is_video_import,
+)
+from live_meeting_transcriber.ui.tui.meeting_toolbar import (
+    MORE_BUTTON_ID,
+    ToolbarAction,
+    overflow_toolbar_actions,
+    primary_toolbar_actions,
+    toolbar_action_by_button_id,
 )
 from live_meeting_transcriber.ui.tui.people_suggesters import (
     CommaSeparatedPeopleSuggester,
@@ -254,6 +262,46 @@ class ConfirmDeleteMeetingModal(ModalScreen[bool]):
         self.dismiss(False)
 
 
+class MeetingActionsMenu(ModalScreen[str | None]):
+    """U9 — overflow menu for the less-common Meetings actions.
+
+    Dismisses with the chosen action's ``MeetingBrowser`` method name, or ``None``
+    when cancelled.
+    """
+
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel", show=True, priority=True),
+    ]
+
+    DEFAULT_CSS = """
+    MeetingActionsMenu { align: center middle; }
+    MeetingActionsMenu > Vertical {
+        width: 44; height: auto; max-height: 80%;
+        border: round $accent; background: $surface; padding: 1 2;
+    }
+    MeetingActionsMenu OptionList { height: auto; }
+    """
+
+    def __init__(self, actions: Sequence[ToolbarAction]) -> None:
+        super().__init__()
+        self._actions = list(actions)
+
+    def compose(self) -> ComposeResult:
+        yield Vertical(
+            Static("[bold]More actions[/bold] — [dim]Esc to close[/dim]", classes="dim"),
+            OptionList(
+                *[Option(a.label, id=a.action) for a in self._actions],
+                id="meeting-more-list",
+            ),
+        )
+
+    def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
+        self.dismiss(event.option.id)
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
 class MeetingBrowser(Vertical):
     """Second tab: browse meetings, edit metadata, speakers, transcript; summarize; people autocomplete."""
 
@@ -279,6 +327,7 @@ class MeetingBrowser(Vertical):
         Binding("i", "show_session_media", "Media files", show=False, priority=True),
         Binding("p", "slide_preview", "Slide preview", show=False, priority=True),
         Binding("ctrl+v", "import_video", "Import video", show=True, priority=True),
+        Binding("m", "show_more_menu", "More actions", show=True, priority=True),
     ]
 
     def __init__(self, *, container: Container, store: Store) -> None:
@@ -300,23 +349,15 @@ class MeetingBrowser(Vertical):
 
     def compose(self) -> ComposeResult:
         yield Static(
-            "[bold]Meetings[/bold] — select a row · [dim]ctrl+v[/dim] import video · "
-            "[dim]p[/dim] slide preview (video) · [dim]i[/dim] media · "
-            "[dim]ctrl+s[/dim] save · [dim]ctrl+g[/dim] summarize · [dim]ctrl+e[/dim] edit line · "
-            "shift+del / ctrl+shift+d delete · [dim]ctrl+r[/dim] refresh",
+            "[bold]Meetings[/bold] — select a row · [dim]ctrl+s[/dim] save · "
+            "[dim]ctrl+g[/dim] summarize · [dim]ctrl+e[/dim] edit line · "
+            "[dim]m[/dim] more actions",
             id="meeting-browser-header",
         )
         with Horizontal(id="meeting-toolbar"):
-            yield Button("Import video", id="meeting-btn-import-video", variant="success")
-            yield Button("Save", id="meeting-btn-save", variant="primary")
-            yield Button("Continue recording", id="meeting-btn-continue-record")
-            yield Button("Slide preview", id="meeting-btn-slide-preview")
-            yield Button("Summarize", id="meeting-btn-summarize")
-            yield Button("Speaker ID", id="meeting-btn-speaker-id", variant="success")
-            yield Button("Export markdown", id="meeting-btn-export")
-            yield Button("Refresh", id="meeting-btn-refresh")
-            yield Button("Edit line", id="meeting-btn-edit-line")
-            yield Button("Delete", id="meeting-btn-delete", variant="error")
+            for action in primary_toolbar_actions():
+                yield Button(action.label, id=action.button_id, variant=action.variant)  # type: ignore[arg-type]
+            yield Button("More…", id=MORE_BUTTON_ID)
         with Horizontal(id="meeting-browser-split"):
             yield DataTable(id="meeting-sessions-table", cursor_type="row", zebra_stripes=True)
             with Vertical(id="meeting-browser-detail"):
@@ -767,26 +808,29 @@ class MeetingBrowser(Vertical):
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         bid = event.button.id or ""
-        if bid == "meeting-btn-import-video":
-            await self.action_import_video()
-        elif bid == "meeting-btn-save":
-            await self.action_save_meeting()
-        elif bid == "meeting-btn-continue-record":
-            await self.action_continue_recording()
-        elif bid == "meeting-btn-slide-preview":
-            await self.action_slide_preview()
-        elif bid == "meeting-btn-summarize":
-            await self.action_summarize_meeting()
-        elif bid == "meeting-btn-speaker-id":
-            await self.action_finalize_selected_speakers()
-        elif bid == "meeting-btn-export":
-            await self.action_export_meeting()
-        elif bid == "meeting-btn-refresh":
-            await self.action_refresh_list()
-        elif bid == "meeting-btn-edit-line":
-            await self.action_edit_segment()
-        elif bid == "meeting-btn-delete":
-            await self.action_delete_meeting()
+        if bid == MORE_BUTTON_ID:
+            await self.action_show_more_menu()
+            return
+        action = toolbar_action_by_button_id(bid)
+        if action is not None:
+            await self.dispatch_toolbar_action(action.action)
+
+    async def dispatch_toolbar_action(self, action_name: str) -> None:
+        """Invoke the ``MeetingBrowser`` coroutine named ``action_name``."""
+        method = getattr(self, action_name, None)
+        if method is not None:
+            await method()
+
+    async def action_show_more_menu(self) -> None:
+        await self.app.push_screen(
+            MeetingActionsMenu(overflow_toolbar_actions()),
+            callback=self._after_more_menu,
+        )
+
+    def _after_more_menu(self, action_name: str | None) -> None:
+        if action_name is None:
+            return
+        self.run_worker(self.dispatch_toolbar_action(action_name))
 
     async def action_delete_meeting(self) -> None:
         if self._selected_session_id is None:
