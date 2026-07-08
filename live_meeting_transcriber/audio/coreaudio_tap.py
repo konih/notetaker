@@ -310,6 +310,13 @@ class MacosAudioCapture(AudioCapture):
                 "-loglevel",
                 "error",
                 *self._tap_input_args(raw_path, stderr),
+                # The tap can deliver fewer than chunk_seconds of PCM if the tapped app releases
+                # the device mid-window; apad + -t force an exact-length chunk so the recorder
+                # timeline never drifts on quiet gaps.
+                "-af",
+                "apad",
+                "-t",
+                str(chunk_seconds),
                 "-ac",
                 str(channels),
                 "-ar",
@@ -337,17 +344,19 @@ class MacosAudioCapture(AudioCapture):
             if has_system
             else self._silent_input_args(sample_rate_hz)
         )
+        # Trailing apad + -t below force an exact chunk_seconds output even if either leg runs
+        # short (e.g. the tap releases the device mid-window), so the recorder timeline holds.
         if channels >= 2:
             # Stereo dual-path: left = microphone (local), right = system (remote).
             filter_complex = (
                 "[0:a]aresample=async=1,pan=mono|c0=c0[sys];"
                 "[1:a]aresample=async=1,pan=mono|c0=c0[mic];"
-                "[mic][sys]join=inputs=2:channel_layout=stereo[aout]"
+                "[mic][sys]join=inputs=2:channel_layout=stereo,apad[aout]"
             )
         else:
             filter_complex = (
                 "[0:a]aresample=async=1[a0];[1:a]aresample=async=1[a1];"
-                "[a0][a1]amix=inputs=2:duration=longest:dropout_transition=0:normalize=0[aout]"
+                "[a0][a1]amix=inputs=2:duration=longest:dropout_transition=0:normalize=0,apad[aout]"
             )
         cmd = [
             "ffmpeg",

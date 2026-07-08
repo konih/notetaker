@@ -73,6 +73,9 @@ def test_tap_source_captures_via_helper_then_converts(
     assert "16000" in joined
     assert "avfoundation" not in joined
     assert "pulse" not in joined
+    # exact-length enforcement so quiet gaps don't shorten the chunk and drift the timeline
+    assert "apad" in joined
+    assert "-t" in ffmpeg_cmd and "5" in ffmpeg_cmd
 
 
 def test_tap_silence_produces_padded_silent_wav(
