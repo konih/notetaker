@@ -45,7 +45,7 @@ from live_meeting_transcriber.ui.tui.video_import_modal import (
     format_video_import_error,
     run_video_import,
 )
-from live_meeting_transcriber.utils.time import utc_now
+from live_meeting_transcriber.utils.time import format_local_datetime, utc_now
 
 
 def _format_summary_for_editor(summary: Summary | None) -> str:
@@ -345,7 +345,7 @@ class MeetingBrowser(Vertical):
 
     def on_mount(self) -> None:
         st = self.query_one("#meeting-sessions-table", DataTable)
-        st.add_columns("Type", "Title", "Started (UTC)", "Session")
+        st.add_columns("Type", "Title", "Started", "Session")
         attendees = self.query_one("#meeting-attendees", TabCompletableInput)
         attendees.suggester = self._comma_suggester
         self.refresh_session_list()
@@ -388,7 +388,7 @@ class MeetingBrowser(Vertical):
             table.add_row(
                 format_session_type_label(is_video=is_video),
                 s.title[:40] + ("…" if len(s.title) > 40 else ""),
-                s.started_at.isoformat(timespec="seconds"),
+                format_local_datetime(s.started_at),
                 short,
                 key=str(s.id),
             )

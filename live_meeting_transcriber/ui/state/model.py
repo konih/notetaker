@@ -105,6 +105,9 @@ class AppState(BaseModel):
     speaker_aliases: dict[str, str] = Field(default_factory=dict)
     diarization_detected_speakers: frozenset[str] = frozenset()
     current_level_meter: float | None = None
+    # Wall-clock start of the *current* recording segment; drives the live elapsed timer.
+    # Set on RecordingStarted (resets on resume), cleared on stop/failure. None when idle.
+    recording_started_at: datetime | None = None
     consecutive_empty_chunks: int = 0
     low_audio_warning_shown: bool = False
     last_updated_at: datetime | None = None

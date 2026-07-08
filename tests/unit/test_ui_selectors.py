@@ -1,16 +1,124 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta, timezone
 from uuid import uuid4
 
-from live_meeting_transcriber.ui.state.model import AppState, RecordingStatus, UiErrorState
+from live_meeting_transcriber.ui.state.model import (
+    AppState,
+    RecordingStatus,
+    TranscriptionStatus,
+    TranscriptLineState,
+    UiErrorState,
+)
 from live_meeting_transcriber.ui.state.selectors import (
     select_display_speaker,
+    select_elapsed_label,
     select_header_title,
     select_is_recording,
     select_level_bar,
+    select_status_line,
+    select_transcript_timestamp,
     select_unacknowledged_errors,
 )
 from live_meeting_transcriber.utils.time import utc_now
+
+PLUS2 = timezone(timedelta(hours=2))
+
+
+def _line(**over: object) -> TranscriptLineState:
+    base: dict[str, object] = dict(
+        id="1",
+        session_id="s",
+        started_at=datetime(2026, 7, 8, 9, 14, 0, tzinfo=UTC),
+        ended_at=datetime(2026, 7, 8, 9, 14, 8, tzinfo=UTC),
+        text="hello",
+        speaker="speaker_0",
+    )
+    base.update(over)
+    return TranscriptLineState(**base)  # type: ignore[arg-type]
+
+
+def test_select_transcript_timestamp_is_compact_local_clock() -> None:
+    # Was a full ISO range ("2026-07-08T09:14:00 → ...09:14:08"); now a compact local clock.
+    assert select_transcript_timestamp(_line(), tz=PLUS2) == "11:14:00"
+
+
+_INTERNAL_KEYS = ("rec=", "asr=", "live_spk=", "diar_ui=", "src=", "heard=")
+
+
+def test_status_line_recording_uses_plain_language_not_internal_keys() -> None:
+    s = AppState(
+        recording_status=RecordingStatus.recording,
+        transcription_status=TranscriptionStatus.active,
+    )
+    line = select_status_line(s)
+    assert "Recording" in line
+    assert "transcribing" in line.lower()
+    for key in _INTERNAL_KEYS:
+        assert key not in line
+
+
+def test_status_line_idle_is_plain() -> None:
+    assert "Idle" in select_status_line(AppState(recording_status=RecordingStatus.idle))
+
+
+def test_status_line_dual_channel_names_you_and_remote() -> None:
+    s = AppState(
+        recording_status=RecordingStatus.recording,
+        audio_channels=2,
+        audio_stereo_mode="dual_path",
+    )
+    line = select_status_line(s).lower()
+    assert "you" in line and "remote" in line
+
+
+def test_status_line_mono_is_single_channel() -> None:
+    line = select_status_line(AppState(audio_channels=1)).lower()
+    assert "single channel" in line
+
+
+def test_status_line_omits_heard_speakers_to_avoid_duplication() -> None:
+    # "heard" speakers live on the dedicated Live-speakers sidebar line, not here (no duplicate).
+    s = AppState(
+        recording_status=RecordingStatus.recording,
+        diarization_detected_speakers=frozenset({"speaker_0", "speaker_1"}),
+    )
+    assert "heard" not in select_status_line(s).lower()
+
+
+def test_status_line_surfaces_transcription_failure() -> None:
+    s = AppState(
+        recording_status=RecordingStatus.recording,
+        transcription_status=TranscriptionStatus.failed,
+    )
+    assert "failed" in select_status_line(s).lower()
+
+
+def test_select_elapsed_label_while_recording() -> None:
+    start = datetime(2026, 7, 8, 12, 0, 0, tzinfo=UTC)
+    s = AppState(recording_status=RecordingStatus.recording, recording_started_at=start)
+    now = start + timedelta(seconds=65)
+    assert select_elapsed_label(s, now) == "01:05"
+
+
+def test_select_elapsed_label_none_when_not_recording() -> None:
+    start = datetime(2026, 7, 8, 12, 0, 0, tzinfo=UTC)
+    s = AppState(recording_status=RecordingStatus.stopped, recording_started_at=start)
+    assert select_elapsed_label(s, start + timedelta(seconds=65)) is None
+
+
+def test_select_elapsed_label_none_without_start() -> None:
+    s = AppState(recording_status=RecordingStatus.recording, recording_started_at=None)
+    assert select_elapsed_label(s, datetime(2026, 7, 8, 12, 0, 0, tzinfo=UTC)) is None
+
+
+def test_select_elapsed_label_handles_naive_start_without_crashing() -> None:
+    # A legacy/naive recording_started_at (see A11) must not crash the per-second timer:
+    # a raw aware-minus-naive subtraction would raise TypeError. Naive is treated as UTC.
+    naive_start = datetime(2026, 7, 8, 12, 0, 0)
+    s = AppState(recording_status=RecordingStatus.recording, recording_started_at=naive_start)
+    now = datetime(2026, 7, 8, 12, 0, 30, tzinfo=UTC)
+    assert select_elapsed_label(s, now) == "00:30"
 
 
 def test_select_header_title_uses_session_title() -> None:
