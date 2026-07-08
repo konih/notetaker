@@ -252,6 +252,17 @@ class SessionTitleCommitRequested:
 
 
 @dataclass(frozen=True)
+class SessionDetailsCommitRequested:
+    """Persist title/notes/attendees for a session (used to edit the current live meeting)."""
+
+    session_id: UUID
+    title: str
+    notes: str
+    attendees: list[str]
+    at: datetime
+
+
+@dataclass(frozen=True)
 class SessionTitleUpdated:
     session_id: UUID
     title: str
@@ -328,6 +339,7 @@ Action = (
     | SessionsScreenOpened
     | SessionsScreenClosed
     | SessionTitleCommitRequested
+    | SessionDetailsCommitRequested
     | SessionTitleUpdated
     | TranscriptionStatusChanged
     | DiarizationStatusChanged
