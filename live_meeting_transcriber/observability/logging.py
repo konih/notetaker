@@ -5,6 +5,7 @@ import logging
 import logging.handlers
 import sys
 import threading
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,35 @@ import structlog
 
 _file_handler_lock = threading.Lock()
 _file_handler: logging.handlers.RotatingFileHandler | None = None
+
+# Third-party warnings we deliberately silence because they are misleading given how
+# we use the dependency. pyannote.audio's io module warns that torchcodec failed to
+# load, implying built-in audio decoding will fail -- but we never let pyannote or
+# whisperx decode files. Everything is handed to them pre-decoded: in-memory PCM via
+# ``diarization/wav_input.py`` and a numpy array from ``whisperx.load_audio`` (which
+# shells out to the ffmpeg CLI, not torchcodec). torchcodec is only a file-decoding
+# backend, so its absence is inert -- the warning is pure noise in the CLI log stream
+# and the TUI log panel. The filter uses ``re.match`` (anchored at the start), and the
+# real pyannote message begins with a newline, so the leading ``\s*`` is load-bearing;
+# it also swallows the multi-line traceback pyannote appends after the first line.
+_TORCHCODEC_WARNING_RE = r"\s*torchcodec is not installed correctly"
+
+
+def _silence_noisy_dependency_warnings() -> None:
+    """Register warning filters for misleading third-party noise (see notes above).
+
+    Called at module import (below) so the filter is registered before pyannote's
+    lazy import can fire the warning, and re-applied from ``configure_logging`` so it
+    survives any code that resets ``warnings.filters`` at startup.
+    """
+    warnings.filterwarnings(
+        "ignore",
+        message=_TORCHCODEC_WARNING_RE,
+        category=UserWarning,
+    )
+
+
+_silence_noisy_dependency_warnings()
 
 
 def _dup_json_line_to_file(
@@ -58,6 +88,7 @@ def configure_logging(
     ``python`` starts; for IDE-launched tasks, prefer ``.env``.
     """
     global _file_handler
+    _silence_noisy_dependency_warnings()
     if _file_handler is not None:
         try:
             _file_handler.close()
