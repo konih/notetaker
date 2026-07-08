@@ -26,6 +26,8 @@ from live_meeting_transcriber.ui.tui.meeting_toolbar import (
     primary_toolbar_actions,
     toolbar_action_by_button_id,
 )
+from textual.app import App, ComposeResult
+from textual.containers import Horizontal
 from textual.widgets import Button, OptionList, TabbedContent
 
 # --- pure partition -------------------------------------------------------
@@ -104,14 +106,43 @@ async def _meetings_browser(app: TranscriberApp, pilot) -> MeetingBrowser:  # ty
     return app.query_one(MeetingBrowser)
 
 
-async def test_toolbar_fits_single_row_at_120w(tmp_path: Path) -> None:
+async def test_full_ten_button_row_would_overflow_120w() -> None:
+    """The premise for U9: Textual's Horizontal does not wrap — it lays buttons out
+    in one row and lets them overflow past the right edge. Rendering all ten
+    original actions (plus More…) pushes the rightmost button beyond a 120-col
+    viewport, so it is clipped. This is what motivates the primary/overflow split
+    and what makes the fit assertion below non-vacuous.
+    """
+
+    class _FullBar(App[None]):
+        def compose(self) -> ComposeResult:
+            with Horizontal(id="full-bar"):
+                for a in MEETING_TOOLBAR_ACTIONS:
+                    yield Button(a.label, id=a.button_id)
+                yield Button("More…", id=MORE_BUTTON_ID)
+
+    app = _FullBar()
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        bar = app.query_one("#full-bar")
+        rightmost = max(b.region.right for b in bar.query(Button))
+        assert rightmost > 120  # overflows / clipped at the baseline width
+
+
+async def test_toolbar_buttons_fit_within_120w(tmp_path: Path) -> None:
     session = MeetingSession(id=uuid4(), title="Weekly sync")
     app = _make_app(_mock_container(tmp_path, session))
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
-        await _meetings_browser(app, pilot)
-        toolbar = app.query_one("#meeting-toolbar")
-        # A single row of (bordered, height-3) buttons; wrapping doubles this.
+        browser = await _meetings_browser(app, pilot)
+        toolbar = browser.query_one("#meeting-toolbar")
+        buttons = list(toolbar.query(Button))
+        assert buttons
+        # Every primary button and the More… button stays inside the toolbar box
+        # (width 120) — nothing overflows and gets clipped.
+        rightmost = max(b.region.right for b in buttons)
+        assert rightmost <= toolbar.region.right
+        # And the toolbar stays a single row.
         assert toolbar.size.height <= 3
 
 
