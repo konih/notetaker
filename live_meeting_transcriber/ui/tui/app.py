@@ -42,12 +42,11 @@ from live_meeting_transcriber.ui.effects.controller import TuiController
 from live_meeting_transcriber.ui.state import actions as act
 from live_meeting_transcriber.ui.state.model import AppState, RecordingStatus, TranscriptLineState
 from live_meeting_transcriber.ui.state.selectors import (
+    build_live_status_lines,
     select_display_speaker,
-    select_elapsed_label,
+    select_errors_compact_summary,
     select_header_title,
     select_is_recording,
-    select_level_bar,
-    select_status_line,
     select_transcript_timestamp,
     select_unacknowledged_errors,
 )
@@ -521,11 +520,11 @@ class TranscriberApp(App[None]):
     TabbedContent { height: 1fr; }
     TabPane { height: 1fr; }
     #tab-live #main-row { height: 1fr; }
-    #sidebar { width: 38; min-width: 38; border: solid $primary; }
+    #sidebar { width: 32; min-width: 32; border: solid $primary; }
     #transcript { border: solid $accent; min-width: 40; }
     #status { height: auto; padding: 0 1; }
     #notices { height: auto; padding: 0 1; border-top: solid $boost; text-style: italic; color: $success; }
-    #errors { height: 1fr; padding: 0 1; border-top: solid $boost; }
+    #errors { height: auto; max-height: 20; overflow-y: auto; padding: 0 1; border-top: solid $boost; }
     #meeting-browser { height: 1fr; }
     #meeting-browser-split { height: 1fr; min-height: 8; }
     #meeting-sessions-table { width: 38; min-width: 28; }
@@ -681,44 +680,17 @@ class TranscriberApp(App[None]):
         self._last_segment_keys = new_keys
 
     def _render_status(self, state: AppState) -> Group:
-        log_hint = (
-            state.log_file_path[:52] + "…" if len(state.log_file_path) > 55 else state.log_file_path
-        )
-        peak_pct = (
-            f"{state.current_level_meter * 100:.0f}%"
-            if state.current_level_meter is not None
-            else "—"
-        )
-        lines = [
-            f"[bold]Session[/] {state.current_session_id or '—'}",
-            f"[bold]Title[/] {state.session_title or '—'}",
-            f"[bold]Status[/] {select_status_line(state)}",
-        ]
-        elapsed = select_elapsed_label(state, utc_now())
-        if elapsed is not None:
-            lines.append(f"[bold]Elapsed[/] {elapsed}")
-        lines += [
-            f"[bold]Level[/] [{select_level_bar(state)}] {peak_pct} [dim](per chunk)[/]",
-            f"[bold]Chunk[/] {state.chunk_seconds}s",
-            f"[bold]Source[/] {state.audio_source or 'default monitor'} [dim](a: change)[/]",
-            f"[bold]Mic[/] {state.microphone_source or state.configured_microphone_source or ('—' if not state.audio_include_microphone else 'default')}",
-            f"[bold]Log[/] {log_hint or '—'}",
-            f"[bold]Sessions[/] {len(state.sessions_catalog)} in DB"
-            + (" (loading…)" if state.sessions_loading else ""),
-            f"[bold]Live speakers[/] {state.audio_stereo_mode} ({state.audio_channels}ch)"
-            + (
-                f" · heard: {', '.join(sorted(state.diarization_detected_speakers))}"
-                if state.diarization_detected_speakers
-                else ""
-            ),
-            f"[bold]Finalize[/] auto={state.finalize_on_session_stop} · HF={state.hf_token_configured}",
-        ]
+        lines = build_live_status_lines(state, utc_now())
         return Group(*[Text.from_markup(x) for x in lines])
 
-    def _render_errors(self, state: AppState) -> Panel:
+    def _render_errors(self, state: AppState) -> Panel | Text:
+        # When there is nothing to report, collapse the bordered panel into a
+        # single dim line so the sidebar reclaims the rows (U8). The panel only
+        # reappears once there is an actual error or warning to show.
+        compact = select_errors_compact_summary(state)
+        if compact is not None:
+            return Text.from_markup(f"[dim]{compact}[/]")
         unacked = select_unacknowledged_errors(state)
-        if not unacked and not state.warnings:
-            return Panel(Text("No errors."), title="Errors & warnings", border_style="green")
         parts: list[str] = []
         for e in unacked[-8:]:
             parts.append(f"• [{format_clock(e.at)}] {e.message}")
