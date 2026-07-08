@@ -5,7 +5,12 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from live_meeting_transcriber.domain.models import AudioChunk, TranscriptSegment
+from live_meeting_transcriber.domain.models import (
+    AudioChunk,
+    MeetingSession,
+    Summary,
+    TranscriptSegment,
+)
 
 
 def test_audio_chunk_validation_end_after_start() -> None:
@@ -20,6 +25,13 @@ def test_audio_chunk_validation_end_after_start() -> None:
             sample_rate_hz=16000,
             channels=1,
         )
+
+
+def test_default_timestamps_are_timezone_aware() -> None:
+    # Default-factory timestamps must be tz-aware UTC so timedelta math and
+    # comparisons against utc_now() elsewhere don't raise TypeError (A1).
+    assert MeetingSession(title="x").started_at.tzinfo is not None
+    assert Summary(session_id=uuid4(), summary_markdown="s").created_at.tzinfo is not None
 
 
 def test_transcript_segment_validation_text_non_empty() -> None:
