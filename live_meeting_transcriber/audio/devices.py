@@ -27,7 +27,7 @@ class PactlAudioDeviceProvider:
         except FileNotFoundError as e:
             raise AudioDeviceError("pactl not found; install pulseaudio-utils") from e
         except subprocess.CalledProcessError as e:
-            raise AudioDeviceError(f"pactl failed: {e.stderr.strip()}") from e
+            raise AudioDeviceError(f"pactl failed: {(e.stderr or '').strip()}") from e
 
         sources: list[PactlAudioSource] = []
         for line in out.splitlines():

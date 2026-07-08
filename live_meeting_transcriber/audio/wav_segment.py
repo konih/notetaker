@@ -91,4 +91,4 @@ def extract_wav_time_range(
     except FileNotFoundError as e:
         raise WavSegmentExtractionError("ffmpeg not found; install ffmpeg") from e
     except subprocess.CalledProcessError as e:
-        raise WavSegmentExtractionError(e.stderr.strip() or "ffmpeg failed") from e
+        raise WavSegmentExtractionError((e.stderr or "").strip() or "ffmpeg failed") from e
