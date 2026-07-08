@@ -9,4 +9,15 @@ class EmptyTranscriptionError(Exception):
 
 
 class TranscriptionProviderError(Exception):
-    """Transcription failed for a chunk (API error, corrupt audio, ffmpeg extract failure)."""
+    """Transcription failed for a chunk (API error, corrupt audio, ffmpeg extract failure).
+
+    ``recoverable`` tells callers whether recording can continue past this chunk. Transient,
+    per-chunk failures (rate limits, a single corrupt clip) are recoverable and should be
+    skipped; a non-recoverable error (e.g. misconfiguration that will fail every chunk) should
+    propagate so the caller can stop. Adapters raise this domain type — the application layer
+    branches on the flag and never imports provider-specific exception classes.
+    """
+
+    def __init__(self, *args: object, recoverable: bool = True) -> None:
+        super().__init__(*args)
+        self.recoverable = recoverable

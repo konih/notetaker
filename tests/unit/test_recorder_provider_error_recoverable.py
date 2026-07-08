@@ -3,15 +3,16 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from live_meeting_transcriber.application.recorder import Recorder
 from live_meeting_transcriber.domain.exceptions import TranscriptionProviderError
 from live_meeting_transcriber.domain.models import AudioChunk, TranscriptSegment
+from live_meeting_transcriber.domain.ports import TranscriptionProvider
 
 
-def _make_chunk(tmp_path: Path, session_id: object) -> AudioChunk:
+def _make_chunk(tmp_path: Path, session_id: UUID) -> AudioChunk:
     t0 = datetime(2026, 1, 1, 12, 0, 0)
     path = tmp_path / "chunk.wav"
     path.write_bytes(b"RIFF")
@@ -25,7 +26,9 @@ def _make_chunk(tmp_path: Path, session_id: object) -> AudioChunk:
     )
 
 
-def _make_recorder(tmp_path: Path, transcriber: object) -> tuple[Recorder, MagicMock]:
+def _make_recorder(
+    tmp_path: Path, transcriber: TranscriptionProvider
+) -> tuple[Recorder, MagicMock]:
     chunk_dir = tmp_path / "chunks"
     chunk_dir.mkdir()
     transcripts = MagicMock()

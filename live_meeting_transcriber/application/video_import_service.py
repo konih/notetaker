@@ -58,10 +58,6 @@ from live_meeting_transcriber.domain.ports import (
     TranscriptRepository,
 )
 from live_meeting_transcriber.observability.logging import get_logger
-from live_meeting_transcriber.transcription.faster_whisper_transcriber import (
-    FasterWhisperTranscriptionError,
-)
-from live_meeting_transcriber.transcription.openai_transcriber import OpenAITranscriptionError
 from live_meeting_transcriber.video.slide_common import SlideDetectionError, extract_slide_frame
 from live_meeting_transcriber.video.strategies.factory import (
     SlideStrategyName,
@@ -392,11 +388,9 @@ class VideoImportService:
             except EmptyTranscriptionError:
                 skipped_empty += 1
                 log.warning("empty_chunk", offset=offset, chunk_index=chunk_index)
-            except (
-                OpenAITranscriptionError,
-                FasterWhisperTranscriptionError,
-                TranscriptionProviderError,
-            ) as e:
+            except TranscriptionProviderError as e:
+                if not e.recoverable:
+                    raise
                 failed += 1
                 reason = f"chunk {chunk_index} @ {offset:.1f}s: {e}"
                 failure_messages.append(reason)
