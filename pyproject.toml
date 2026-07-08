@@ -42,6 +42,7 @@ dev = [
   "mypy>=1.10",
   "types-requests>=2.32.0.20240712",
   "pre-commit>=3.7",
+  "import-linter>=2.0",
 ]
 tui-image = [
   "textual-image[textual]>=0.9",
