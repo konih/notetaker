@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 from subprocess import CompletedProcess
 from typing import Any
@@ -7,7 +8,6 @@ from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
-
 from live_meeting_transcriber.audio import coreaudio_tap
 from live_meeting_transcriber.audio.capture import AudioCaptureError
 from live_meeting_transcriber.audio.coreaudio_tap import (
@@ -120,7 +120,7 @@ def test_non_tap_source_delegates_to_avfoundation(
         output_dir=tmp_path,
     )
 
-    assert result == "delegated"
+    assert result is avf.capture_chunk.return_value
     avf.capture_chunk.assert_called_once()
     # tap helper must not run for a normal avfoundation/BlackHole device
     assert not any(str(c[0]).endswith("systemaudiotap") for c in calls)
@@ -174,7 +174,7 @@ def test_tap_with_microphone_mixes_via_amix(
 def test_build_helper_raises_without_swiftc(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(coreaudio_tap.shutil, "which", lambda _n: None)
+    monkeypatch.setattr(shutil, "which", lambda _n: None)
     with pytest.raises(AudioCaptureError, match="swiftc"):
         coreaudio_tap.build_helper(cache_dir=tmp_path)
 
@@ -182,7 +182,7 @@ def test_build_helper_raises_without_swiftc(
 def test_build_helper_compiles_and_adhoc_signs(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(coreaudio_tap.shutil, "which", lambda n: f"/usr/bin/{n}")
+    monkeypatch.setattr(shutil, "which", lambda n: f"/usr/bin/{n}")
     calls: list[list[str]] = []
 
     def fake_run(cmd: list[str], **_kw: Any) -> CompletedProcess[str]:
@@ -204,10 +204,8 @@ def test_build_helper_compiles_and_adhoc_signs(
     assert "-" in codesign  # ad-hoc identity
 
 
-def test_build_helper_reuses_fresh_binary(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(coreaudio_tap.shutil, "which", lambda n: f"/usr/bin/{n}")
+def test_build_helper_reuses_fresh_binary(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(shutil, "which", lambda n: f"/usr/bin/{n}")
     binary = tmp_path / "systemaudiotap"
     binary.write_bytes(b"built")
     # make it newer than the sources

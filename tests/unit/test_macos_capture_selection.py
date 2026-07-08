@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-
 from live_meeting_transcriber.audio import avfoundation_devices, platform
 from live_meeting_transcriber.audio.avfoundation_devices import (
     AvfoundationAudioDeviceProvider,
@@ -34,11 +33,9 @@ def _provider_with_sources(
     prefer_tap: bool,
     supported: bool = True,
 ) -> AvfoundationAudioDeviceProvider:
-    monkeypatch.setattr(
-        avfoundation_devices, "macos_supports_coreaudio_tap", lambda: supported
-    )
+    monkeypatch.setattr(avfoundation_devices, "macos_supports_coreaudio_tap", lambda: supported)
     provider = AvfoundationAudioDeviceProvider(prefer_coreaudio_tap=prefer_tap)
-    monkeypatch.setattr(provider, "list_sources", lambda: sources)  # type: ignore[method-assign]
+    monkeypatch.setattr(provider, "list_sources", lambda: sources)
     return provider
 
 
@@ -89,15 +86,13 @@ def test_default_monitor_falls_back_when_tap_unsupported(
 def test_list_sources_includes_synthetic_tap_when_preferred(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(
-        avfoundation_devices, "macos_supports_coreaudio_tap", lambda: True
-    )
+    monkeypatch.setattr(avfoundation_devices, "macos_supports_coreaudio_tap", lambda: True)
 
     def fake_ffmpeg_sources() -> list[AvfoundationAudioSource]:
         return [AvfoundationAudioSource(name=":0", description="MacBook Pro Microphone")]
 
     provider = AvfoundationAudioDeviceProvider(prefer_coreaudio_tap=True)
-    monkeypatch.setattr(provider, "_list_device_sources", fake_ffmpeg_sources)  # type: ignore[attr-defined]
+    monkeypatch.setattr(provider, "_list_device_sources", fake_ffmpeg_sources)
 
     names = [s.name for s in provider.list_sources()]
     assert COREAUDIO_TAP_SOURCE in names

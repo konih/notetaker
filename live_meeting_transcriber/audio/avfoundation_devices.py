@@ -4,7 +4,12 @@ import re
 import subprocess
 from dataclasses import dataclass
 
+from live_meeting_transcriber.audio.coreaudio_tap import (
+    COREAUDIO_TAP_DESCRIPTION,
+    COREAUDIO_TAP_SOURCE,
+)
 from live_meeting_transcriber.audio.devices import AudioDeviceError
+from live_meeting_transcriber.audio.platform import macos_supports_coreaudio_tap
 
 _DEVICE_LINE_RE = re.compile(r"^\[AVFoundation indev @ .+\] \[(\d+)\] (.+)$")
 
@@ -72,9 +77,21 @@ def _matches_any(label: str, hints: tuple[str, ...]) -> bool:
 
 
 class AvfoundationAudioDeviceProvider:
-    """Lists macOS capture devices via ffmpeg AVFoundation."""
+    """Lists macOS capture devices via ffmpeg AVFoundation.
 
-    def list_sources(self) -> list[AvfoundationAudioSource]:
+    When ``prefer_coreaudio_tap`` is set and the OS supports it (macOS 14.4+), the native
+    Core Audio system-audio tap is surfaced as a synthetic source and chosen as the default
+    monitor — so system audio works without installing BlackHole. The BlackHole/loopback
+    device path stays available as a fallback.
+    """
+
+    def __init__(self, *, prefer_coreaudio_tap: bool = False) -> None:
+        self._prefer_coreaudio_tap = prefer_coreaudio_tap
+
+    def _coreaudio_tap_enabled(self) -> bool:
+        return self._prefer_coreaudio_tap and macos_supports_coreaudio_tap()
+
+    def _list_device_sources(self) -> list[AvfoundationAudioSource]:
         try:
             proc = subprocess.run(
                 ["ffmpeg", "-f", "avfoundation", "-list_devices", "true", "-i", ""],
@@ -95,7 +112,22 @@ class AvfoundationAudioDeviceProvider:
             raise AudioDeviceError(detail or "ffmpeg listed no AVFoundation audio devices")
         return sources
 
+    def list_sources(self) -> list[AvfoundationAudioSource]:
+        tap = AvfoundationAudioSource(
+            name=COREAUDIO_TAP_SOURCE, description=COREAUDIO_TAP_DESCRIPTION
+        )
+        if not self._coreaudio_tap_enabled():
+            return self._list_device_sources()
+        try:
+            return [tap, *self._list_device_sources()]
+        except AudioDeviceError:
+            # The native tap needs no enumerable device, so still offer it.
+            return [tap]
+
     def get_default_monitor_source(self) -> str | None:
+        # F7: prefer the driver-free native tap so system audio works without BlackHole.
+        if self._coreaudio_tap_enabled():
+            return COREAUDIO_TAP_SOURCE
         sources = self.list_sources()
         # Iterate hints in preference order (not device order) so a reliable loopback
         # driver always beats an app-specific virtual device that happens to enumerate
@@ -107,6 +139,7 @@ class AvfoundationAudioDeviceProvider:
         return None
 
     def get_default_microphone_source(self) -> str | None:
+        # The synthetic tap source carries a "system audio" label, so it is filtered out below.
         sources = self.list_sources()
         for hints in (_BUILTIN_MIC_HINTS, _MIC_HINTS):
             for source in sources:
