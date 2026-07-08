@@ -61,6 +61,7 @@ from live_meeting_transcriber.ui.tui.people_suggesters import (
     CommaSeparatedPeopleSuggester,
     PeoplePrefixSuggester,
 )
+from live_meeting_transcriber.ui.tui.settings_view import build_settings_sections
 from live_meeting_transcriber.ui.tui.slide_preview_helpers import (
     ensure_textual_image_protocol_probe,
 )
@@ -76,30 +77,14 @@ class SettingsScreen(ModalScreen[None]):
     def compose(self) -> ComposeResult:
         app = self.app
         assert isinstance(app, TranscriberApp)
-        s = app.store.get_state()
-        hf = "yes" if s.hf_token_configured else "no (needed for finalize)"
-        lines = [
-            f"Transcription: {s.transcription_provider} / {s.transcription_model}",
-            f"Summarization: {s.summarization_provider} / {s.summary_model}",
-            f"Database: {s.database_url}",
-            f"Log file: {s.log_file_path or '—'}",
-            "",
-            f"Audio: chunk {s.chunk_seconds}s · {s.audio_sample_rate} Hz · {s.audio_channels} ch",
-            f"  stereo mode: {s.audio_stereo_mode} (dual_path = YOU/REMOTE live w/ faster-whisper)",
-            f"Mic mix: {'on' if s.audio_include_microphone else 'off'}",
-            "",
-            "Logs tab (ctrl+3): Live errors/warnings, WhisperX finalize progress.",
-            "Offline finalize (WhisperX): ctrl+i from Live or Meetings, or "
-            "`live-transcriber finalize --session-id …`",
-            f"  auto on stop: {s.finalize_on_session_stop} · HF_TOKEN set: {hf}",
-            f"  model: {s.whisperx_model or '—'} · skip alignment: {s.whisperx_skip_alignment}",
-            "",
-            f"Legacy DIARIZATION_* (chunk pyannote removed): enabled={s.diarization_enabled} "
-            f"provider={s.diarization_provider}",
-        ]
+        state = app.store.get_state()
+        blocks: list[str] = []
+        for title, lines in build_settings_sections(state):
+            body = "\n".join(f"  {line}" for line in lines)
+            blocks.append(f"[bold]{title}[/]\n{body}")
         yield Vertical(
             Static("Settings (read-only)", classes="settings-title"),
-            Static("\n".join(lines), id="settings-body"),
+            Static("\n\n".join(blocks), id="settings-body"),
             classes="settings-dialog",
         )
 
