@@ -65,7 +65,7 @@ from live_meeting_transcriber.ui.tui.slide_preview_helpers import (
     ensure_textual_image_protocol_probe,
 )
 from live_meeting_transcriber.ui.tui.tab_complete_input import TabCompletableInput
-from live_meeting_transcriber.utils.time import utc_now
+from live_meeting_transcriber.utils.time import format_clock, format_local_datetime, utc_now
 
 
 class SettingsScreen(ModalScreen[None]):
@@ -400,7 +400,7 @@ class SessionsScreen(ModalScreen[None]):
         app = self.app
         assert isinstance(app, TranscriberApp)
         table = self.query_one("#sessions-table", DataTable)
-        table.add_columns("Title", "Started (UTC)", "Ended (UTC)", "Id")
+        table.add_columns("Title", "Started", "Ended", "Id")
         self._unsub = app.store.subscribe(self._on_store)
         self._on_store(app.store.get_state())
 
@@ -414,10 +414,10 @@ class SessionsScreen(ModalScreen[None]):
         self._row_ids.clear()
         for row in state.sessions_catalog:
             self._row_ids.append(row.id)
-            ended = row.ended_at.isoformat(timespec="seconds") if row.ended_at else "—"
+            ended = format_local_datetime(row.ended_at) if row.ended_at else "—"
             table.add_row(
                 row.title[:56] + ("…" if len(row.title) > 56 else ""),
-                row.started_at.isoformat(timespec="seconds"),
+                format_local_datetime(row.started_at),
                 ended,
                 row.id[:8] + "…",
                 key=row.id,
@@ -712,7 +712,7 @@ class TranscriberApp(App[None]):
             return Panel(Text("No errors."), title="Errors & warnings", border_style="green")
         parts: list[str] = []
         for e in unacked[-8:]:
-            parts.append(f"• [{e.at.isoformat()}] {e.message}")
+            parts.append(f"• [{format_clock(e.at)}] {e.message}")
         for w in state.warnings[-5:]:
             parts.append(f"⚠ {w}")
         body = "\n".join(parts) if parts else "—"
