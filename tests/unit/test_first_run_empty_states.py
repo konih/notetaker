@@ -113,6 +113,33 @@ async def test_live_transcript_hint_replaced_by_segments() -> None:
         assert "Press" not in text  # the first-run hint is gone once there is content
 
 
+async def test_live_hint_clears_when_first_segment_streams_in() -> None:
+    # The real hot path: mount empty (hint shown), then the FIRST segment arrives
+    # incrementally via _on_state — not seeded into the initial state. The hint
+    # must be replaced, not left pinned above the transcript.
+    app = _app()
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        transcript = app.query_one("#transcript", RichLog)
+        assert "No transcript yet" in _richlog_text(transcript)
+        seg = TranscriptLineState(
+            id="s1",
+            session_id=str(uuid4()),
+            started_at=_NOW,
+            ended_at=_NOW,
+            text="First words",
+            speaker="speaker_1",
+        )
+        new_state = app.store.get_state().model_copy(
+            update={"recent_transcript_segments": (seg,)}
+        )
+        app._on_state(new_state)
+        await pilot.pause()
+        text = _richlog_text(transcript)
+        assert "First words" in text
+        assert "No transcript yet" not in text
+
+
 async def test_startup_warns_when_no_audio_devices() -> None:
     container = MagicMock()
     container.sessions.list.return_value = []
