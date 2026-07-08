@@ -32,6 +32,28 @@ def test_avfoundation_default_monitor_prefers_virtual_loopback() -> None:
     assert provider.get_default_monitor_source() == ":5"
 
 
+# When a real loopback driver (BlackHole) and an app-specific virtual device
+# (the "Microsoft Teams Audio Device") are both present, the real loopback must
+# win. The Teams device matches the "teams audio" hint but only carries audio
+# when Teams routes system sound, so auto-picking it silently drops remote audio.
+_SAMPLE_FFMPEG_LIST_WITH_BLACKHOLE = """
+[AVFoundation indev @ 0x87cc1c140] AVFoundation audio devices:
+[AVFoundation indev @ 0x87cc1c140] [0] MacBook Pro-Mikrofon
+[AVFoundation indev @ 0x87cc1c140] [1] Microsoft Teams Audio
+[AVFoundation indev @ 0x87cc1c140] [2] BlackHole 2ch
+[in#0 @ 0x87cc1c000] Error opening input: Input/output error
+"""
+
+
+def test_avfoundation_default_monitor_prefers_blackhole_over_teams() -> None:
+    provider = AvfoundationAudioDeviceProvider()
+    provider.list_sources = (  # type: ignore[method-assign]
+        lambda: parse_avfoundation_audio_devices(_SAMPLE_FFMPEG_LIST_WITH_BLACKHOLE)
+    )
+    # BlackHole (:2) must beat the earlier-indexed Teams device (:1).
+    assert provider.get_default_monitor_source() == ":2"
+
+
 def test_avfoundation_default_microphone_prefers_builtin() -> None:
     provider = AvfoundationAudioDeviceProvider()
     provider.list_sources = lambda: parse_avfoundation_audio_devices(_SAMPLE_FFMPEG_LIST)  # type: ignore[method-assign]
