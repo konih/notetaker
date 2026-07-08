@@ -147,7 +147,7 @@ def test_image_probe_survives_terminal_probe_error(monkeypatch: pytest.MonkeyPat
     def _raising_import(name: str, *args: object, **kwargs: object) -> object:
         if name.startswith("textual_image"):
             raise termios.error(19, "Operation not supported by device")
-        return real_import(name, *args, **kwargs)
+        return real_import(name, *args, **kwargs)  # type: ignore[arg-type]
 
     monkeypatch.delenv("TERM_PROGRAM", raising=False)
     monkeypatch.setattr(builtins, "__import__", _raising_import)
