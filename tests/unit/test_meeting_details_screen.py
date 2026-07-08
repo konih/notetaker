@@ -14,7 +14,11 @@ from textual.widgets import TextArea
 
 
 def _app_with_live_session(
-    sid: object, existing: MeetingSession
+    sid: object,
+    existing: MeetingSession,
+    *,
+    detected_speakers: frozenset[str] = frozenset(),
+    speaker_aliases: dict[str, str] | None = None,
 ) -> tuple[TranscriberApp, MagicMock]:
     container = MagicMock()
     container.sessions.list.return_value = []
@@ -24,7 +28,12 @@ def _app_with_live_session(
     )
     store = Store(
         state=initial_app_state().model_copy(
-            update={"current_session_id": sid, "session_title": "Meeting 2026-07-08"}
+            update={
+                "current_session_id": sid,
+                "session_title": "Meeting 2026-07-08",
+                "diarization_detected_speakers": detected_speakers,
+                "speaker_aliases": speaker_aliases or {},
+            }
         )
     )
     controller = TuiController(store=store, container=container, settings=Settings())
@@ -57,6 +66,33 @@ async def test_meeting_details_modal_persists_and_refreshes_live_title() -> None
         sid, title="Weekly standup", notes="Agenda", attendees=["Alice", "Bob"]
     )
     assert app.store.get_state().session_title == "Weekly standup"
+
+
+async def test_meeting_details_names_detected_speaker_live() -> None:
+    # U20 AC3: naming a detected speaker during the live meeting persists the alias and
+    # updates live state so the transcript relabels immediately.
+    sid = uuid4()
+    existing = MeetingSession(id=sid, title="Meeting 2026-07-08")
+    app, container = _app_with_live_session(
+        sid, existing, detected_speakers=frozenset({"SPEAKER_00", "SPEAKER_01"})
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        app.action_meeting_details()
+        await pilot.pause()
+
+        screen = pilot.app.screen
+        assert isinstance(screen, EditMeetingDetailsScreen)
+        screen.query_one("#details-spk-SPEAKER_00", TabCompletableInput).value = "Alice"
+        await screen.action_save()
+        await pilot.pause()
+
+    container.session_speakers.replace_map.assert_called_once()
+    call_sid, mapping = container.session_speakers.replace_map.call_args[0]
+    assert call_sid == sid
+    assert mapping["SPEAKER_00"] == "Alice"
+    assert app.store.get_state().speaker_aliases["SPEAKER_00"] == "Alice"
 
 
 async def test_meeting_details_action_no_session_notifies() -> None:
