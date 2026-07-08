@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import shutil
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 from uuid import UUID
 
@@ -12,6 +12,7 @@ from live_meeting_transcriber.audio.session_recording import session_audio_dir
 from live_meeting_transcriber.cli.main import app
 from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.models import MeetingSession, TranscriptSegment
+from live_meeting_transcriber.utils.time import utc_now
 from typer.testing import CliRunner
 
 from tests.e2e.cli_helpers import build_e2e_container, patch_cli
@@ -39,8 +40,8 @@ def test_cli_finalize_smoke_e2e(monkeypatch: pytest.MonkeyPatch, tmp_path: Path)
         return [
             TranscriptSegment(
                 session_id=sid,
-                started_at=datetime.utcnow(),
-                ended_at=datetime.utcnow() + timedelta(seconds=1),
+                started_at=utc_now(),
+                ended_at=utc_now() + timedelta(seconds=1),
                 text="finalized segment",
                 speaker="speaker_1",
             )

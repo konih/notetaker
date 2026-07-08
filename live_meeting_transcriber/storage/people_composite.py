@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +10,7 @@ from live_meeting_transcriber.obsidian.people_files import (
     write_new_person_note,
 )
 from live_meeting_transcriber.storage.repositories import SqliteKnownPeopleRepository
+from live_meeting_transcriber.utils.time import utc_now
 
 
 def _merge_name_lists(*lists: list[str], limit: int) -> list[str]:
@@ -72,7 +72,7 @@ class CompositeKnownPeopleRepository:
             and self.person_template.is_file()
             and not person_note_exists(self.people_dir, display_name)
         ):
-            note_date = datetime.utcnow().date().isoformat()
+            note_date = utc_now().date().isoformat()
             write_new_person_note(
                 display_name=display_name,
                 people_dir=self.people_dir,

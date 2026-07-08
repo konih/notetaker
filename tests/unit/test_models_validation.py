@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -11,11 +11,12 @@ from live_meeting_transcriber.domain.models import (
     Summary,
     TranscriptSegment,
 )
+from live_meeting_transcriber.utils.time import utc_now
 
 
 def test_audio_chunk_validation_end_after_start() -> None:
     sid = uuid4()
-    start = datetime.utcnow()
+    start = utc_now()
     with pytest.raises(ValueError):
         AudioChunk(
             session_id=sid,
@@ -36,7 +37,7 @@ def test_default_timestamps_are_timezone_aware() -> None:
 
 def test_transcript_segment_validation_text_non_empty() -> None:
     sid = uuid4()
-    start = datetime.utcnow()
+    start = utc_now()
     end = start + timedelta(seconds=1)
     with pytest.raises(ValueError):
         TranscriptSegment(

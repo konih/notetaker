@@ -18,6 +18,7 @@ from live_meeting_transcriber.domain.models import (
     TranscriptSegment,
 )
 from live_meeting_transcriber.storage.sqlite import dumps_json, loads_json
+from live_meeting_transcriber.utils.time import utc_now
 
 
 def _dt_to_str(dt: datetime) -> str:
@@ -91,7 +92,7 @@ class SqliteMeetingSessionRepository:
     def end(self, session_id: UUID) -> None:
         self.conn.execute(
             "UPDATE meeting_sessions SET ended_at = ? WHERE id = ?",
-            (_dt_to_str(datetime.utcnow()), str(session_id)),
+            (_dt_to_str(utc_now()), str(session_id)),
         )
         self.conn.commit()
 
@@ -346,7 +347,7 @@ class SqliteKnownPeopleRepository:
         name = display_name.strip()
         if not name:
             return
-        now = _dt_to_str(datetime.utcnow())
+        now = _dt_to_str(utc_now())
         pid = str(uuid4())
         self.conn.execute(
             """

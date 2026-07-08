@@ -79,9 +79,7 @@ def test_capture_chunk_stereo_with_microphone_uses_join(tmp_path: Path) -> None:
 
 def test_capture_chunk_timestamps_are_timezone_aware(tmp_path: Path) -> None:
     cap = FfmpegPulseAudioCapture()
-    with patch(
-        "live_meeting_transcriber.audio.capture.subprocess.run", side_effect=_fake_run
-    ):
+    with patch("live_meeting_transcriber.audio.capture.subprocess.run", side_effect=_fake_run):
         chunk = cap.capture_chunk(
             session_id=uuid4(),
             source="sink.monitor",

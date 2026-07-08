@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -20,6 +20,7 @@ from live_meeting_transcriber.storage.repositories import (
     SqliteTranscriptRepository,
 )
 from live_meeting_transcriber.storage.sqlite import open_connection
+from live_meeting_transcriber.utils.time import utc_now
 
 
 def test_repositories_create_list_get_sessions(tmp_path: Path) -> None:
@@ -63,7 +64,7 @@ def test_repository_append_list_transcript_segments(tmp_path: Path) -> None:
         transcripts = SqliteTranscriptRepository(conn)
 
         s = sessions.create(MeetingSession(title="X"))
-        start = datetime.utcnow()
+        start = utc_now()
         seg = TranscriptSegment(
             session_id=s.id,
             started_at=start,
@@ -84,7 +85,7 @@ def test_transcript_replace_session(tmp_path: Path) -> None:
         sessions = SqliteMeetingSessionRepository(conn)
         transcripts = SqliteTranscriptRepository(conn)
         s = sessions.create(MeetingSession(title="X"))
-        start = datetime.utcnow()
+        start = utc_now()
         transcripts.append(
             TranscriptSegment(
                 session_id=s.id,
@@ -156,7 +157,7 @@ def test_transcript_update_segment_text(tmp_path: Path) -> None:
         sessions = SqliteMeetingSessionRepository(conn)
         transcripts = SqliteTranscriptRepository(conn)
         s = sessions.create(MeetingSession(title="X"))
-        start = datetime.utcnow()
+        start = utc_now()
         seg = TranscriptSegment(
             session_id=s.id,
             started_at=start,
@@ -199,7 +200,7 @@ def test_meeting_session_delete_cascades_related_rows(tmp_path: Path) -> None:
         spk = SqliteSessionSpeakerNameRepository(conn)
 
         s = sessions.create(MeetingSession(title="To delete"))
-        start = datetime.utcnow()
+        start = utc_now()
         seg = TranscriptSegment(
             session_id=s.id,
             started_at=start,
@@ -231,7 +232,7 @@ def test_diarization_repository_and_session_delete(tmp_path: Path) -> None:
         sessions = SqliteMeetingSessionRepository(conn)
         diar = SqliteDiarizationRepository(conn)
         s = sessions.create(MeetingSession(title="D"))
-        t0 = datetime.utcnow()
+        t0 = utc_now()
         t1 = t0 + timedelta(seconds=2)
         seg = DiarizationSegment(started_at=t0, ended_at=t1, speaker_key="speaker_1")
         diar.append_segments(s.id, [seg])
@@ -265,7 +266,7 @@ def test_transcript_update_segment_speaker(tmp_path: Path) -> None:
         sessions = SqliteMeetingSessionRepository(conn)
         transcripts = SqliteTranscriptRepository(conn)
         s = sessions.create(MeetingSession(title="X"))
-        start = datetime.utcnow()
+        start = utc_now()
         seg = TranscriptSegment(
             session_id=s.id,
             started_at=start,
