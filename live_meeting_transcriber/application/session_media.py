@@ -123,7 +123,7 @@ def format_session_media_inventory(inventory: SessionMediaInventory) -> str:
 
     def _section(title: str, entries: tuple[MediaFileEntry, ...] | MediaFileEntry | None) -> None:
         if isinstance(entries, MediaFileEntry):
-            items = (entries,)
+            items: tuple[MediaFileEntry, ...] = (entries,)
         elif entries:
             items = entries
         else:

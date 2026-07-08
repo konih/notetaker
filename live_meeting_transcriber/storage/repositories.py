@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import builtins
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 from uuid import UUID, uuid4
 
 from live_meeting_transcriber.domain.models import (
@@ -113,7 +114,7 @@ class SqliteMeetingSessionRepository:
         *,
         title: str | None = None,
         notes: str | None = None,
-        attendees: list[str] | None = None,
+        attendees: builtins.list[str] | None = None,
     ) -> MeetingSession | None:
         cur_session = self.get(session_id)
         if cur_session is None:
@@ -541,14 +542,23 @@ class SqliteSummaryRepository:
         metadata: ProviderMetadata | None = None
         meeting_metadata = None
         if row["provider"] and row["model"]:
-            extra = loads_json(row["metadata_json"]) if row["metadata_json"] else {}
+            extra: dict[str, Any] = (
+                cast("dict[str, Any]", loads_json(row["metadata_json"]))
+                if row["metadata_json"]
+                else {}
+            )
             raw_meta = extra.pop("meeting_metadata", None)
             if isinstance(raw_meta, dict):
                 meeting_metadata = MeetingMetadataProposal.model_validate(raw_meta)
-            metadata = ProviderMetadata(provider=row["provider"], model=row["model"], extra=extra)  # type: ignore[arg-type]
+            metadata = ProviderMetadata(provider=row["provider"], model=row["model"], extra=extra)
 
-        action_items = [ActionItem(**ai) for ai in loads_json(row["action_items_json"])]
-        decisions = [Decision(**d) for d in loads_json(row["decisions_json"])]
+        action_items = [
+            ActionItem(**ai)
+            for ai in cast("list[dict[str, Any]]", loads_json(row["action_items_json"]))
+        ]
+        decisions = [
+            Decision(**d) for d in cast("list[dict[str, Any]]", loads_json(row["decisions_json"]))
+        ]
 
         return Summary(
             id=UUID(row["id"]),

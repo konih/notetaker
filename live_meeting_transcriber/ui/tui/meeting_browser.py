@@ -869,4 +869,4 @@ class MeetingBrowser(Vertical):
         async def _reload() -> None:
             await self._load_detail(sid)
 
-        self.run_worker(_reload, exclusive=True)
+        self.run_worker(_reload(), exclusive=True)

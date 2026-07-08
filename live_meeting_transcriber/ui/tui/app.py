@@ -477,8 +477,8 @@ class TranscriberApp(App[None]):
             ui_log.clear()
             self._last_ui_log_len = 0
         if len(log_lines) > self._last_ui_log_len:
-            for line in log_lines[self._last_ui_log_len :]:
-                ui_log.write(Text.from_markup(line))
+            for log_line in log_lines[self._last_ui_log_len :]:
+                ui_log.write(Text.from_markup(log_line))
             self._last_ui_log_len = len(log_lines)
 
         def _seg_key(seg: TranscriptLineState) -> tuple[str, str, str]:
