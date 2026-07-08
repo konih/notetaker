@@ -132,7 +132,7 @@ class FfmpegAudioCapture:
         except FileNotFoundError as e:
             raise AudioCaptureError("ffmpeg not found; install ffmpeg") from e
         except subprocess.CalledProcessError as e:
-            raise AudioCaptureError(f"ffmpeg failed: {e.stderr.strip()}") from e
+            raise AudioCaptureError(f"ffmpeg failed: {(e.stderr or '').strip()}") from e
 
         ended_at = utc_now()
         return AudioChunk(

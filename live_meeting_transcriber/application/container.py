@@ -19,6 +19,7 @@ from live_meeting_transcriber.domain.ports import (
     TranscriptionProvider,
     TranscriptRepository,
 )
+from live_meeting_transcriber.observability.logging import get_logger
 from live_meeting_transcriber.storage.people_composite import CompositeKnownPeopleRepository
 from live_meeting_transcriber.storage.repositories import (
     SqliteDiarizationRepository,
@@ -60,7 +61,7 @@ class Container:
         try:
             self._conn.close()
         except Exception:
-            pass
+            get_logger(component="container").warning("db_connection_close_failed", exc_info=True)
 
 
 def build_diarization_provider(settings: Settings) -> DiarizationProvider:

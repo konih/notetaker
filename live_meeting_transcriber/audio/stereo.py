@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from live_meeting_transcriber.observability.logging import get_logger
+
 
 @dataclass(frozen=True)
 class StereoPCM:
@@ -30,6 +32,9 @@ def read_stereo_pcm(path: Path) -> StereoPCM | None:
             rate = wf.getframerate()
             raw = wf.readframes(wf.getnframes())
     except Exception:
+        get_logger(component="stereo").warning(
+            "stereo_wav_read_failed", path=str(path), exc_info=True
+        )
         return None
     data = np.frombuffer(raw, dtype=np.int16).reshape(-1, 2)
     left = data[:, 0].astype(np.float32)
@@ -52,6 +57,11 @@ def rms_mixdown_to_mono_wav(stereo_path: Path, *, sample_rate_hz: int) -> Path:
             n_frames = wf.getnframes()
             raw = wf.readframes(n_frames)
     except Exception:
+        get_logger(component="stereo").warning(
+            "stereo_wav_read_failed_ffmpeg_fallback",
+            path=str(stereo_path),
+            exc_info=True,
+        )
         return _ffmpeg_average_mono(stereo_path, sample_rate_hz=sample_rate_hz)
 
     if n_channels != 2 or sampwidth != 2:

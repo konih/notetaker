@@ -4,7 +4,7 @@ import asyncio
 import atexit
 import sys
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 import typer
@@ -30,6 +30,7 @@ from live_meeting_transcriber.audio.sources import resolve_microphone_source
 from live_meeting_transcriber.config.settings import Settings, load_settings
 from live_meeting_transcriber.diarization.labels import normalize_pyannote_speaker_label
 from live_meeting_transcriber.domain.models import SlideDetectionParams
+from live_meeting_transcriber.domain.ports import MeetingSessionRepository
 from live_meeting_transcriber.observability.logging import configure_logging, get_logger
 from live_meeting_transcriber.obsidian.meeting_export import ExportCancelledError, write_dual_export
 
@@ -46,6 +47,24 @@ def _get_container(ctx: typer.Context) -> Container:
     if not isinstance(c, Container):
         raise typer.Exit(code=2)
     return c
+
+
+def _end_session_safely(sessions: MeetingSessionRepository, session_id: UUID, *, log: Any) -> None:
+    """End a session, surfacing a failed end instead of silently swallowing it (ARCH-07).
+
+    A failed ``sessions.end`` is logged and reported to stderr; the clean
+    ``session_ended`` event is only emitted when the end actually succeeded.
+    """
+    try:
+        sessions.end(session_id)
+    except Exception:
+        log.warning("session_end_failed", session_id=str(session_id), exc_info=True)
+        typer.echo(
+            "warning: failed to finalize the session cleanly; see logs for details",
+            err=True,
+        )
+    else:
+        log.info("session_ended", session_id=str(session_id))
 
 
 @app.callback(invoke_without_command=True)
@@ -215,11 +234,7 @@ def record(
         # Treat Ctrl-C as a normal shutdown: keep whatever was already captured.
         log.info("recording_stopped_by_user", session_id=str(session.id))
     finally:
-        try:
-            c.sessions.end(session.id)
-        except Exception:
-            pass
-        log.info("session_ended", session_id=str(session.id))
+        _end_session_safely(c.sessions, session.id, log=log)
 
 
 @app.command()
