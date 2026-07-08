@@ -46,6 +46,20 @@ class FasterWhisperTranscriptionProvider:
         )
         return self._model
 
+    async def warm_up(self) -> None:
+        """Load (and download, if needed) the model once, off the event loop.
+
+        Called before the recording loop so the first chunk isn't slow and any
+        download/load failure surfaces once up front instead of being retried and
+        silently swallowed on every chunk.
+        """
+        try:
+            await asyncio.to_thread(self._ensure_model)
+        except RuntimeError:
+            raise
+        except Exception as e:
+            raise FasterWhisperTranscriptionError(str(e)) from e
+
     def _transcribe_sync(self, chunk: AudioChunk) -> TranscriptSegment:
         try:
             model = self._ensure_model()

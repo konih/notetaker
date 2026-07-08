@@ -13,6 +13,7 @@ from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
+from textual.css.query import NoMatches
 from textual.screen import ModalScreen
 from textual.widgets import (
     DataTable,
@@ -360,10 +361,17 @@ class TranscriberApp(App[None]):
 
     def _on_state(self, state: AppState) -> None:
         self.sub_title = select_header_title(state)
-        status = self.query_one("#status", Static)
-        notices = self.query_one("#notices", Static)
-        err_panel = self.query_one("#errors", Static)
-        log = self.query_one("#transcript", RichLog)
+        try:
+            status = self.query_one("#status", Static)
+            notices = self.query_one("#notices", Static)
+            err_panel = self.query_one("#errors", Static)
+            log = self.query_one("#transcript", RichLog)
+        except NoMatches:
+            # Main screen isn't mounted (app shutting down, or a modal screen is active).
+            # State updates dispatched during teardown — e.g. background finalize progress —
+            # can arrive after the widgets are gone; skip rendering (a live app re-renders
+            # on the next dispatch).
+            return
 
         status.update(self._render_status(state))
         if state.notices:

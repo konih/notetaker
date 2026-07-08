@@ -207,3 +207,55 @@ async def test_faster_whisper_maps_model_errors(tmp_path) -> None:
             sys.modules["faster_whisper"] = real
         else:
             sys.modules.pop("faster_whisper", None)
+
+
+@pytest.mark.asyncio
+async def test_faster_whisper_warm_up_loads_model_once() -> None:
+    real = sys.modules.pop("faster_whisper", None)
+    try:
+        m = ModuleType("faster_whisper")
+        loads: list[int] = []
+
+        class WhisperModel:
+            def __init__(self, *a: object, **k: object) -> None:
+                loads.append(1)
+
+        m.WhisperModel = WhisperModel
+        sys.modules["faster_whisper"] = m
+
+        prov = FasterWhisperTranscriptionProvider(
+            model_size="tiny", device="cpu", compute_type="int8", language=None
+        )
+        await prov.warm_up()
+        await prov.warm_up()
+        assert len(loads) == 1  # model cached after first load
+    finally:
+        if real is not None:
+            sys.modules["faster_whisper"] = real
+        else:
+            sys.modules.pop("faster_whisper", None)
+
+
+@pytest.mark.asyncio
+async def test_faster_whisper_warm_up_wraps_load_failure() -> None:
+    real = sys.modules.pop("faster_whisper", None)
+    try:
+        m = ModuleType("faster_whisper")
+
+        class WhisperModel:
+            def __init__(self, *a: object, **k: object) -> None:
+                raise ValueError("bad value(s) in fds_to_keep")
+
+        m.WhisperModel = WhisperModel
+        sys.modules["faster_whisper"] = m
+
+        prov = FasterWhisperTranscriptionProvider(
+            model_size="tiny", device="cpu", compute_type="int8", language=None
+        )
+        with pytest.raises(FasterWhisperTranscriptionError, match="fds_to_keep"):
+            await prov.warm_up()
+    finally:
+        if real is not None:
+            sys.modules["faster_whisper"] = real
+        else:
+            sys.modules.pop("faster_whisper", None)

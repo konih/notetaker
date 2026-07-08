@@ -88,6 +88,18 @@ class TranscriptionChunkFailed:
 
 
 @dataclass(frozen=True)
+class TranscriptionUnavailable:
+    """Live transcription could not be started (e.g. model failed to load/download).
+
+    Audio capture continues so the session can still be finalized offline later.
+    """
+
+    session_id: UUID
+    message: str
+    at: datetime
+
+
+@dataclass(frozen=True)
 class TranscriptSegmentPersisted:
     segment: TranscriptSegment
     at: datetime
@@ -141,6 +153,7 @@ ApplicationEvent = (
     | TranscriptionChunkCompleted
     | TranscriptionChunkEmpty
     | TranscriptionChunkFailed
+    | TranscriptionUnavailable
     | TranscriptSegmentPersisted
     | DiarizationChunkCompleted
     | DiarizationFailed

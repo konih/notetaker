@@ -277,6 +277,13 @@ class AudioLevelUpdated:
     at: datetime
 
 
+@dataclass(frozen=True)
+class TranscriptionChunkEmptyObserved:
+    """A chunk produced no transcript text; used to detect silent/misrouted audio."""
+
+    at: datetime
+
+
 Action = (
     AppStarted
     | SettingsLoaded
@@ -312,4 +319,5 @@ Action = (
     | TranscriptionStatusChanged
     | DiarizationStatusChanged
     | AudioLevelUpdated
+    | TranscriptionChunkEmptyObserved
 )

@@ -22,6 +22,15 @@ _MAX_WARNINGS = 30
 _MAX_NOTICES = 12
 _MAX_UI_LOG_LINES = 500
 
+# Warn once after this many consecutive empty chunks (no speech detected) — a strong
+# hint that the input level is too low or the wrong audio device is selected.
+_EMPTY_CHUNKS_WARN_THRESHOLD = 3
+_LOW_AUDIO_WARNING = (
+    "No speech detected in the audio yet. Check that the right input device is selected "
+    "and the level is not too low. On macOS, capturing meeting/system audio needs a "
+    "loopback device (e.g. BlackHole or an app audio device like 'Microsoft Teams Audio')."
+)
+
 
 def _touch(state: AppState, at: datetime) -> AppState:
     return state.model_copy(update={"last_updated_at": at})
@@ -95,6 +104,8 @@ def reduce(state: AppState, action: act.Action) -> AppState:
             "chunk_seconds": action.chunk_seconds,
             "recording_status": RecordingStatus.recording,
             "transcription_status": TranscriptionStatus.active,
+            "consecutive_empty_chunks": 0,
+            "low_audio_warning_shown": False,
             "diarization_status": DiarizationStatus.active
             if (
                 state.audio_channels >= 2 and state.audio_stereo_mode.strip().lower() == "dual_path"
@@ -177,7 +188,12 @@ def reduce(state: AppState, action: act.Action) -> AppState:
         )
         merged = (*state.recent_transcript_segments, line)[-_MAX_TRANSCRIPT_LINES:]
         return _touch(
-            state.model_copy(update={"recent_transcript_segments": merged}),
+            state.model_copy(
+                update={
+                    "recent_transcript_segments": merged,
+                    "consecutive_empty_chunks": 0,
+                }
+            ),
             action.at,
         )
 
@@ -315,5 +331,16 @@ def reduce(state: AppState, action: act.Action) -> AppState:
             state.model_copy(update={"current_level_meter": action.level}),
             action.at,
         )
+
+    if isinstance(action, act.TranscriptionChunkEmptyObserved):
+        count = state.consecutive_empty_chunks + 1
+        empty_updates: dict[str, object] = {"consecutive_empty_chunks": count}
+        if count >= _EMPTY_CHUNKS_WARN_THRESHOLD and not state.low_audio_warning_shown:
+            empty_updates["low_audio_warning_shown"] = True
+            empty_updates["warnings"] = (*state.warnings, _LOW_AUDIO_WARNING)[-_MAX_WARNINGS:]
+            empty_updates["ui_log_lines"] = _append_ui_log(
+                state, "warning", _LOW_AUDIO_WARNING, action.at
+            )
+        return _touch(state.model_copy(update=empty_updates), action.at)
 
     return state

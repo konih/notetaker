@@ -102,6 +102,8 @@ class AppState(BaseModel):
     speaker_aliases: dict[str, str] = Field(default_factory=dict)
     diarization_detected_speakers: frozenset[str] = frozenset()
     current_level_meter: float | None = None
+    consecutive_empty_chunks: int = 0
+    low_audio_warning_shown: bool = False
     last_updated_at: datetime | None = None
     settings_screen_open: bool = False
     sessions_screen_open: bool = False
