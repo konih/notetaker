@@ -28,6 +28,12 @@ Only existing files are loaded. See [`install-desktop.md`](install-desktop.md) f
 - `AUDIO_CHANNELS`: default `1`
 - `AUDIO_INCLUDE_MICROPHONE`: default `true` — mix **default monitor** (system/meeting playback) with **default microphone** (your voice) via ffmpeg `amix`
 - `AUDIO_MICROPHONE_SOURCE`: optional explicit PulseAudio source name for the mic leg (see `live-transcriber devices`, marked with `^`)
+
+> **Capturing Teams/Zoom/Meet audio (both sides of a call):** the default captures only
+> your microphone. To also transcribe remote participants you must add a loopback source
+> (BlackHole on macOS; PipeWire/PulseAudio `.monitor` on Linux). See
+> **[system-audio-capture.md](system-audio-capture.md)** for the full setup and the
+> two-channel `dual_path` command.
 - `LOG_LEVEL`: default `INFO`; use `DEBUG` for verbose recorder/offline finalize steps (also sets UI action dispatch to DEBUG). Put this in **project `.env`** if your IDE/shell does not load `.envrc` before `live-transcriber` starts.
 - `LOG_ENABLE_FILE`: default `true` — append structured JSON lines to a rotating log file
 - `LOG_FILE`: optional absolute path; default is under the app data directory (`…/logs/live-meeting-transcriber.log`)

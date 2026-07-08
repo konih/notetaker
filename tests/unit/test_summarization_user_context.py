@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Iterable
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 from live_meeting_transcriber.application.session_service import SessionService
@@ -18,11 +18,12 @@ from live_meeting_transcriber.storage.repositories import (
 )
 from live_meeting_transcriber.storage.sqlite import open_connection
 from live_meeting_transcriber.summarization.service import build_summary_prompt
+from live_meeting_transcriber.utils.time import utc_now
 
 
 def test_build_summary_prompt_includes_user_context() -> None:
     session = MeetingSession(title="Sync")
-    t0 = datetime.utcnow()
+    t0 = utc_now()
     segs = [
         TranscriptSegment(
             session_id=session.id,
@@ -63,7 +64,7 @@ def test_session_service_passes_user_context_to_summarizer(tmp_path: Path) -> No
         transcripts = SqliteTranscriptRepository(conn)
         summaries = SqliteSummaryRepository(conn)
         session = sessions.create(MeetingSession(title="T"))
-        t0 = datetime.utcnow()
+        t0 = utc_now()
         transcripts.append(
             TranscriptSegment(
                 session_id=session.id,
