@@ -6,6 +6,7 @@ from uuid import uuid4
 from live_meeting_transcriber.ui.state.model import (
     AppState,
     RecordingStatus,
+    TranscriptionStatus,
     TranscriptLineState,
     UiErrorState,
 )
@@ -14,6 +15,7 @@ from live_meeting_transcriber.ui.state.selectors import (
     select_header_title,
     select_is_recording,
     select_level_bar,
+    select_status_line,
     select_transcript_timestamp,
     select_unacknowledged_errors,
 )
@@ -38,6 +40,57 @@ def _line(**over: object) -> TranscriptLineState:
 def test_select_transcript_timestamp_is_compact_local_clock() -> None:
     # Was a full ISO range ("2026-07-08T09:14:00 → ...09:14:08"); now a compact local clock.
     assert select_transcript_timestamp(_line(), tz=PLUS2) == "11:14:00"
+
+
+_INTERNAL_KEYS = ("rec=", "asr=", "live_spk=", "diar_ui=", "src=", "heard=")
+
+
+def test_status_line_recording_uses_plain_language_not_internal_keys() -> None:
+    s = AppState(
+        recording_status=RecordingStatus.recording,
+        transcription_status=TranscriptionStatus.active,
+    )
+    line = select_status_line(s)
+    assert "Recording" in line
+    assert "transcribing" in line.lower()
+    for key in _INTERNAL_KEYS:
+        assert key not in line
+
+
+def test_status_line_idle_is_plain() -> None:
+    assert "Idle" in select_status_line(AppState(recording_status=RecordingStatus.idle))
+
+
+def test_status_line_dual_channel_names_you_and_remote() -> None:
+    s = AppState(
+        recording_status=RecordingStatus.recording,
+        audio_channels=2,
+        audio_stereo_mode="dual_path",
+    )
+    line = select_status_line(s).lower()
+    assert "you" in line and "remote" in line
+
+
+def test_status_line_mono_is_single_channel() -> None:
+    line = select_status_line(AppState(audio_channels=1)).lower()
+    assert "single channel" in line
+
+
+def test_status_line_omits_heard_speakers_to_avoid_duplication() -> None:
+    # "heard" speakers live on the dedicated Live-speakers sidebar line, not here (no duplicate).
+    s = AppState(
+        recording_status=RecordingStatus.recording,
+        diarization_detected_speakers=frozenset({"speaker_0", "speaker_1"}),
+    )
+    assert "heard" not in select_status_line(s).lower()
+
+
+def test_status_line_surfaces_transcription_failure() -> None:
+    s = AppState(
+        recording_status=RecordingStatus.recording,
+        transcription_status=TranscriptionStatus.failed,
+    )
+    assert "failed" in select_status_line(s).lower()
 
 
 def test_select_header_title_uses_session_title() -> None:
