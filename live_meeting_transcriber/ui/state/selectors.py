@@ -1,7 +1,15 @@
 from __future__ import annotations
 
+from datetime import tzinfo
+
 from live_meeting_transcriber.domain.speaker_display import format_transcript_speaker_label
-from live_meeting_transcriber.ui.state.model import AppState, RecordingStatus, UiErrorState
+from live_meeting_transcriber.ui.state.model import (
+    AppState,
+    RecordingStatus,
+    TranscriptLineState,
+    UiErrorState,
+)
+from live_meeting_transcriber.utils.time import format_clock
 
 
 def select_header_title(state: AppState) -> str:
@@ -34,6 +42,15 @@ def select_unacknowledged_errors(state: AppState) -> tuple[UiErrorState, ...]:
 
 def select_display_speaker(state: AppState, speaker_key: str) -> str:
     return format_transcript_speaker_label(speaker_key, state.speaker_aliases)
+
+
+def select_transcript_timestamp(line: TranscriptLineState, tz: tzinfo | None = None) -> str:
+    """Compact local wall-clock start time (``HH:MM:SS``) for a transcript line.
+
+    Replaces the full ISO ``started → ended`` range that ate transcript width and
+    truncated speech. Start time alone is enough to place a line in the meeting.
+    """
+    return format_clock(line.started_at, tz)
 
 
 def select_status_line(state: AppState) -> str:

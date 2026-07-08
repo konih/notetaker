@@ -45,6 +45,7 @@ from live_meeting_transcriber.ui.state.selectors import (
     select_header_title,
     select_level_bar,
     select_status_line,
+    select_transcript_timestamp,
     select_unacknowledged_errors,
 )
 from live_meeting_transcriber.ui.state.store import Store
@@ -644,13 +645,13 @@ class TranscriberApp(App[None]):
         ):
             for line in state.recent_transcript_segments[len(old_keys) :]:
                 sp = select_display_speaker(state, line.speaker)
-                ts = f"{line.started_at.isoformat()} → {line.ended_at.isoformat()}"
+                ts = select_transcript_timestamp(line)
                 log.write(Text.from_markup(f"[dim]{ts}[/] [bold]{sp}[/]\n{line.text}"))
         elif old_keys != new_keys:
             log.clear()
             for line in state.recent_transcript_segments:
                 sp = select_display_speaker(state, line.speaker)
-                ts = f"{line.started_at.isoformat()} → {line.ended_at.isoformat()}"
+                ts = select_transcript_timestamp(line)
                 log.write(Text.from_markup(f"[dim]{ts}[/] [bold]{sp}[/]\n{line.text}"))
         self._last_segment_keys = new_keys
 
