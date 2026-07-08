@@ -26,7 +26,7 @@ from live_meeting_transcriber.ui.tui.meeting_toolbar import (
     primary_toolbar_actions,
     toolbar_action_by_button_id,
 )
-from textual.widgets import Button, TabbedContent
+from textual.widgets import Button, OptionList, TabbedContent
 
 # --- pure partition -------------------------------------------------------
 
@@ -142,7 +142,8 @@ async def test_more_button_opens_overflow_menu(tmp_path: Path) -> None:
         await pilot.pause()
         assert isinstance(app.screen, MeetingActionsMenu)
         # The menu offers exactly the overflow actions, keyed by method name.
-        option_ids = {app.screen.get_option_at_index(i).id for i in range(app.screen.option_count)}
+        menu = app.screen.query_one("#meeting-more-list", OptionList)
+        option_ids = {menu.get_option_at_index(i).id for i in range(menu.option_count)}
         assert option_ids == {a.action for a in overflow_toolbar_actions()}
 
 
