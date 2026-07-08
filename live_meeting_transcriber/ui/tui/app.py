@@ -54,7 +54,10 @@ from live_meeting_transcriber.ui.tui.meeting_browser import (
     MeetingBrowser,
     SummaryContextModal,
 )
-from live_meeting_transcriber.ui.tui.people_suggesters import CommaSeparatedPeopleSuggester
+from live_meeting_transcriber.ui.tui.people_suggesters import (
+    CommaSeparatedPeopleSuggester,
+    PeoplePrefixSuggester,
+)
 from live_meeting_transcriber.ui.tui.slide_preview_helpers import (
     ensure_textual_image_protocol_probe,
 )
@@ -223,10 +226,12 @@ class EditSessionTitleScreen(ModalScreen[None]):
 
 
 class EditMeetingDetailsScreen(ModalScreen[None]):
-    """Edit the current live meeting's title, context/notes, and attendees up front.
+    """Edit the current live meeting's title, context/notes, attendees, and speaker names.
 
-    Values apply to the session immediately (persisted via SessionDetailsCommitRequested);
-    the notes carry into the summary-context prompt at summarize-time.
+    Title/notes/attendees are persisted via SessionDetailsCommitRequested; the notes carry
+    into the summary-context prompt at summarize-time. Any speaker keys already detected in
+    the live session can be named here — the alias applies immediately (transcript relabels)
+    and persists, without waiting for post-stop cleanup.
     """
 
     BINDINGS = [
@@ -234,15 +239,26 @@ class EditMeetingDetailsScreen(ModalScreen[None]):
         Binding("ctrl+enter,ctrl+return", "save", "Save", show=True, priority=True),
     ]
 
-    def __init__(self, session_id: str, *, title: str, notes: str, attendees: list[str]) -> None:
+    def __init__(
+        self,
+        session_id: str,
+        *,
+        title: str,
+        notes: str,
+        attendees: list[str],
+        detected_speakers: list[str],
+        speaker_aliases: dict[str, str],
+    ) -> None:
         super().__init__()
         self.session_id = session_id
         self._title = title
         self._notes = notes
         self._attendees = attendees
+        self._detected_speakers = detected_speakers
+        self._speaker_aliases = speaker_aliases
 
     def compose(self) -> ComposeResult:
-        yield Vertical(
+        children: list[Static | TabCompletableInput | TextArea | Horizontal] = [
             Static("Meeting details", classes="settings-title"),
             Static("Ctrl+Enter: save   Esc: cancel", classes="dim"),
             Static("Title"),
@@ -255,12 +271,35 @@ class EditMeetingDetailsScreen(ModalScreen[None]):
                 placeholder="Alice, Bob, …",
                 id="details-attendees",
             ),
+            Static("Speaker names"),
+        ]
+        if self._detected_speakers:
+            for key in self._detected_speakers:
+                children.append(
+                    Horizontal(
+                        Static(f"{key} →", classes="spk-label"),
+                        TabCompletableInput(
+                            value=self._speaker_aliases.get(key, ""),
+                            placeholder="Display name",
+                            id=f"details-spk-{key}",
+                        ),
+                        classes="spk-row",
+                    )
+                )
+        else:
+            children.append(
+                Static(
+                    "No speakers detected yet — names appear once the meeting has audio.",
+                    classes="dim",
+                )
+            )
+        children.append(
             Horizontal(
                 Button("Save", id="details-save", variant="primary"),
                 Button("Cancel", id="details-cancel"),
-            ),
-            classes="settings-dialog",
+            )
         )
+        yield Vertical(*children, classes="settings-dialog")
 
     def on_mount(self) -> None:
         app = self.app
@@ -270,6 +309,10 @@ class EditMeetingDetailsScreen(ModalScreen[None]):
         self.query_one(
             "#details-attendees", TabCompletableInput
         ).suggester = CommaSeparatedPeopleSuggester(app.container.people)
+        for key in self._detected_speakers:
+            self.query_one(
+                f"#details-spk-{key}", TabCompletableInput
+            ).suggester = PeoplePrefixSuggester(app.container.people)
         self.query_one("#details-title", TabCompletableInput).focus()
 
     async def action_save(self) -> None:
@@ -294,7 +337,24 @@ class EditMeetingDetailsScreen(ModalScreen[None]):
         )
         for name in attendees:
             app.container.people.touch(name)
+        self._save_speaker_aliases(app)
         self.dismiss()
+
+    def _save_speaker_aliases(self, app: TranscriberApp) -> None:
+        """Persist detected-speaker display names and refresh live state so labels update."""
+        if not self._detected_speakers:
+            return
+        mapping = {
+            key: self.query_one(f"#details-spk-{key}", TabCompletableInput).value.strip()
+            for key in self._detected_speakers
+        }
+        app.container.session_speakers.replace_map(UUID(self.session_id), mapping)
+        for key, name in mapping.items():
+            if name:
+                app.store.dispatch(
+                    act.SpeakerAliasUpdated(speaker_key=key, alias=name, at=utc_now())
+                )
+                app.container.people.touch(name)
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         bid = event.button.id or ""
@@ -667,8 +727,9 @@ class TranscriberApp(App[None]):
         await self.store.dispatch_with_effects(act.RecordingStopRequested(at=utc_now()))
 
     def action_meeting_details(self) -> None:
-        """Edit the current live meeting's title/context/attendees (Live tab)."""
-        sid = self.store.get_state().current_session_id
+        """Edit the current live meeting's title/context/attendees/speakers (Live tab)."""
+        state = self.store.get_state()
+        sid = state.current_session_id
         if sid is None:
             self.notify("Start (or resume) a meeting on the Live tab first.", severity="warning")
             return
@@ -682,6 +743,8 @@ class TranscriberApp(App[None]):
                 title=session.title,
                 notes=session.notes,
                 attendees=list(session.attendees),
+                detected_speakers=sorted(state.diarization_detected_speakers),
+                speaker_aliases=dict(state.speaker_aliases),
             )
         )
 
