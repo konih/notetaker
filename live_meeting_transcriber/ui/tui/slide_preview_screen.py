@@ -440,12 +440,17 @@ class SlidePreviewScreen(ModalScreen[None]):
 
     def on_focus(self, event: Focus) -> None:
         node = event.control
-        if node is not None and node.id and node.id in (
-            "slide-strategy",
-            "slide-sample",
-            "slide-threshold",
-            "slide-min-interval",
-            "slide-max-candidates",
+        if (
+            node is not None
+            and node.id
+            and node.id
+            in (
+                "slide-strategy",
+                "slide-sample",
+                "slide-threshold",
+                "slide-min-interval",
+                "slide-max-candidates",
+            )
         ):
             self.query_one("#slide-param-hint", Static).update(slide_param_focus_hint(node.id))
 
