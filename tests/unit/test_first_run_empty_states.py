@@ -12,8 +12,6 @@ from pathlib import Path
 from unittest.mock import MagicMock
 from uuid import uuid4
 
-from textual.widgets import RichLog, Static
-
 from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.models import MeetingSession
 from live_meeting_transcriber.ui.effects.controller import TuiController
@@ -29,9 +27,8 @@ from live_meeting_transcriber.ui.tui.empty_states import (
     SESSIONS_EMPTY_HINT,
     audio_prerequisite_warnings,
 )
-from live_meeting_transcriber.ui.tui.meeting_browser import MeetingBrowser
 from textual.content import Content
-from textual.widgets import TabbedContent
+from textual.widgets import RichLog, Static, TabbedContent
 
 _NOW = datetime(2026, 7, 8, 12, 0, 0, tzinfo=UTC)
 
@@ -117,16 +114,20 @@ async def test_live_transcript_hint_replaced_by_segments() -> None:
 
 
 async def test_startup_warns_when_no_audio_devices() -> None:
-    app = _app()
-    app.container.devices.list_sources.return_value = []
+    container = MagicMock()
+    container.sessions.list.return_value = []
+    container.devices.list_sources.return_value = []
+    app = _browser_app(container)
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
         assert any("no audio" in w.lower() for w in app.store.get_state().warnings)
 
 
 async def test_startup_does_not_block_launch_on_probe_failure() -> None:
-    app = _app()
-    app.container.devices.list_sources.side_effect = RuntimeError("no ffmpeg")
+    container = MagicMock()
+    container.sessions.list.return_value = []
+    container.devices.list_sources.side_effect = RuntimeError("no ffmpeg")
+    app = _browser_app(container)
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
         # App still launched and rendered despite the failing probe.

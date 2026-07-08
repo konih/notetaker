@@ -11,9 +11,6 @@ from datetime import UTC, datetime
 from unittest.mock import MagicMock
 from uuid import UUID
 
-from textual.content import Content
-from textual.widgets import RichLog, Static
-
 from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.ui.effects.controller import TuiController
 from live_meeting_transcriber.ui.state.model import (
@@ -27,6 +24,8 @@ from live_meeting_transcriber.ui.state.selectors import (
 )
 from live_meeting_transcriber.ui.state.store import Store
 from live_meeting_transcriber.ui.tui.app import TranscriberApp
+from textual.content import Content
+from textual.widgets import RichLog, Static
 
 _NOW = datetime(2026, 7, 8, 12, 0, 0, tzinfo=UTC)
 _SID = UUID("12345678-1234-5678-1234-567812345678")

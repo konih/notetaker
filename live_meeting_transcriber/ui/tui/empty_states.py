@@ -8,7 +8,7 @@ returned warnings; nothing here touches a provider or blocks launch.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 # Rich-markup hints shown when a surface has no content yet. Each names the
 # concrete next keystroke so a blank pane never leaves the user guessing.
@@ -25,7 +25,7 @@ SESSIONS_EMPTY_HINT = (
 )
 
 
-def audio_prerequisite_warnings(list_sources: Callable[[], list[object]]) -> list[str]:
+def audio_prerequisite_warnings(list_sources: Callable[[], Sequence[object]]) -> list[str]:
     """Non-blocking startup checks for audio-capture prerequisites.
 
     Returns actionable remediation messages; an empty list means the basic

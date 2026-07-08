@@ -51,16 +51,16 @@ from live_meeting_transcriber.ui.state.selectors import (
     select_unacknowledged_errors,
 )
 from live_meeting_transcriber.ui.state.store import Store
+from live_meeting_transcriber.ui.tui.empty_states import (
+    LIVE_EMPTY_HINT,
+    SESSIONS_EMPTY_HINT,
+    audio_prerequisite_warnings,
+)
 from live_meeting_transcriber.ui.tui.meeting_browser import (
     ConfirmDeleteMeetingModal,
     ConfirmOverwriteExportModal,
     MeetingBrowser,
     SummaryContextModal,
-)
-from live_meeting_transcriber.ui.tui.empty_states import (
-    LIVE_EMPTY_HINT,
-    SESSIONS_EMPTY_HINT,
-    audio_prerequisite_warnings,
 )
 from live_meeting_transcriber.ui.tui.people_suggesters import (
     CommaSeparatedPeopleSuggester,
