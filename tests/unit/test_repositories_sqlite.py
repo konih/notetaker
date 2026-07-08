@@ -42,6 +42,28 @@ def test_repositories_create_list_get_sessions(tmp_path: Path) -> None:
         conn.close()
 
 
+def test_reopen_preserves_title_notes_attendees(tmp_path: Path) -> None:
+    # U20 AC4: resuming (reopen) a meeting must not clobber operator-set metadata.
+    conn = open_connection(f"sqlite:////{tmp_path}/db.sqlite3")
+    try:
+        sessions = SqliteMeetingSessionRepository(conn)
+        s = sessions.create(MeetingSession(title="Standup"))
+        sessions.update_details(
+            s.id, title="Standup", notes="Agenda: roadmap", attendees=["Alice", "Bob"]
+        )
+        sessions.end(s.id)
+
+        reopened = sessions.reopen(s.id)
+
+        assert reopened is not None
+        assert reopened.ended_at is None
+        assert reopened.title == "Standup"
+        assert reopened.notes == "Agenda: roadmap"
+        assert reopened.attendees == ["Alice", "Bob"]
+    finally:
+        conn.close()
+
+
 def test_meeting_session_update_title(tmp_path: Path) -> None:
     conn = open_connection(f"sqlite:////{tmp_path}/db.sqlite3")
     try:
