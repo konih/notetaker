@@ -9,16 +9,24 @@ from live_meeting_transcriber.audio.devices import AudioDeviceError
 _DEVICE_LINE_RE = re.compile(r"^\[AVFoundation indev @ .+\] \[(\d+)\] (.+)$")
 
 # Virtual loopback / meeting-capture devices (system audio on macOS).
+#
+# Ordered by preference: ``get_default_monitor_source`` picks the first *hint* (not the
+# first device) that any device matches, so real loopback drivers rank above app-specific
+# virtual devices. The "Microsoft Teams Audio Device" matches ``teams audio`` but only
+# carries audio when Teams routes system sound, so it is a last-resort fallback — never let
+# it shadow a real BlackHole/Loopback device that reliably taps system output.
 _MONITOR_HINTS = (
+    # Reliable general-purpose loopback drivers first.
     "blackhole",
     "loopback",
     "soundflower",
-    "teams audio",
-    "zoom",
+    "vb-audio",
     "monitor",
     "system audio",
-    "vb-audio",
     "virtual",
+    # App-specific virtual devices last (present but unreliable as a system tap).
+    "teams audio",
+    "zoom",
 )
 
 # Built-in or headset mics — avoid virtual meeting devices.
@@ -89,9 +97,13 @@ class AvfoundationAudioDeviceProvider:
 
     def get_default_monitor_source(self) -> str | None:
         sources = self.list_sources()
-        for source in sources:
-            if _matches_any(_label_lower(source), _MONITOR_HINTS):
-                return source.name
+        # Iterate hints in preference order (not device order) so a reliable loopback
+        # driver always beats an app-specific virtual device that happens to enumerate
+        # first (e.g. "Microsoft Teams Audio Device").
+        for hint in _MONITOR_HINTS:
+            for source in sources:
+                if hint in _label_lower(source):
+                    return source.name
         return None
 
     def get_default_microphone_source(self) -> str | None:
