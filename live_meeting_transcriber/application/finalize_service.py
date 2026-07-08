@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
@@ -13,7 +13,42 @@ from live_meeting_transcriber.audio.session_recording import (
 )
 from live_meeting_transcriber.audio.timeline import AudioTimelineEntry, load_timeline
 from live_meeting_transcriber.config.settings import Settings
-from live_meeting_transcriber.domain.models import TranscriptSegment
+from live_meeting_transcriber.domain.models import MeetingSession, TranscriptSegment
+
+
+def _as_utc(dt: datetime) -> datetime:
+    """Coerce a datetime to tz-aware UTC. A pre-existing DB can mix naive (old) and
+    aware (post-A1) ``ended_at`` rows (see roadmap A11); comparing the two raises. Treat
+    naive values as UTC — which is what the app has always written — so the recovery
+    window comparison never throws."""
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+
+
+def find_unfinalized_sessions(
+    *, container: Container, ended_after: datetime | None = None
+) -> list[MeetingSession]:
+    """Ended sessions with a transcript where every segment is still ``"unknown"``.
+
+    A reliable-enough proxy for "recorded but finalize (WhisperX + diarization)
+    never actually completed" — e.g. an auto-finalize-on-stop task that got
+    killed by the app exiting before it finished. ``ended_after`` bounds the
+    scan to recently-ended sessions (avoids repeatedly reprocessing sessions
+    that legitimately have no distinguishable speakers).
+    """
+    cutoff = _as_utc(ended_after) if ended_after is not None else None
+    out: list[MeetingSession] = []
+    for session in container.sessions.list():
+        if session.ended_at is None:
+            continue
+        if cutoff is not None and _as_utc(session.ended_at) < cutoff:
+            continue
+        segments = container.transcripts.list_by_session(session.id)
+        if not segments:
+            continue
+        if any(s.speaker != "unknown" for s in segments):
+            continue
+        out.append(session)
+    return out
 
 
 def _finalize_load_inputs(

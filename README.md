@@ -159,6 +159,20 @@ Offline WhisperX + speaker attribution (install **`uv sync --extra whisperx`**, 
 uv run live-transcriber finalize --session-id <id>
 ```
 
+Backfill any sessions whose auto-finalize-on-stop never completed (e.g. the app
+was closed right after stopping) — finds ended sessions whose transcript is
+still entirely `unknown` and re-runs finalize for each. Use `--dry-run` to list
+them first:
+
+```bash
+uv run live-transcriber finalize-pending --dry-run
+uv run live-transcriber finalize-pending
+```
+
+> When `FINALIZE_ON_SESSION_STOP=true` and `HF_TOKEN` is set, the TUI also
+> re-runs finalize on startup for such sessions **ended within the last 24h**,
+> so a normal stop-then-quit no longer silently loses diarization.
+
 Speaker keys and display names (see `docs/configuration.md`):
 
 ```bash
