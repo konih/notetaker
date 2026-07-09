@@ -45,7 +45,10 @@ uv run ruff format .  # format
 
 ### Key environment variables
 
-See [`.env.example`](.env.example) and [`docs/configuration.md`](docs/configuration.md).
+The primary settings store is now `config.yaml` (U21); environment variables and `.env`
+remain as overrides/fallback. Precedence: **env var > `config.yaml` > `.env` > default**.
+Secrets (`OPENAI_API_KEY`, `HF_TOKEN`) stay env/`.env`-only and are never written to YAML.
+See [`docs/configuration.md`](docs/configuration.md).
 
 | Area | Variables |
 |------|-----------|

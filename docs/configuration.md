@@ -1,10 +1,38 @@
 ## Configuration
 
-Configuration is loaded via `pydantic-settings` from environment variables and `.env` files.
+Configuration is loaded via `pydantic-settings`. The **YAML config file is the source of
+truth** (U21); environment variables and `.env` files are still honoured for back-compat.
 
-### `.env` file locations
+### Config file (`config.yaml`) — the source of truth
 
-Files are read in order; **later files override earlier ones**:
+Settings live in a single human-readable YAML file at
+`$XDG_CONFIG_HOME/live-meeting-transcriber/config.yaml` (default:
+`~/.config/live-meeting-transcriber/config.yaml`). Editing settings **in-app** (Settings
+screen → `e: edit`) writes this file atomically; path fields (log file, Obsidian
+people/meetings/template/screenshots dirs, screenshots source) are set through a
+**folder/file picker** so you never hand-edit a path. Path changes apply on restart.
+
+The file is regenerated on each save — user-added comments are **not** preserved — and a
+header banner documents this. Secrets (`OPENAI_API_KEY`, `HF_TOKEN`) are intentionally
+**never** written to `config.yaml`; keep them in an environment variable or `.env`.
+
+### Precedence
+
+Sources are resolved highest-priority first:
+
+1. **Environment variable** (e.g. `TRANSCRIPTION_MODEL=…`)
+2. **`config.yaml`** (the in-app store)
+3. **`.env` file** (back-compat / fallback)
+4. Built-in default
+
+> **Note:** the first in-app save writes the *full* resolved settings into `config.yaml`,
+> which sits **above** `.env`. After that first save, editing a value in `.env` has no
+> effect for any field already in `config.yaml` — change it in-app (or in `config.yaml` /
+> via an environment variable) instead.
+
+### `.env` file locations (fallback)
+
+`.env` files are read in order; **later files override earlier ones**:
 
 1. `$XDG_CONFIG_HOME/live-meeting-transcriber/.env` (default: `~/.config/live-meeting-transcriber/.env`)
 2. `./.env` in the current working directory
