@@ -24,15 +24,22 @@ from tests.e2e.video_helpers import patch_data_dir
 
 
 def _seed_session(
-    container: Container, *, title: str, ended: bool, speaker: str, tmp_path: Path
+    container: Container,
+    *,
+    title: str,
+    ended: bool,
+    speaker: str,
+    tmp_path: Path,
+    with_wav: bool = True,
 ) -> UUID:
     session = container.sessions.create(MeetingSession(title=title))
     sid: UUID = session.id
     if ended:
         container.sessions.end(sid)
-    audio_root = session_audio_dir(tmp_path, sid)
-    (audio_root / "full_session.wav").parent.mkdir(parents=True, exist_ok=True)
-    (audio_root / "full_session.wav").write_bytes(b"RIFF")
+    if with_wav:
+        audio_root = session_audio_dir(tmp_path, sid)
+        (audio_root / "full_session.wav").parent.mkdir(parents=True, exist_ok=True)
+        (audio_root / "full_session.wav").write_bytes(b"RIFF")
     container.transcripts.append(
         TranscriptSegment(
             session_id=sid,
@@ -45,9 +52,12 @@ def _seed_session(
     return sid
 
 
-def test_finalize_pending_backfills_only_all_unknown_ended_sessions(
+def test_finalize_pending_backfills_dropped_and_interrupted_sessions_with_a_recording(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    # B4: `finalize-pending` recovers both (a) sessions dropped on exit (ended, all-"unknown") and
+    # (b) *interrupted* sessions (never marked ended) whose ``full_session.wav`` survives on disk.
+    # It must still skip already-diarized sessions and interrupted ones with no recording.
     patch_data_dir(monkeypatch, tmp_path)
     db = tmp_path / "finalize_pending.sqlite3"
     settings = Settings(openai_api_key="test-key", database_url=f"sqlite:////{db}")
@@ -59,8 +69,20 @@ def test_finalize_pending_backfills_only_all_unknown_ended_sessions(
     already_done_sid = _seed_session(
         container, title="Already diarized", ended=True, speaker="speaker_1", tmp_path=tmp_path
     )
-    still_recording_sid = _seed_session(
-        container, title="Still recording", ended=False, speaker="unknown", tmp_path=tmp_path
+    interrupted_sid = _seed_session(
+        container,
+        title="Interrupted (audio survives)",
+        ended=False,
+        speaker="unknown",
+        tmp_path=tmp_path,
+    )
+    no_recording_sid = _seed_session(
+        container,
+        title="Interrupted, no audio flushed",
+        ended=False,
+        speaker="unknown",
+        tmp_path=tmp_path,
+        with_wav=False,
     )
 
     patch_cli(monkeypatch, settings=settings, container=container)
@@ -87,10 +109,11 @@ def test_finalize_pending_backfills_only_all_unknown_ended_sessions(
     result = CliRunner().invoke(app, ["finalize-pending"])
     assert result.exit_code == 0, result.stdout + result.stderr
 
-    assert finalized_ids == [dropped_sid]
+    assert set(finalized_ids) == {dropped_sid, interrupted_sid}
     assert str(dropped_sid) in result.stdout
+    assert str(interrupted_sid) in result.stdout
     assert str(already_done_sid) not in result.stdout
-    assert str(still_recording_sid) not in result.stdout
+    assert str(no_recording_sid) not in result.stdout
 
     segments = container.transcripts.list_by_session(dropped_sid)
     assert [s.speaker for s in segments] == ["speaker_1"]

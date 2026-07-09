@@ -25,22 +25,50 @@ def _as_utc(dt: datetime) -> datetime:
 
 
 def find_unfinalized_sessions(
-    *, container: Container, ended_after: datetime | None = None
+    *,
+    container: Container,
+    ended_after: datetime | None = None,
+    include_interrupted: bool = False,
+    started_after: datetime | None = None,
+    data_dir: Path | None = None,
+    exclude_session_id: UUID | None = None,
 ) -> list[MeetingSession]:
-    """Ended sessions with a transcript where every segment is still ``"unknown"``.
+    """Sessions with a transcript where every segment is still ``"unknown"``.
 
     A reliable-enough proxy for "recorded but finalize (WhisperX + diarization)
     never actually completed" — e.g. an auto-finalize-on-stop task that got
     killed by the app exiting before it finished. ``ended_after`` bounds the
     scan to recently-ended sessions (avoids repeatedly reprocessing sessions
     that legitimately have no distinguishable speakers).
+
+    By default only *ended* sessions are considered. A meeting whose recording
+    was interrupted (app crash / force-quit) never got ``ended_at`` set, so it
+    looks like it is still recording and would otherwise be stuck all-``unknown``
+    forever even though its ``full_session.wav`` survives on disk. Pass
+    ``include_interrupted=True`` (with ``data_dir``) to also surface those — but
+    only when their recording actually exists, and never ``exclude_session_id``
+    (the session the user is actively recording right now).
     """
     cutoff = _as_utc(ended_after) if ended_after is not None else None
+    started_cutoff = _as_utc(started_after) if started_after is not None else None
+    resolved_data_dir = data_dir
+    if include_interrupted and resolved_data_dir is None and container.settings is not None:
+        resolved_data_dir = container.settings.ensure_data_dir()
+
     out: list[MeetingSession] = []
     for session in container.sessions.list():
-        if session.ended_at is None:
+        if exclude_session_id is not None and session.id == exclude_session_id:
             continue
-        if cutoff is not None and _as_utc(session.ended_at) < cutoff:
+        if session.ended_at is None:
+            # Interrupted (never marked ended). Only recoverable if opted in and the
+            # recording survives; otherwise it's genuinely still recording — skip.
+            if not include_interrupted or resolved_data_dir is None:
+                continue
+            if started_cutoff is not None and _as_utc(session.started_at) < started_cutoff:
+                continue
+            if not _has_full_session_wav(resolved_data_dir, session.id):
+                continue
+        elif cutoff is not None and _as_utc(session.ended_at) < cutoff:
             continue
         segments = container.transcripts.list_by_session(session.id)
         if not segments:
@@ -49,6 +77,23 @@ def find_unfinalized_sessions(
             continue
         out.append(session)
     return out
+
+
+def _has_full_session_wav(data_dir: Path, session_id: UUID) -> bool:
+    # Build the path directly (do not use ``session_audio_dir`` — it mkdirs as a side effect).
+    return full_session_wav_path(data_dir / "sessions" / str(session_id)).is_file()
+
+
+def session_speakers_are_all_unknown(*, container: Container, session_id: UUID) -> bool:
+    """True if the session has a transcript but *no* segment carries a real speaker label.
+
+    After a finalize run this means diarization did not actually label anyone — WhisperX
+    refined the words but pyannote was skipped (no ``HF_TOKEN``) or produced nothing. Callers
+    use it to tell the operator *why* their meeting still shows "unknown" instead of silently
+    reporting success.
+    """
+    segments = container.transcripts.list_by_session(session_id)
+    return bool(segments) and all(s.speaker == "unknown" for s in segments)
 
 
 def _finalize_load_inputs(

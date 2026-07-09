@@ -282,7 +282,8 @@ class EditMeetingDetailsScreen(ModalScreen[None]):
         else:
             children.append(
                 Static(
-                    "No speakers detected yet — names appear once the meeting has audio.",
+                    "No speakers detected yet. Run Speaker ID on the finished meeting "
+                    "(Meetings tab · Ctrl+I) to detect and name speakers.",
                     classes="dim",
                 )
             )
@@ -512,7 +513,7 @@ class TranscriberApp(App[None]):
         Binding("q", "quit", "Quit", show=True),
         Binding("r", "record", "Record", show=True),
         Binding("x", "stop", "Stop", show=True),
-        Binding("t", "meeting_details", "Meeting details", show=True),
+        Binding("t", "meeting_details", "Edit meeting", show=True),
         Binding("w", "export_md", "Export", show=True, priority=True),
         Binding("k", "summarize", "Summarize", show=True, priority=True),
         Binding("s", "settings", "Settings", show=True),

@@ -52,7 +52,7 @@ def test_effective_screenshots_source_dir_macos_defaults_to_desktop(
 ) -> None:
     monkeypatch.setattr("live_meeting_transcriber.config.settings.sys.platform", "darwin")
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-    s = Settings(OPENAI_API_KEY="k", DATABASE_URL="sqlite:////tmp/t.db")
+    s = Settings(openai_api_key="k", database_url="sqlite:////tmp/t.db")
     assert s.effective_screenshots_source_dir() == (tmp_path / "Desktop").resolve()
 
 
@@ -61,7 +61,7 @@ def test_effective_screenshots_source_dir_linux_defaults_to_pictures(
 ) -> None:
     monkeypatch.setattr("live_meeting_transcriber.config.settings.sys.platform", "linux")
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-    s = Settings(OPENAI_API_KEY="k", DATABASE_URL="sqlite:////tmp/t.db")
+    s = Settings(openai_api_key="k", database_url="sqlite:////tmp/t.db")
     assert s.effective_screenshots_source_dir() == (tmp_path / "Pictures" / "Screenshots").resolve()
 
 
@@ -71,9 +71,9 @@ def test_effective_screenshots_source_dir_explicit_override_wins(
     monkeypatch.setattr("live_meeting_transcriber.config.settings.sys.platform", "darwin")
     custom = tmp_path / "my-shots"
     s = Settings(
-        OPENAI_API_KEY="k",
-        DATABASE_URL="sqlite:////tmp/t.db",
-        SCREENSHOTS_SOURCE_DIR=str(custom),
+        openai_api_key="k",
+        database_url="sqlite:////tmp/t.db",
+        screenshots_source_dir=custom,
     )
     assert s.effective_screenshots_source_dir() == custom.resolve()
 

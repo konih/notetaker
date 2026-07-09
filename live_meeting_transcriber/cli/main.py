@@ -15,6 +15,7 @@ from live_meeting_transcriber.application.container import Container, build_cont
 from live_meeting_transcriber.application.finalize_service import (
     finalize_session_sync,
     find_unfinalized_sessions,
+    session_speakers_are_all_unknown,
 )
 from live_meeting_transcriber.application.path_sanitize import normalize_import_path
 from live_meeting_transcriber.application.recorder import Recorder
@@ -340,6 +341,12 @@ def export(
             typer.echo(f"Obsidian unchanged: {result.obs_path}", err=False)
 
 
+_SPEAKERS_UNLABELLED_HINT = (
+    "Speakers were NOT labelled — WhisperX ran but diarization produced no speakers. "
+    "Set HF_TOKEN (pyannote) and install the whisperx extra (uv sync --extra whisperx)."
+)
+
+
 @app.command("finalize")
 def finalize_session(
     ctx: typer.Context, session_id: str = typer.Option(..., "--session-id")
@@ -359,6 +366,8 @@ def finalize_session(
         typer.echo(str(e), err=True)
         raise typer.Exit(code=2) from e
     typer.echo(f"Replaced transcript with {n} segment(s).")
+    if session_speakers_are_all_unknown(container=c, session_id=sid):
+        typer.echo(_SPEAKERS_UNLABELLED_HINT, err=True)
 
 
 @app.command("finalize-pending")
@@ -368,16 +377,21 @@ def finalize_pending(
         False, "--dry-run", help="List sessions that would be finalized without running WhisperX."
     ),
 ) -> None:
-    """Backfill speaker ID for ended sessions that never got diarized.
+    """Backfill speaker ID for sessions that never got diarized.
 
     Auto-finalize-on-stop schedules a background task when a recording stops;
     if the app is closed shortly after, that task is killed before WhisperX
     finishes and the session is left with every transcript segment stuck on
-    "unknown" forever. This finds those sessions (ended, non-empty transcript,
-    every segment still "unknown") and re-runs finalize for each of them.
+    "unknown" forever. A recording that was *interrupted* (app crash / force-quit)
+    additionally never got its ``ended_at`` set, so it looks like it is still
+    recording — but its ``full_session.wav`` survives on disk and is recoverable.
+    This finds both (non-empty transcript, every segment still "unknown"; ended,
+    or interrupted-with-a-surviving-recording) and re-runs finalize for each.
     """
     c = _get_container(ctx)
-    pending = find_unfinalized_sessions(container=c)
+    pending = find_unfinalized_sessions(
+        container=c, include_interrupted=True, data_dir=c.settings.ensure_data_dir()
+    )
     if not pending:
         typer.echo("No pending sessions found (nothing to finalize).")
         return
@@ -402,7 +416,13 @@ def finalize_pending(
             progress.update(task_id, description=f"Finalizing {session.title[:40]}")
             try:
                 n = finalize_session_sync(container=c, settings=c.settings, session_id=session.id)
-                typer.echo(f"  ok: {session.id} -> {n} segment(s)")
+                if session_speakers_are_all_unknown(container=c, session_id=session.id):
+                    typer.echo(
+                        f"  ok (speakers NOT labelled): {session.id} -> {n} segment(s). "
+                        f"{_SPEAKERS_UNLABELLED_HINT}"
+                    )
+                else:
+                    typer.echo(f"  ok: {session.id} -> {n} segment(s)")
                 ok += 1
             except Exception as e:
                 typer.echo(f"  failed: {session.id}: {e}", err=True)

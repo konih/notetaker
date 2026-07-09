@@ -28,6 +28,7 @@ from live_meeting_transcriber.ui.tui.empty_states import MEETINGS_EMPTY_HINT
 from live_meeting_transcriber.ui.tui.meeting_session_helpers import (
     count_preview_candidates,
     count_saved_slides,
+    format_meeting_row_title,
     format_session_type_label,
     format_slide_detail_note,
     list_preview_candidate_timestamps,
@@ -423,12 +424,13 @@ class MeetingBrowser(Vertical):
             else None
         )
         data_dir = self.container.settings.ensure_data_dir()
+        active_session_id = self.store.get_state().current_session_id
         table.clear()
         for s in self.container.sessions.list():
             is_video = session_is_video_import(data_dir, s.id)
             table.add_row(
                 format_session_type_label(is_video=is_video),
-                s.title[:40] + ("…" if len(s.title) > 40 else ""),
+                format_meeting_row_title(s, active_session_id=active_session_id),
                 format_local_datetime(s.started_at),
                 key=str(s.id),
             )

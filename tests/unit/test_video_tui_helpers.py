@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -13,10 +14,12 @@ from live_meeting_transcriber.application.video_import_service import (
     VideoImportResult,
 )
 from live_meeting_transcriber.application.video_session_storage import is_video_import_session
+from live_meeting_transcriber.domain.models import MeetingSession
 from live_meeting_transcriber.transcription.openai_transcriber import OpenAITranscriptionError
 from live_meeting_transcriber.ui.tui.meeting_session_helpers import (
     count_preview_candidates,
     count_saved_slides,
+    format_meeting_row_title,
     format_session_type_label,
     format_slide_detail_note,
     list_preview_candidate_timestamps,
@@ -49,6 +52,18 @@ def test_is_video_import_session_true_with_manifest(tmp_path: Path) -> None:
 def test_format_session_type_label() -> None:
     assert format_session_type_label(is_video=True) == "▶ Video"
     assert format_session_type_label(is_video=False) == "● Live"
+
+
+def test_format_meeting_row_title_marks_interrupted_but_not_active() -> None:
+    started = datetime(2026, 1, 1, 9, 0, 0)
+    ended = MeetingSession(title="Standup", started_at=started, ended_at=started)
+    assert format_meeting_row_title(ended) == "Standup"
+
+    interrupted = MeetingSession(title="Standup", started_at=started, ended_at=None)
+    assert format_meeting_row_title(interrupted).startswith("⏸ interrupted · Standup")
+
+    # The session being recorded right now must never be flagged as interrupted.
+    assert format_meeting_row_title(interrupted, active_session_id=interrupted.id) == "Standup"
 
 
 def test_session_has_slide_source_with_manifest(tmp_path: Path) -> None:
