@@ -1,17 +1,40 @@
 from __future__ import annotations
 
+import contextlib
 import os
 import sys
+import tempfile
 from pathlib import Path
 from typing import Literal, cast
 
+import yaml
 from pydantic import Field, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+    YamlConfigSettingsSource,
+)
 
 from live_meeting_transcriber.domain.models import SlideDetectionParams
 
 APP_CONFIG_DIR_NAME = "live-meeting-transcriber"
 APP_DATA_DIR_NAME = "live-meeting-transcriber"
+
+APP_CONFIG_YAML_NAME = "config.yaml"
+
+# Secrets are never written to the plaintext YAML config (U21, OQ-U21-2). Set them via an
+# environment variable or ``.env``; they still load normally, they are just excluded from
+# write-back so an API key/token never lands on disk in cleartext.
+SECRET_FIELD_NAMES = frozenset({"openai_api_key", "hf_token"})
+
+_CONFIG_YAML_HEADER = (
+    "# live-meeting-transcriber configuration (U21).\n"
+    "# Source of truth for settings, regenerated on every in-app save — user comments\n"
+    "# are NOT preserved. Precedence: environment variable > this file > .env > default.\n"
+    "# Secrets (API keys / tokens) are intentionally not stored here; set them via env or .env.\n"
+    "\n"
+)
 
 
 def default_data_dir() -> Path:
@@ -34,6 +57,11 @@ def app_config_dir() -> Path:
     return xdg_config_home() / APP_CONFIG_DIR_NAME
 
 
+def default_config_yaml_path() -> Path:
+    """Location of the YAML settings store (source of truth, see U21)."""
+    return app_config_dir() / APP_CONFIG_YAML_NAME
+
+
 def discover_env_file_paths() -> tuple[Path, ...]:
     """Existing ``.env`` files: XDG config dir first, then CWD (later entries override)."""
     candidates = (
@@ -50,6 +78,24 @@ class Settings(BaseSettings):
         extra="ignore",
         populate_by_name=True,
     )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        """Insert the YAML store between env and .env (U21).
+
+        Precedence (highest first): constructor kwargs > environment variable >
+        ``config.yaml`` > ``.env`` (back-compat) > field default. The YAML path is
+        resolved at construction time so tests can redirect ``XDG_CONFIG_HOME``.
+        """
+        yaml_source = YamlConfigSettingsSource(settings_cls, yaml_file=default_config_yaml_path())
+        return (init_settings, env_settings, yaml_source, dotenv_settings, file_secret_settings)
 
     # Providers
     transcription_provider: Literal["openai", "faster_whisper"] = Field(
@@ -295,3 +341,44 @@ def load_settings() -> Settings:
     if env_files:
         return Settings(_env_file=tuple(str(p) for p in env_files))
     return Settings()
+
+
+def settings_to_yaml_dict(settings: Settings) -> dict[str, object]:
+    """Serialise settings for the YAML store: JSON-safe values, secrets stripped.
+
+    ``mode="json"`` renders ``Path`` fields as strings and ``None`` as null so the dump
+    round-trips through :class:`YamlConfigSettingsSource` without Python-object tags.
+    """
+    data: dict[str, object] = settings.model_dump(mode="json", by_alias=False)
+    for secret in SECRET_FIELD_NAMES:
+        data.pop(secret, None)
+    return data
+
+
+def save_settings(settings: Settings, path: Path | None = None) -> Path:
+    """Atomically write the full settings set to the YAML store and return its path.
+
+    The file is regenerated from scratch (comments are not preserved) and written via a
+    temp file + ``os.replace`` so a crashed write never truncates the existing config. On
+    first save with no ``config.yaml`` this seeds the file from the currently resolved
+    settings, importing any ``.env``/env values into the store.
+    """
+    target = path or default_config_yaml_path()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    body = yaml.safe_dump(
+        settings_to_yaml_dict(settings),
+        sort_keys=True,
+        default_flow_style=False,
+        allow_unicode=True,
+    )
+    fd, tmp_name = tempfile.mkstemp(dir=str(target.parent), prefix="config-", suffix=".yaml.tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(_CONFIG_YAML_HEADER)
+            handle.write(body)
+        os.replace(tmp_name, target)
+    except BaseException:
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink(tmp_name)
+        raise
+    return target

@@ -124,9 +124,7 @@ def test_save_settings_serialises_paths_as_strings(
     assert isinstance(raw["obsidian_people_dir"], str)
 
 
-def test_save_settings_excludes_secrets(
-    xdg: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_save_settings_excludes_secrets(xdg: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _clear_settings_env(monkeypatch)
     edited = load_settings().model_copy(
         update={"openai_api_key": "sk-secret", "hf_token": "hf-secret"}
@@ -140,9 +138,7 @@ def test_save_settings_excludes_secrets(
     assert "hf-secret" not in text
 
 
-def test_save_settings_is_atomic_overwrite(
-    xdg: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_save_settings_is_atomic_overwrite(xdg: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _clear_settings_env(monkeypatch)
     (xdg / "config.yaml").write_text("transcription_model: old\n", encoding="utf-8")
     save_settings(load_settings().model_copy(update={"transcription_model": "new"}))
@@ -152,9 +148,7 @@ def test_save_settings_is_atomic_overwrite(
     assert list(xdg.glob("*.tmp*")) == []
 
 
-def test_seed_from_current_imports_dotenv(
-    xdg: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_seed_from_current_imports_dotenv(xdg: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """First save with no config.yaml seeds it from resolved settings (incl .env)."""
     _clear_settings_env(monkeypatch)
     (xdg / ".env").write_text("TRANSCRIPTION_MODEL=from-dotenv\n", encoding="utf-8")
