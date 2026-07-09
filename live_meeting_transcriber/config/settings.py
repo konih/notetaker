@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 from typing import Literal, cast
 
@@ -231,11 +232,17 @@ class Settings(BaseSettings):
         return default_dir
 
     def effective_screenshots_source_dir(self) -> Path | None:
-        """Directory to scan for ``Screenshot from YYYY-MM-DD HH-MM-SS`` files; ``None`` disables scanning."""
+        """Directory to scan for OS screenshot files; ``None`` disables scanning.
+
+        Defaults are per-platform: macOS drops screenshots on ``~/Desktop`` while
+        GNOME/Linux uses ``~/Pictures/Screenshots``. Override via ``SCREENSHOTS_SOURCE_DIR``.
+        """
         if not self.screenshots_export_enabled:
             return None
         if self.screenshots_source_dir is not None:
             return self.screenshots_source_dir
+        if sys.platform == "darwin":
+            return (Path.home() / "Desktop").resolve()
         return (Path.home() / "Pictures" / "Screenshots").resolve()
 
     def effective_obsidian_screenshots_dir(self) -> Path | None:

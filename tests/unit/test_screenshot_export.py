@@ -12,6 +12,7 @@ from live_meeting_transcriber.application.screenshot_export import (
     list_session_video_slides,
     merge_transcript_lines_with_screenshots,
     parse_gnome_screenshot_filename,
+    parse_screenshot_filename,
     slide_captured_utc_from_manifest_item,
 )
 from live_meeting_transcriber.domain.models import MeetingSession, TranscriptSegment
@@ -40,6 +41,69 @@ def test_parse_gnome_screenshot_filename() -> None:
     d2 = parse_gnome_screenshot_filename("Screenshot from 2026-05-11 09-24-01 (1).png")
     assert d2 == datetime(2026, 5, 11, 9, 24, 1)
     assert parse_gnome_screenshot_filename("other.png") is None
+
+
+def test_parse_macos_screenshot_filename() -> None:
+    # macOS 12-hour clock with AM/PM; time components use '.' (colons are illegal in HFS names)
+    assert parse_screenshot_filename("Screenshot 2026-05-11 at 9.24.01 AM.png") == datetime(
+        2026, 5, 11, 9, 24, 1
+    )
+    assert parse_screenshot_filename("Screenshot 2026-05-11 at 2.05.09 PM.png") == datetime(
+        2026, 5, 11, 14, 5, 9
+    )
+    # 12 AM -> 00:xx, 12 PM -> 12:xx
+    assert parse_screenshot_filename("Screenshot 2026-05-11 at 12.00.00 AM.png") == datetime(
+        2026, 5, 11, 0, 0, 0
+    )
+    assert parse_screenshot_filename("Screenshot 2026-05-11 at 12.30.00 PM.png") == datetime(
+        2026, 5, 11, 12, 30, 0
+    )
+    # recent macOS inserts a narrow no-break space (U+202F) before AM/PM
+    assert parse_screenshot_filename("Screenshot 2026-05-11 at 3.45.12\u202fPM.png") == datetime(
+        2026, 5, 11, 15, 45, 12
+    )
+    # de-duplicated copies keep the trailing "(n)"
+    assert parse_screenshot_filename("Screenshot 2026-05-11 at 9.24.01 AM (2).png") == datetime(
+        2026, 5, 11, 9, 24, 1
+    )
+    # 24-hour locale: no AM/PM suffix
+    assert parse_screenshot_filename("Screenshot 2026-05-11 at 14.24.01.png") == datetime(
+        2026, 5, 11, 14, 24, 1
+    )
+
+
+def test_parse_screenshot_filename_accepts_both_styles() -> None:
+    # the unified parser handles GNOME names too, so the scanner catches either platform
+    assert parse_screenshot_filename("Screenshot from 2026-05-11 09-24-01.png") == datetime(
+        2026, 5, 11, 9, 24, 1
+    )
+    assert parse_screenshot_filename("random.png") is None
+
+
+def test_list_session_screenshots_matches_macos_names(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        "live_meeting_transcriber.application.screenshot_export.local_naive_to_utc_naive",
+        lambda dt: dt,
+    )
+    shot_dir = tmp_path / "Desktop"
+    shot_dir.mkdir()
+    (shot_dir / "Screenshot 2026-05-11 at 10.45.00 AM.png").write_bytes(b"x")
+    (shot_dir / "Screenshot 2026-05-11 at 12.00.00 PM.png").write_bytes(b"x")
+    sid = uuid4()
+    t0 = datetime(2026, 5, 11, 10, 30, 0)
+    t1 = datetime(2026, 5, 11, 11, 30, 0)
+    session = MeetingSession(id=sid, title="M", started_at=t0, ended_at=t1)
+    seg = TranscriptSegment(
+        session_id=sid,
+        started_at=t0,
+        ended_at=t0 + timedelta(minutes=30),
+        text="a",
+    )
+    hits = list_session_screenshots(shot_dir, session, [seg])
+    assert len(hits) == 1
+    assert "10.45.00" in hits[0].source_path.name
 
 
 def test_list_session_screenshots_respects_window(
