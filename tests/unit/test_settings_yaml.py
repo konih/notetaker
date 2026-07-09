@@ -15,6 +15,7 @@ from live_meeting_transcriber.config.settings import (
     default_config_yaml_path,
     load_settings,
     save_settings,
+    settings_to_yaml_dict,
 )
 
 
@@ -109,6 +110,10 @@ def test_save_settings_round_trip_no_field_loss(
     assert reloaded.obsidian_people_dir == people.resolve()
     assert reloaded.log_file == log_file.resolve()
     assert reloaded.faster_whisper_language is None
+
+    # AC5: no field loss or type drift across the *whole* model, not just the spot-checks
+    # above. settings_to_yaml_dict is exactly what we persist (secrets already stripped).
+    assert settings_to_yaml_dict(reloaded) == settings_to_yaml_dict(edited)
 
 
 def test_save_settings_serialises_paths_as_strings(

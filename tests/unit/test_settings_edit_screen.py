@@ -112,6 +112,38 @@ async def test_edit_settings_clear_writes_null(tmp_path: Path) -> None:
     assert raw["obsidian_people_dir"] is None
 
 
+async def test_browse_button_through_picker_persists(tmp_path: Path) -> None:
+    # End-to-end glue: Browse button -> picker -> _apply callback -> set_pending -> Save.
+    # If any link is broken the folder picker is dead on arrival, so exercise the full chain.
+    people = tmp_path / "People"
+    people.mkdir()
+    app = _app()
+    async with app.run_test(size=(120, 48)) as pilot:
+        await pilot.pause()
+        app.push_screen(EditSettingsScreen())
+        await pilot.pause()
+        edit_screen = pilot.app.screen
+        assert isinstance(edit_screen, EditSettingsScreen)
+
+        await pilot.click("#browse-obsidian_people_dir")
+        await pilot.pause()
+        picker = pilot.app.screen
+        assert isinstance(picker, PathPickerScreen)
+        picker.query_one("#picker-path", Input).value = str(people.resolve())
+        await picker.action_select()
+        await pilot.pause()
+
+        # back on the edit screen, the picker result reached set_pending via _apply
+        assert isinstance(pilot.app.screen, EditSettingsScreen)
+        assert edit_screen.query_one("#val-obsidian_people_dir", Static)  # row exists
+        assert edit_screen._pending["obsidian_people_dir"] == people.resolve()
+        await edit_screen.action_save()
+        await pilot.pause()
+
+    raw = yaml.safe_load(default_config_yaml_path().read_text(encoding="utf-8"))
+    assert raw["obsidian_people_dir"] == str(people.resolve())
+
+
 async def test_settings_screen_opens_editor() -> None:
     app = _app()
     async with app.run_test(size=(120, 40)) as pilot:
