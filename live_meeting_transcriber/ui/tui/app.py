@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import functools
 from collections.abc import Callable
 from datetime import datetime
@@ -16,9 +17,11 @@ from textual.containers import Horizontal, Vertical
 from textual.content import Content
 from textual.css.query import NoMatches
 from textual.screen import ModalScreen
+from textual.widget import Widget
 from textual.widgets import (
     Button,
     DataTable,
+    DirectoryTree,
     Footer,
     Header,
     Input,
@@ -36,7 +39,11 @@ from live_meeting_transcriber.application.container import (
     ProviderSelectionError,
     build_container,
 )
-from live_meeting_transcriber.config.settings import Settings, load_settings
+from live_meeting_transcriber.config.settings import (
+    Settings,
+    load_settings,
+    save_settings,
+)
 from live_meeting_transcriber.observability.logging import configure_logging
 from live_meeting_transcriber.ui.effects.controller import TuiController
 from live_meeting_transcriber.ui.state import actions as act
@@ -66,6 +73,13 @@ from live_meeting_transcriber.ui.tui.people_suggesters import (
     CommaSeparatedPeopleSuggester,
     PeoplePrefixSuggester,
 )
+from live_meeting_transcriber.ui.tui.settings_edit import (
+    PATH_SETTING_SPECS,
+    PathKind,
+    apply_path_edits,
+    current_path,
+    validate_path_selection,
+)
 from live_meeting_transcriber.ui.tui.settings_view import build_settings_sections
 from live_meeting_transcriber.ui.tui.slide_preview_helpers import (
     ensure_textual_image_protocol_probe,
@@ -77,7 +91,10 @@ from live_meeting_transcriber.utils.time import format_clock, format_local_datet
 class SettingsScreen(ModalScreen[None]):
     """Read-only settings overview (values come from store only)."""
 
-    BINDINGS = [Binding("escape", "close", "Close", show=True)]
+    BINDINGS = [
+        Binding("e", "edit", "Edit paths", show=True),
+        Binding("escape", "close", "Close", show=True),
+    ]
 
     def compose(self) -> ComposeResult:
         app = self.app
@@ -90,13 +107,180 @@ class SettingsScreen(ModalScreen[None]):
         yield Vertical(
             Static("Settings (read-only)", classes="settings-title"),
             Static("\n\n".join(blocks), id="settings-body"),
+            Static("e: edit folders/files   esc: close", classes="hint"),
             classes="settings-dialog",
         )
+
+    def action_edit(self) -> None:
+        self.app.push_screen(EditSettingsScreen())
 
     def action_close(self) -> None:
         app = self.app
         assert isinstance(app, TranscriberApp)
         app.store.dispatch(act.SettingsScreenClosed(at=utc_now()))
+        self.dismiss()
+
+
+class PathPickerScreen(ModalScreen[Path | None]):
+    """Folder/file picker for a path-typed setting (U21).
+
+    Browsing the :class:`DirectoryTree` fills the path input; ``Select`` validates the
+    choice (must exist and match ``kind``) and dismisses with the resolved absolute path.
+    ``Cancel``/escape dismiss with ``None``.
+    """
+
+    BINDINGS = [
+        Binding("ctrl+s", "select", "Select", show=True, priority=True),
+        Binding("escape", "cancel", "Cancel", show=True),
+    ]
+
+    def __init__(self, *, kind: PathKind, start: Path | None, title: str) -> None:
+        super().__init__()
+        self._kind: PathKind = kind
+        self._title = title
+        self._root = self._pick_root(start)
+        self._start = start
+
+    @staticmethod
+    def _pick_root(start: Path | None) -> Path:
+        base = start if start is not None else Path.home()
+        # For a file, browse its containing folder; fall back to home if it is gone.
+        candidate = base if base.is_dir() else base.parent
+        return candidate if candidate.is_dir() else Path.home()
+
+    def compose(self) -> ComposeResult:
+        what = "folder" if self._kind == "dir" else "file"
+        yield Vertical(
+            Static(self._title, classes="settings-title"),
+            Static(f"Pick a {what}. Enter path or browse below.", classes="hint"),
+            Input(value=str(self._start) if self._start else "", id="picker-path"),
+            DirectoryTree(str(self._root), id="picker-tree"),
+            Horizontal(
+                Button("Select", id="picker-select", variant="primary"),
+                Button("Cancel", id="picker-cancel"),
+                classes="settings-actions",
+            ),
+            Static("ctrl+s: select   esc: cancel", classes="hint"),
+            classes="settings-dialog",
+        )
+
+    def on_directory_tree_directory_selected(self, event: DirectoryTree.DirectorySelected) -> None:
+        self.query_one("#picker-path", Input).value = str(event.path)
+
+    def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected) -> None:
+        self.query_one("#picker-path", Input).value = str(event.path)
+
+    async def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "picker-select":
+            await self.action_select()
+        elif event.button.id == "picker-cancel":
+            self.action_cancel()
+
+    async def action_select(self) -> None:
+        raw = self.query_one("#picker-path", Input).value.strip()
+        if not raw:
+            self.app.notify("Enter or pick a path first.", severity="warning")
+            return
+        chosen = Path(raw).expanduser().resolve()
+        error = validate_path_selection(chosen, self._kind)
+        if error is not None:
+            self.app.notify(error, severity="error")
+            return
+        self.dismiss(chosen)
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
+class EditSettingsScreen(ModalScreen[None]):
+    """Edit path-typed settings through a picker and save to the YAML store (U21).
+
+    Loads the currently resolved settings, lets the operator Browse/Clear each path field,
+    and on Save writes the full settings set to ``config.yaml`` via :func:`save_settings`.
+    Path changes take effect on restart (the running session keeps its loaded config).
+    """
+
+    BINDINGS = [
+        Binding("ctrl+s", "save", "Save", show=True, priority=True),
+        Binding("escape", "cancel", "Cancel", show=True),
+    ]
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._settings = load_settings()
+        self._pending: dict[str, Path | None] = {}
+
+    @staticmethod
+    def _display(value: Path | None) -> str:
+        return str(value) if value is not None else "(not set)"
+
+    def compose(self) -> ComposeResult:
+        rows: list[Widget] = [
+            Static("Edit folders & files", classes="settings-title"),
+            Static("Changes are saved to config.yaml and apply after restart.", classes="hint"),
+        ]
+        for spec in PATH_SETTING_SPECS:
+            value = current_path(self._settings, spec.field)
+            rows.append(Static(f"[bold]{spec.label}[/] — {spec.help}"))
+            rows.append(Static(self._display(value), id=f"val-{spec.field}"))
+            rows.append(
+                Horizontal(
+                    Button("Browse…", id=f"browse-{spec.field}"),
+                    Button("Clear", id=f"clear-{spec.field}"),
+                    classes="settings-actions",
+                )
+            )
+        rows.append(
+            Horizontal(
+                Button("Save", id="settings-save", variant="primary"),
+                Button("Cancel", id="settings-cancel"),
+                classes="settings-actions",
+            )
+        )
+        rows.append(Static("ctrl+s: save   esc: cancel", classes="hint"))
+        yield Vertical(*rows, classes="settings-dialog settings-edit")
+
+    def set_pending(self, field: str, value: Path | None) -> None:
+        """Record a pending edit and refresh the row's displayed value."""
+        self._pending[field] = value
+        with contextlib.suppress(NoMatches):
+            self.query_one(f"#val-{field}", Static).update(self._display(value))
+
+    async def on_button_pressed(self, event: Button.Pressed) -> None:
+        bid = event.button.id or ""
+        if bid == "settings-save":
+            await self.action_save()
+        elif bid == "settings-cancel":
+            self.action_cancel()
+        elif bid.startswith("browse-"):
+            self._open_picker(bid.removeprefix("browse-"))
+        elif bid.startswith("clear-"):
+            self.set_pending(bid.removeprefix("clear-"), None)
+
+    def _open_picker(self, field: str) -> None:
+        spec = next(s for s in PATH_SETTING_SPECS if s.field == field)
+        pending = self._pending.get(field, current_path(self._settings, field))
+
+        def _apply(result: Path | None) -> None:
+            if result is not None:
+                self.set_pending(field, result)
+
+        self.app.push_screen(
+            PathPickerScreen(kind=spec.kind, start=pending, title=spec.label),
+            callback=_apply,
+        )
+
+    async def action_save(self) -> None:
+        edited = apply_path_edits(self._settings, self._pending)
+        try:
+            path = save_settings(edited)
+        except OSError as e:
+            self.app.notify(f"Could not save settings: {e}", severity="error")
+            return
+        self.app.notify(f"Saved to {path}. Restart to apply.", severity="information")
+        self.dismiss()
+
+    def action_cancel(self) -> None:
         self.dismiss()
 
 

@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import pytest
 import yaml
 from live_meeting_transcriber.config.settings import (
     Settings,
@@ -120,6 +119,6 @@ async def test_settings_screen_opens_editor() -> None:
         app.push_screen(SettingsScreen())
         await pilot.pause()
         assert isinstance(pilot.app.screen, SettingsScreen)
-        await pilot.app.screen.action_edit()
+        pilot.app.screen.action_edit()
         await pilot.pause()
         assert isinstance(pilot.app.screen, EditSettingsScreen)

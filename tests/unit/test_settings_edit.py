@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.ui.tui.settings_edit import (
     PATH_SETTING_SPECS,
@@ -41,9 +40,7 @@ def test_apply_path_edits_sets_and_clears(tmp_path: Path) -> None:
     people = tmp_path / "People"
     people.mkdir()
     base = Settings.model_construct(obsidian_people_dir=None, log_file=tmp_path / "x.log")
-    edited = apply_path_edits(
-        base, {"obsidian_people_dir": people.resolve(), "log_file": None}
-    )
+    edited = apply_path_edits(base, {"obsidian_people_dir": people.resolve(), "log_file": None})
     assert edited.obsidian_people_dir == people.resolve()
     assert edited.log_file is None
     # untouched fields preserved
