@@ -21,6 +21,16 @@ _SCREENSHOT_NAME_RE = re.compile(
     re.IGNORECASE,
 )
 
+# macOS default names, e.g. "Screenshot 2026-05-11 at 9.24.01 AM.png" (12h) or
+# "Screenshot 2026-05-11 at 14.24.01.png" (24h locale). Colons are illegal in HFS
+# filenames so the time uses '.' separators, and recent macOS inserts a narrow
+# no-break space (U+202F) before AM/PM — matched via the explicit whitespace class.
+_MACOS_SCREENSHOT_NAME_RE = re.compile(
+    r"^screenshot\s+(\d{4}-\d{2}-\d{2})\s+at\s+(\d{1,2})\.(\d{2})\.(\d{2})"
+    r"(?:[\s\u00a0\u202f]*(am|pm))?(?:\s*\(\d+\))?\.(png|jpe?g)$",
+    re.IGNORECASE,
+)
+
 
 def parse_gnome_screenshot_filename(name: str) -> datetime | None:
     """Parse wall-clock time from a GNOME Screenshots-style filename; returns naive local datetime."""
@@ -34,6 +44,32 @@ def parse_gnome_screenshot_filename(name: str) -> datetime | None:
         return datetime(y, mo, d, h, mi, s)
     except ValueError:
         return None
+
+
+def parse_macos_screenshot_filename(name: str) -> datetime | None:
+    """Parse wall-clock time from a macOS Screenshot filename; returns naive local datetime."""
+    m = _MACOS_SCREENSHOT_NAME_RE.match(name.strip())
+    if not m:
+        return None
+    date_part = m.group(1)
+    y, mo, d = int(date_part[0:4]), int(date_part[5:7]), int(date_part[8:10])
+    h, mi, s = int(m.group(2)), int(m.group(3)), int(m.group(4))
+    meridiem = m.group(5)
+    if meridiem is not None:
+        m_lower = meridiem.lower()
+        if m_lower == "am" and h == 12:  # 12 AM -> 00:xx
+            h = 0
+        elif m_lower == "pm" and h != 12:  # 1-11 PM -> 13-23; 12 PM stays 12
+            h += 12
+    try:
+        return datetime(y, mo, d, h, mi, s)
+    except ValueError:
+        return None
+
+
+def parse_screenshot_filename(name: str) -> datetime | None:
+    """Parse a screenshot filename in either GNOME or macOS style; ``None`` if neither matches."""
+    return parse_gnome_screenshot_filename(name) or parse_macos_screenshot_filename(name)
 
 
 def local_naive_to_utc_naive(naive_local: datetime) -> datetime:
@@ -119,14 +155,14 @@ def list_session_screenshots(
     *,
     data_dir: Path | None = None,
 ) -> list[ScreenshotHit]:
-    """Find GNOME screenshots in ``source_dir`` and/or video slides under ``data_dir``."""
+    """Find GNOME/macOS screenshots in ``source_dir`` and/or video slides under ``data_dir``."""
     hits: list[ScreenshotHit] = []
     if source_dir is not None and source_dir.is_dir():
         t0, t1 = _session_time_bounds(session, segments)
         for path in sorted(source_dir.iterdir()):
             if not path.is_file():
                 continue
-            local_naive = parse_gnome_screenshot_filename(path.name)
+            local_naive = parse_screenshot_filename(path.name)
             if local_naive is None:
                 continue
             utc_naive = local_naive_to_utc_naive(local_naive)
