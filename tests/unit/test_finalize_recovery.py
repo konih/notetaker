@@ -190,47 +190,6 @@ def test_interrupted_session_excluded_when_it_is_the_active_session(tmp_path: Pa
     assert found == []
 
 
-def test_started_after_bounds_interrupted_sessions(tmp_path: Path) -> None:
-    """Startup recovery self-heals a *just-crashed* meeting but must not batch-recover the whole
-    history of interrupted sessions on every launch (reconciles B3). ``started_after`` bounds the
-    interrupted branch by ``started_at`` (interrupted rows have no ``ended_at`` to bound by)."""
-    conn = open_connection(f"sqlite:////{tmp_path}/db.sqlite3")
-    data_dir = tmp_path / "data"
-    c = _container_with(conn)
-
-    old = _make_session(c.sessions, conn, ended_at=None)
-    conn.execute(
-        "UPDATE meeting_sessions SET started_at = ? WHERE id = ?",
-        (datetime(2026, 1, 1, 9, 0, 0).isoformat(), str(old.id)),
-    )
-    conn.commit()
-    old = old.model_copy(update={"started_at": datetime(2026, 1, 1, 9, 0, 0)})
-    _add_segment(c.transcripts, old, "unknown")
-    _write_full_session_wav(data_dir, old)
-
-    recent = _make_session(c.sessions, conn, ended_at=None)
-    conn.execute(
-        "UPDATE meeting_sessions SET started_at = ? WHERE id = ?",
-        (datetime(2026, 6, 1, 9, 0, 0).isoformat(), str(recent.id)),
-    )
-    conn.commit()
-    recent = recent.model_copy(update={"started_at": datetime(2026, 6, 1, 9, 0, 0)})
-    _add_segment(c.transcripts, recent, "unknown")
-    _write_full_session_wav(data_dir, recent)
-
-    found = find_unfinalized_sessions(
-        container=c,
-        include_interrupted=True,
-        data_dir=data_dir,
-        started_after=datetime(2026, 5, 1, 0, 0, 0),
-    )
-    assert [s.id for s in found] == [recent.id]
-
-    # Unbounded (CLI finalize-pending) recovers both.
-    both = find_unfinalized_sessions(container=c, include_interrupted=True, data_dir=data_dir)
-    assert {s.id for s in both} == {old.id, recent.id}
-
-
 def test_ended_after_bounds_the_recovery_window(tmp_path: Path) -> None:
     conn = open_connection(f"sqlite:////{tmp_path}/db.sqlite3")
     c = _container_with(conn)

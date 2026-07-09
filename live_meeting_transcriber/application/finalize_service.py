@@ -29,7 +29,6 @@ def find_unfinalized_sessions(
     container: Container,
     ended_after: datetime | None = None,
     include_interrupted: bool = False,
-    started_after: datetime | None = None,
     data_dir: Path | None = None,
     exclude_session_id: UUID | None = None,
 ) -> list[MeetingSession]:
@@ -50,7 +49,6 @@ def find_unfinalized_sessions(
     (the session the user is actively recording right now).
     """
     cutoff = _as_utc(ended_after) if ended_after is not None else None
-    started_cutoff = _as_utc(started_after) if started_after is not None else None
     resolved_data_dir = data_dir
     if include_interrupted and resolved_data_dir is None and container.settings is not None:
         resolved_data_dir = container.settings.ensure_data_dir()
@@ -63,8 +61,6 @@ def find_unfinalized_sessions(
             # Interrupted (never marked ended). Only recoverable if opted in and the
             # recording survives; otherwise it's genuinely still recording — skip.
             if not include_interrupted or resolved_data_dir is None:
-                continue
-            if started_cutoff is not None and _as_utc(session.started_at) < started_cutoff:
                 continue
             if not _has_full_session_wav(resolved_data_dir, session.id):
                 continue

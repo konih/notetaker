@@ -139,17 +139,19 @@ class TuiController:
     def _recover_unfinalized_sessions(self, store: Store) -> None:
         """Bounded startup recovery for sessions dropped by the exit-kills-the-task bug.
 
-        Only looks at the last 24h: older orphans are the user's own call via
-        ``live-transcriber finalize-pending`` (a batch re-diarize of dozens of
-        sessions on every launch would be surprising and expensive), and
-        requiring ``hf_token`` avoids re-queuing forever a session whose
-        transcript is legitimately all-"unknown" because no diarization
-        credentials are configured.
+        Only looks at *ended* sessions from the last 24h: older orphans are the
+        user's own call via ``live-transcriber finalize-pending`` (a batch
+        re-diarize of dozens of sessions on every launch would be surprising
+        and expensive), and requiring ``hf_token`` avoids re-queuing forever a
+        session whose transcript is legitimately all-"unknown" because no
+        diarization credentials are configured.
 
-        This also self-heals a recording that was *interrupted* (app crash /
-        force-quit) — those never got ``ended_at`` set, so they are bounded by
-        ``started_at`` instead and only when their ``full_session.wav`` survives.
-        The session the user is actively recording is always excluded.
+        Deliberately does **not** auto-recover *interrupted* (never-``ended``)
+        sessions: at ``AppStarted`` there is no current session to exclude, and
+        the app's resume path can later re-open an ``ended_at IS NULL`` session
+        (``app.py`` ``action_record``) — auto-finalizing one here could clobber
+        a transcript the user is about to continue. Interrupted-session recovery
+        is left to the explicit, always-safe ``finalize-pending`` CLI (B4/B3).
         """
         if not self.settings.finalize_on_session_stop:
             return
@@ -161,14 +163,7 @@ class TuiController:
 
         cutoff = utc_now() - timedelta(hours=24)
         try:
-            pending = find_unfinalized_sessions(
-                container=self.container,
-                ended_after=cutoff,
-                include_interrupted=True,
-                started_after=cutoff,
-                data_dir=self.settings.ensure_data_dir(),
-                exclude_session_id=store.get_state().current_session_id,
-            )
+            pending = find_unfinalized_sessions(container=self.container, ended_after=cutoff)
         except Exception:
             return
         for session in pending:
