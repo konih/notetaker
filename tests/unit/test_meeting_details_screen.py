@@ -95,6 +95,39 @@ async def test_meeting_details_names_detected_speaker_live() -> None:
     assert app.store.get_state().speaker_aliases["SPEAKER_00"] == "Alice"
 
 
+def test_edit_meeting_binding_is_discoverably_labelled() -> None:
+    # U22: the Live-tab edit affordance is labelled "Edit meeting" (discoverable), not the
+    # opaque "Meeting details"; the action name is unchanged for stability.
+    from textual.binding import Binding
+
+    bindings = [b for b in TranscriberApp.BINDINGS if isinstance(b, Binding)]
+    edit = next(b for b in bindings if b.action == "meeting_details")
+    assert edit.key == "t"
+    assert edit.description == "Edit meeting"
+
+
+async def test_meeting_details_empty_speaker_hint_points_to_speaker_id() -> None:
+    # U22: with no detected speakers (the default — live diarization is off), the editor explains
+    # that naming happens after Speaker ID on the finished meeting, not "once the meeting has audio".
+    from textual.widgets import Static
+
+    sid = uuid4()
+    existing = MeetingSession(id=sid, title="Meeting 2026-07-08")
+    app, _container = _app_with_live_session(sid, existing, detected_speakers=frozenset())
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        app.action_meeting_details()
+        await pilot.pause()
+
+        screen = pilot.app.screen
+        assert isinstance(screen, EditMeetingDetailsScreen)
+        texts = [str(w.render()) for w in screen.query(Static)]
+        hint = next(t for t in texts if "No speakers detected" in t)
+        assert "Speaker ID" in hint
+        assert "Ctrl+I" in hint
+
+
 async def test_meeting_details_action_no_session_notifies() -> None:
     # No current session → modal is not opened.
     sid = uuid4()

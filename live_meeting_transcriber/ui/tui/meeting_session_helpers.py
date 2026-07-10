@@ -12,6 +12,7 @@ from live_meeting_transcriber.application.video_session_storage import (
     session_slides_dir,
 )
 from live_meeting_transcriber.audio.session_recording import session_audio_dir
+from live_meeting_transcriber.domain.models import MeetingSession
 
 _VIDEO_EXTENSIONS = (".mp4", ".mkv", ".webm", ".mov", ".m4v")
 
@@ -98,3 +99,19 @@ def format_slide_detail_note(
 def format_session_type_label(*, is_video: bool) -> str:
     """Short label for the meetings table Type column."""
     return "▶ Video" if is_video else "● Live"
+
+
+def format_meeting_row_title(
+    session: MeetingSession, *, active_session_id: UUID | None = None, max_len: int = 40
+) -> str:
+    """Title for the meetings table, marking *interrupted* meetings.
+
+    A meeting whose recording was interrupted (app crash / force-quit) never got ``ended_at`` set,
+    so it is stuck all-"unknown" until re-diarized. Flag it so the operator can find it and run
+    Speaker ID (Ctrl+I) — but never flag the session that is actively recording right now.
+    """
+    title = session.title
+    truncated = title[:max_len] + ("…" if len(title) > max_len else "")
+    if session.ended_at is None and session.id != active_session_id:
+        return f"⏸ interrupted · {truncated}"
+    return truncated

@@ -139,12 +139,19 @@ class TuiController:
     def _recover_unfinalized_sessions(self, store: Store) -> None:
         """Bounded startup recovery for sessions dropped by the exit-kills-the-task bug.
 
-        Only looks at sessions ended in the last 24h: older orphans are the
+        Only looks at *ended* sessions from the last 24h: older orphans are the
         user's own call via ``live-transcriber finalize-pending`` (a batch
         re-diarize of dozens of sessions on every launch would be surprising
-        and expensive), and requiring ``hf_token`` avoids re-queuing forever
-        a session whose transcript is legitimately all-"unknown" because no
+        and expensive), and requiring ``hf_token`` avoids re-queuing forever a
+        session whose transcript is legitimately all-"unknown" because no
         diarization credentials are configured.
+
+        Deliberately does **not** auto-recover *interrupted* (never-``ended``)
+        sessions: at ``AppStarted`` there is no current session to exclude, and
+        the app's resume path can later re-open an ``ended_at IS NULL`` session
+        (``app.py`` ``action_record``) — auto-finalizing one here could clobber
+        a transcript the user is about to continue. Interrupted-session recovery
+        is left to the explicit, always-safe ``finalize-pending`` CLI (B4/B3).
         """
         if not self.settings.finalize_on_session_stop:
             return
