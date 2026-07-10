@@ -24,9 +24,32 @@ def select_header_title(state: AppState) -> str:
     return base
 
 
-def select_level_bar(state: AppState, width: int = 12) -> str:
-    """ASCII level meter from last chunk peak (updates each chunk, not sample-accurate)."""
-    level = state.current_level_meter
+def select_decayed_level(state: AppState, now: datetime) -> float | None:
+    """Last chunk peak decayed toward zero since it was captured (U13).
+
+    The meter is fed one peak per audio chunk (~every ``chunk_seconds``). Holding that
+    value between updates freezes the bar on a stale "loud" reading — during silence or
+    after stop it keeps implying live audio. Linearly decaying it over the chunk window
+    makes it honest: a re-armed peak each chunk keeps active speech high, while silence
+    lets the bar fall off. Returns ``None`` when idle or before the first reading.
+    """
+    if state.recording_status != RecordingStatus.recording:
+        return None
+    if state.current_level_meter is None or state.last_level_at is None:
+        return None
+    window = max(float(state.chunk_seconds), 1.0)
+    elapsed = (now - state.last_level_at).total_seconds()
+    factor = max(0.0, 1.0 - elapsed / window)
+    return state.current_level_meter * factor
+
+
+def select_level_bar(state: AppState, now: datetime | None = None, width: int = 12) -> str:
+    """ASCII level meter from last chunk peak (updates each chunk, not sample-accurate).
+
+    Pass ``now`` to decay the reading between chunk updates (U13); omit it for the raw,
+    non-decaying peak (callers without a wall clock).
+    """
+    level = select_decayed_level(state, now) if now is not None else state.current_level_meter
     if level is None:
         return "—"
     filled = min(width, max(0, round(level * width)))
@@ -117,9 +140,8 @@ def build_live_status_lines(state: AppState, now: datetime) -> list[str]:
     log_hint = (
         state.log_file_path[:52] + "…" if len(state.log_file_path) > 55 else state.log_file_path
     )
-    peak_pct = (
-        f"{state.current_level_meter * 100:.0f}%" if state.current_level_meter is not None else "—"
-    )
+    decayed_level = select_decayed_level(state, now)
+    peak_pct = f"{decayed_level * 100:.0f}%" if decayed_level is not None else "—"
     lines = [
         f"[bold]Session[/] {select_short_session_id(state)}",
         f"[bold]Title[/] {state.session_title or '—'}",
@@ -129,7 +151,7 @@ def build_live_status_lines(state: AppState, now: datetime) -> list[str]:
     if elapsed is not None:
         lines.append(f"[bold]Elapsed[/] {elapsed}")
     lines += [
-        f"[bold]Level[/] [{select_level_bar(state)}] {peak_pct} [dim](per chunk)[/]",
+        f"[bold]Level[/] [{select_level_bar(state, now)}] {peak_pct} [dim](per chunk)[/]",
         f"[bold]Chunk[/] {state.chunk_seconds}s",
         f"[bold]Source[/] {state.audio_source or 'default monitor'} [dim](a: change)[/]",
         f"[bold]Mic[/] {state.microphone_source or state.configured_microphone_source or ('—' if not state.audio_include_microphone else 'default')}",
