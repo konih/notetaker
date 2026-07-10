@@ -54,36 +54,22 @@ def _auto_asr_device(*, has_cuda: bool) -> str:
 
 
 def _resolve_asr_device(settings: Settings) -> str:
+    """Resolve the WhisperX ASR device. Pure: 'mps' (auto or explicit) becomes 'cpu' because
+    CTranslate2 would raise ``ValueError: unsupported device mps``. The effective device is
+    surfaced by the finalize progress line, so this does not log."""
     explicit = (settings.whisperx_device or "").strip()
     if explicit:
         device = explicit
     else:
         has_cuda, _has_mps = _detect_torch_devices()
         device = _auto_asr_device(has_cuda=has_cuda)
-    # 'mps' (auto-detected on older builds or set explicitly) would raise
-    # ``ValueError: unsupported device mps`` inside CTranslate2 — coerce to CPU.
-    if device == "mps":
-        get_logger(component="whisperx_finalize").info(
-            "asr_device_coerced",
-            requested="mps",
-            using="cpu",
-            reason="CTranslate2 ASR backend has no MPS support",
-        )
-        return "cpu"
-    return device
+    return "cpu" if device == "mps" else device
 
 
 def _resolve_compute_type(settings: Settings, device: str) -> str:
-    """Coerce a CPU-invalid compute type (float16) to int8; keep GPU/explicit choices."""
+    """Coerce a CPU-invalid compute type (float16) to int8; keep GPU/explicit choices. Pure."""
     compute_type = (settings.whisperx_compute_type or "").strip() or "float16"
     if device == "cpu" and compute_type in _CPU_UNSAFE_COMPUTE_TYPES:
-        get_logger(component="whisperx_finalize").info(
-            "compute_type_coerced",
-            requested=compute_type,
-            using="int8",
-            device="cpu",
-            reason="CTranslate2 has no efficient float16 compute type on CPU",
-        )
         return "int8"
     return compute_type
 
@@ -153,7 +139,7 @@ def run_whisperx_finalize(
 
     _progress_step(
         progress,
-        f"Loading Whisper model {settings.whisperx_model!r} on {device!r}…",
+        f"Loading Whisper model {settings.whisperx_model!r} on {device!r} (compute={compute_type!r})…",
     )
     model = whisperx.load_model(
         settings.whisperx_model,
