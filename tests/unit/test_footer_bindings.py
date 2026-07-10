@@ -22,6 +22,7 @@ from live_meeting_transcriber.ui.tui.footer_bindings import (
     overflow_footer_actions,
 )
 from textual.app import SystemCommand
+from textual.binding import Binding
 from textual.widgets import Footer
 from textual.widgets._footer import FooterKey
 
@@ -65,7 +66,8 @@ def test_every_catalog_action_has_an_app_method() -> None:
 
 
 def test_all_actions_remain_key_bound() -> None:
-    by_key = {b.key: b for b in TranscriberApp.BINDINGS}  # type: ignore[union-attr]
+    bindings = [b for b in TranscriberApp.BINDINGS if isinstance(b, Binding)]
+    by_key = {b.key: b for b in bindings}
     for entry in FOOTER_ACTIONS:
         binding = by_key.get(entry.key)
         assert binding is not None, f"{entry.key} not bound"
