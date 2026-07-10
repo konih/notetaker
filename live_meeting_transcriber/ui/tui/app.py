@@ -403,13 +403,14 @@ class EditSessionTitleScreen(ModalScreen[None]):
         self.dismiss()
 
 
-class EditMeetingDetailsScreen(ModalScreen[None]):
-    """Edit the current live meeting's title, context/notes, attendees, and speaker names.
+class NameSpeakersScreen(ModalScreen[None]):
+    """Name detected speakers for the current live meeting.
 
-    Title/notes/attendees are persisted via SessionDetailsCommitRequested; the notes carry
-    into the summary-context prompt at summarize-time. Any speaker keys already detected in
-    the live session can be named here — the alias applies immediately (transcript relabels)
-    and persists, without waiting for post-stop cleanup.
+    Title / context / attendees are edited inline on the Live tab (U23); this modal covers
+    only speaker display names for keys already detected in the live session. Aliases apply
+    immediately (transcript relabels) and persist via ``session_speakers.replace_map`` — a
+    path distinct from session metadata, so there is no second editor of title/notes/attendees
+    that could clobber the inline fields.
     """
 
     BINDINGS = [
@@ -421,35 +422,18 @@ class EditMeetingDetailsScreen(ModalScreen[None]):
         self,
         session_id: str,
         *,
-        title: str,
-        notes: str,
-        attendees: list[str],
         detected_speakers: list[str],
         speaker_aliases: dict[str, str],
     ) -> None:
         super().__init__()
         self.session_id = session_id
-        self._title = title
-        self._notes = notes
-        self._attendees = attendees
         self._detected_speakers = detected_speakers
         self._speaker_aliases = speaker_aliases
 
     def compose(self) -> ComposeResult:
-        children: list[Static | TabCompletableInput | TextArea | Horizontal] = [
-            Static("Meeting details", classes="settings-title"),
+        children: list[Static | TabCompletableInput | Horizontal] = [
+            Static("Name speakers", classes="settings-title"),
             Static("Ctrl+Enter: save   Esc: cancel", classes="dim"),
-            Static("Title"),
-            TabCompletableInput(value=self._title, placeholder="Title", id="details-title"),
-            Static("Context / notes (used to guide the summary)"),
-            TextArea(id="details-notes", language=None),
-            Static("Attendees (comma-separated)"),
-            TabCompletableInput(
-                value=", ".join(self._attendees),
-                placeholder="Alice, Bob, …",
-                id="details-attendees",
-            ),
-            Static("Speaker names"),
         ]
         if self._detected_speakers:
             for key in self._detected_speakers:
@@ -483,39 +467,18 @@ class EditMeetingDetailsScreen(ModalScreen[None]):
     def on_mount(self) -> None:
         app = self.app
         assert isinstance(app, TranscriberApp)
-        notes = self.query_one("#details-notes", TextArea)
-        notes.text = self._notes
-        self.query_one(
-            "#details-attendees", TabCompletableInput
-        ).suggester = CommaSeparatedPeopleSuggester(app.container.people)
         for key in self._detected_speakers:
             self.query_one(
                 f"#details-spk-{key}", TabCompletableInput
             ).suggester = PeoplePrefixSuggester(app.container.people)
-        self.query_one("#details-title", TabCompletableInput).focus()
+        if self._detected_speakers:
+            self.query_one(
+                f"#details-spk-{self._detected_speakers[0]}", TabCompletableInput
+            ).focus()
 
     async def action_save(self) -> None:
         app = self.app
         assert isinstance(app, TranscriberApp)
-        title = self.query_one("#details-title", TabCompletableInput).value.strip()
-        if not title:
-            app.notify("Title required.", severity="error")
-            return
-        notes = self.query_one("#details-notes", TextArea).text
-        raw_att = self.query_one("#details-attendees", TabCompletableInput).value
-        parts = [p.strip() for p in raw_att.replace("\n", ",").split(",")]
-        attendees = [p for p in parts if p]
-        await app.store.dispatch_with_effects(
-            act.SessionDetailsCommitRequested(
-                session_id=UUID(self.session_id),
-                title=title,
-                notes=notes,
-                attendees=attendees,
-                at=utc_now(),
-            )
-        )
-        for name in attendees:
-            app.container.people.touch(name)
         self._save_speaker_aliases(app)
         self.dismiss()
 
@@ -698,7 +661,7 @@ class TranscriberApp(App[None]):
         Binding("q", "quit", "Quit", show=True),
         Binding("r", "record", "Record", show=True),
         Binding("x", "stop", "Stop", show=True),
-        Binding("t", "meeting_details", "Edit meeting", show=True),
+        Binding("t", "name_speakers", "Name speakers", show=True),
         Binding("w", "export_md", "Export", show=True, priority=True),
         Binding("k", "summarize", "Summarize", show=True, priority=True),
         Binding("s", "settings", "Settings", show=True),
@@ -715,7 +678,7 @@ class TranscriberApp(App[None]):
     TabbedContent { height: 1fr; }
     TabPane { height: 1fr; }
     #tab-live #main-row { height: 1fr; }
-    #sidebar { width: 32; min-width: 32; border: solid $primary; }
+    #sidebar { width: 32; min-width: 32; border: solid $primary; overflow-y: auto; }
     #transcript { border: solid $accent; min-width: 40; }
     #live-details { height: auto; padding: 0 1; border-bottom: solid $boost; }
     #live-details-title { text-style: bold; }
@@ -1053,23 +1016,20 @@ class TranscriberApp(App[None]):
         await self._save_live_details()
         await self.store.dispatch_with_effects(act.RecordingStopRequested(at=utc_now()))
 
-    def action_meeting_details(self) -> None:
-        """Edit the current live meeting's title/context/attendees/speakers (Live tab)."""
+    def action_name_speakers(self) -> None:
+        """Name detected speakers for the current live meeting (Live tab).
+
+        Title / context / attendees are edited inline on the Live tab (U23), so this modal
+        is speaker-naming only.
+        """
         state = self.store.get_state()
         sid = state.current_session_id
         if sid is None:
             self.notify("Start (or resume) a meeting on the Live tab first.", severity="warning")
             return
-        session = self.container.sessions.get(sid)
-        if session is None:
-            self.notify("Session not found.", severity="warning")
-            return
         self.push_screen(
-            EditMeetingDetailsScreen(
+            NameSpeakersScreen(
                 str(sid),
-                title=session.title,
-                notes=session.notes,
-                attendees=list(session.attendees),
                 detected_speakers=sorted(state.diarization_detected_speakers),
                 speaker_aliases=dict(state.speaker_aliases),
             )
