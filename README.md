@@ -1,10 +1,10 @@
 ## live-meeting-transcriber
 
-Local, extensible background transcription for browser/Teams meetings on **Ubuntu Linux**. Captures **system audio** via PipeWire/PulseAudio monitor sources, transcribes in **chunks**, persists timestamped transcript segments to **SQLite**, and can summarize and structure notes via an **LLM**. A **terminal UI (Textual)** provides live transcript, recording controls, session browser, and settings.
+Local, extensible background transcription for browser/Teams meetings on **Linux and macOS**. Captures **system audio** — via PipeWire/PulseAudio monitor sources on Linux, or a driver-free **Core Audio process tap** on macOS 14.4+ (no BlackHole needed) — transcribes in **chunks**, persists timestamped transcript segments to **SQLite**, and can summarize and structure notes via an **LLM**. A **terminal UI (Textual)** provides live transcript, recording controls, session browser, and settings.
 
 ### Key goals
 
-- **Linux-first** audio capture (PipeWire/PulseAudio monitor + optional microphone mix)
+- **Cross-platform** system-audio capture: Linux PipeWire/PulseAudio monitor sources and macOS 14.4+ Core Audio process taps (both with an optional microphone mix)
 - **Provider abstraction** — OpenAI or **local faster-whisper** for transcription; OpenAI for summaries today (more LLM backends can follow the same ports)
 - **Clean / hexagonal architecture** with strict boundaries (`docs/architecture.md`)
 - **CLI + TUI** — scriptable commands and a full-screen terminal experience
@@ -29,7 +29,7 @@ Everything below is configured via `.env` (see `.env.example` and `docs/configur
 | **Diarization** | Disabled (`noop`) | **`DIARIZATION_PROVIDER=noop`**: no ML, no extra deps | **Local** (trivial). |
 | **Diarization** (optional) | pyannote | `PYANNOTE_MODEL` (default **`pyannote/speaker-diarization-3.1`**) via **pyannote.audio** / PyTorch | **Local** inference. Weights downloaded from **Hugging Face** (`HF_TOKEN`); GPU recommended, CPU possible. Install: `uv sync --extra diarization`. |
 | **Storage** | SQLite | File at `DATABASE_URL` | **Local** only. |
-| **Audio capture** | ffmpeg + pactl | Chunked WAV from monitor (+ optional mic) | **Local**. |
+| **Audio capture** | ffmpeg + pactl (Linux) / Core Audio tap (macOS) | Chunked WAV from monitor source or system tap (+ optional mic) | **Local**. |
 | **TUI** | Textual | No separate “model”; UI only | **Local**. |
 
 **Provider fields in settings:** `TRANSCRIPTION_PROVIDER` is **`openai`** or **`faster_whisper`**. `LLM_PROVIDER` is **`openai`** only for now (summaries / structured extraction). Fully offline operation would add a local LLM adapter the same way.
@@ -101,6 +101,16 @@ pactl list short sources
 ```
 
 - Typical monitor source names end with `.monitor`.
+
+### macOS audio setup (Core Audio tap)
+
+macOS is a first-class target. On **macOS 14.4+** system-output audio is captured with a driver-free **Core Audio process tap** — **no BlackHole or Loopback needed** (default `AUDIO_MACOS_SYSTEM_CAPTURE=auto`). The tap uses a tiny bundled Swift helper compiled on first use (needs the **Xcode command line tools**: `xcode-select --install`) and, on first capture, triggers the **"System Audio Recording Only"** permission prompt — approve it once.
+
+- On **older macOS** (or when you set `AUDIO_MACOS_SYSTEM_CAPTURE=avfoundation`), add a loopback source such as [BlackHole](https://github.com/ExistentialAudio/BlackHole) and select it as the audio source.
+- As on Linux, your default microphone is mixed in by default; disable with `AUDIO_INCLUDE_MICROPHONE=false` or `--no-microphone`.
+- Offline diarization (`finalize`) runs on Apple Silicon — the ASR/compute device resolves to `cpu`/`int8` automatically (Core ML/MPS is not used for the CTranslate2 backend). Run `live-transcriber doctor` to verify prerequisites.
+
+See **[docs/system-audio-capture.md](docs/system-audio-capture.md)** and the `AUDIO_MACOS_SYSTEM_CAPTURE` entry in [docs/configuration.md](docs/configuration.md) for details.
 
 ### CLI usage
 
@@ -209,7 +219,7 @@ task lint
 task typecheck
 ```
 
-CI (GitHub Actions) runs **pytest**, **Ruff** (lint + format check), and **gitleaks** for secrets. **mypy** is not enforced yet (`task typecheck` may report issues).
+CI (GitHub Actions) runs **pytest** (with a coverage floor), **mypy** (`typecheck` job, `--all-extras`), **Ruff** (lint + format check), an **e2e smoke** (ffmpeg), and **gitleaks** for secrets.
 
 ### Testing strategy
 
