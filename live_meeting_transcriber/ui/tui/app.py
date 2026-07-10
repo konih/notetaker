@@ -674,12 +674,12 @@ class TranscriberApp(App[None]):
     TabbedContent { height: 1fr; }
     TabPane { height: 1fr; }
     #tab-live #main-row { height: 1fr; }
-    #sidebar { width: 32; min-width: 32; border: solid $primary; overflow-y: auto; }
+    #sidebar { width: 46; min-width: 46; border: solid $primary; overflow-y: auto; }
     #transcript { border: solid $accent; min-width: 40; }
-    #live-details { height: auto; padding: 0 1; border-bottom: solid $boost; }
-    #live-details-title { text-style: bold; }
-    #live-title, #live-attendees { margin-bottom: 1; }
-    #live-notes { height: 4; min-height: 3; border: solid $boost; }
+    #live-details { height: auto; margin: 0 0 1 0; padding: 0 1 1 1; border: round $accent; }
+    .field-label { text-style: bold; padding-top: 1; }
+    #live-attendees-summary { padding: 0 0 0 1; }
+    #live-notes { height: 7; min-height: 4; border: solid $boost; }
     #status { height: auto; padding: 0 1; }
     #notices { height: auto; padding: 0 1; border-top: solid $boost; text-style: italic; color: $success; }
     #errors { height: auto; max-height: 20; overflow-y: auto; padding: 0 1; border-top: solid $boost; }
@@ -749,17 +749,18 @@ class TranscriberApp(App[None]):
             with TabPane("Live", id="tab-live"), Horizontal(id="main-row"):
                 with Vertical(id="sidebar"):
                     with Vertical(id="live-details"):
-                        yield Static(
-                            "Meeting [dim](saves automatically)[/]", id="live-details-title"
-                        )
+                        yield Static("Title", classes="field-label")
                         yield TabCompletableInput(
-                            placeholder="Title", id="live-title", disabled=True
+                            placeholder="Meeting title", id="live-title", disabled=True
                         )
+                        yield Static("Attendees [dim](comma-separated)[/]", classes="field-label")
                         yield TabCompletableInput(
-                            placeholder="Attendees (comma-separated)",
+                            placeholder="Alice, Bob, …",
                             id="live-attendees",
                             disabled=True,
                         )
+                        yield Static("", id="live-attendees-summary", classes="dim")
+                        yield Static("Notes", classes="field-label")
                         yield TextArea(id="live-notes", disabled=True)
                     yield Static("", id="status")
                     yield Static("", id="notices")
@@ -791,6 +792,8 @@ class TranscriberApp(App[None]):
         self.query_one(
             "#live-attendees", TabCompletableInput
         ).suggester = CommaSeparatedPeopleSuggester(self.container.people)
+        self.query_one("#live-details").border_title = "Meeting · saves automatically"
+        self._update_attendees_summary("")
         self._controller.confirm_export_overwrite = self._confirm_export_overwrite
         # Tick the live elapsed-time display once a second while recording. The reducer owns
         # recording_started_at; this only re-renders the status block against the wall clock.
@@ -929,6 +932,7 @@ class TranscriberApp(App[None]):
                 title.value = ""
                 attendees.value = ""
                 notes.text = ""
+                self._update_attendees_summary("")
             title.disabled = attendees.disabled = notes.disabled = True
             return
 
@@ -944,8 +948,21 @@ class TranscriberApp(App[None]):
             attendees.value = ", ".join(session.attendees)
         if notes is not self.focused:
             notes.text = session.notes
+        self._update_attendees_summary(", ".join(session.attendees))
         self._details_loaded_for = sid
         self._last_saved_details = (session.title, session.notes, tuple(session.attendees))
+
+    def _update_attendees_summary(self, raw: str) -> None:
+        """Render the live 'who's in the room' chip line under the attendees field (U24)."""
+        try:
+            summary = self.query_one("#live-attendees-summary", Static)
+        except NoMatches:
+            return
+        names = [p.strip() for p in raw.replace("\n", ",").split(",") if p.strip()]
+        if names:
+            summary.update(Text.from_markup("[dim]→ " + " · ".join(names) + "[/]"))
+        else:
+            summary.update(Text.from_markup("[dim]no attendees yet[/]"))
 
     async def _save_live_details(self) -> None:
         """Persist the inline Live-tab fields for the current session (U23).
@@ -983,6 +1000,10 @@ class TranscriberApp(App[None]):
         )
         for name in attendees:
             self.container.people.touch(name)
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id == "live-attendees":
+            self._update_attendees_summary(event.value)
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         if event.input.id in ("live-title", "live-attendees"):

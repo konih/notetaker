@@ -318,14 +318,12 @@ class MeetingBrowser(Vertical):
         Binding("ctrl+s", "save_meeting", "Save meeting", show=True, priority=True),
         Binding("ctrl+g", "summarize_meeting", "Summarize", show=True, priority=True),
         Binding("ctrl+r", "refresh_list", "Refresh", show=True, priority=True),
-        Binding(
-            "ctrl+shift+d,shift+delete,ctrl+delete",
-            "delete_meeting",
-            "Delete meeting",
-            show=True,
-            priority=True,
-            group=Binding.Group(description="Delete meeting", compact=True),
-        ),
+        # Plain `d` (not the old ctrl+shift+d/shift+delete/ctrl+delete chord, which collapses
+        # onto ctrl+d / never fires on standard terminals). Focus stays on the meetings table
+        # after selecting a row, so `d` fires there; non-priority so it still types into the
+        # title/notes/attendees inputs when one of them is focused. The visible red Delete
+        # toolbar button is the primary affordance (U24).
+        Binding("d", "delete_meeting", "Delete meeting", show=True),
         Binding("ctrl+e", "edit_segment", "Edit line", show=True, priority=True),
         # ctrl+d, not ctrl+i: terminals collapse ctrl+i onto Tab (0x09), so the old
         # binding never fired and Speaker ID was unrunnable from the keyboard here.

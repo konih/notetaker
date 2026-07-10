@@ -19,7 +19,10 @@ from live_meeting_transcriber.ui.effects.controller import TuiController
 from live_meeting_transcriber.ui.state.model import initial_app_state
 from live_meeting_transcriber.ui.state.store import Store
 from live_meeting_transcriber.ui.tui.app import TranscriberApp
-from live_meeting_transcriber.ui.tui.meeting_browser import ConfirmDeleteMeetingModal, MeetingBrowser
+from live_meeting_transcriber.ui.tui.meeting_browser import (
+    ConfirmDeleteMeetingModal,
+    MeetingBrowser,
+)
 from live_meeting_transcriber.ui.tui.meeting_toolbar import (
     overflow_toolbar_actions,
     primary_toolbar_actions,

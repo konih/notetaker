@@ -32,8 +32,10 @@ class ToolbarAction:
 
 # Ordered as they should appear. ``continue-record`` and ``slide-preview`` stay
 # primary because their disabled state is toggled via query_one() on selection —
-# keeping them mounted avoids NoMatches. ``delete`` is destructive, so it lives in
-# the overflow menu rather than a stray always-visible button.
+# keeping them mounted avoids NoMatches. ``delete`` is a visible primary button
+# (U24): its only keyboard trigger used to be a dead chord (ctrl+shift+d) and it was
+# otherwise buried in the overflow menu, so deletion appeared not to work at all. The
+# ``error`` variant renders it red, and the confirm modal still guards it.
 MEETING_TOOLBAR_ACTIONS: tuple[ToolbarAction, ...] = (
     ToolbarAction("meeting-btn-save", "Save", "action_save_meeting", "primary", primary=True),
     ToolbarAction("meeting-btn-summarize", "Summarize", "action_summarize_meeting", primary=True),
@@ -61,9 +63,9 @@ MEETING_TOOLBAR_ACTIONS: tuple[ToolbarAction, ...] = (
         "success",
         primary=True,
     ),
+    ToolbarAction("meeting-btn-delete", "Delete", "action_delete_meeting", "error", primary=True),
     ToolbarAction("meeting-btn-edit-line", "Edit line", "action_edit_segment"),
     ToolbarAction("meeting-btn-refresh", "Refresh", "action_refresh_list"),
-    ToolbarAction("meeting-btn-delete", "Delete", "action_delete_meeting", "error"),
 )
 
 
