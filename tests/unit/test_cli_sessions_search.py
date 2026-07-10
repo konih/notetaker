@@ -54,9 +54,7 @@ def _patch(monkeypatch: pytest.MonkeyPatch, container: Container) -> None:
     monkeypatch.setattr(cli_main, "build_container", lambda _s: container)
 
 
-def test_sessions_search_filters_by_title(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_sessions_search_filters_by_title(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     _patch(monkeypatch, _container_with_sessions(tmp_path))
     result = CliRunner().invoke(cli_main.app, ["sessions", "--search", "platform"])
     assert result.exit_code == 0
@@ -64,9 +62,7 @@ def test_sessions_search_filters_by_title(
     assert "Budget Planning" not in result.stdout
 
 
-def test_sessions_search_matches_notes(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_sessions_search_matches_notes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     _patch(monkeypatch, _container_with_sessions(tmp_path))
     result = CliRunner().invoke(cli_main.app, ["sessions", "--search", "numbers"])
     assert result.exit_code == 0
@@ -74,9 +70,7 @@ def test_sessions_search_matches_notes(
     assert "Platform Review" not in result.stdout
 
 
-def test_sessions_without_search_lists_all(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_sessions_without_search_lists_all(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     _patch(monkeypatch, _container_with_sessions(tmp_path))
     result = CliRunner().invoke(cli_main.app, ["sessions"])
     assert result.exit_code == 0

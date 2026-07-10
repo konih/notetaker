@@ -11,7 +11,7 @@ from live_meeting_transcriber.storage.sqlite import open_connection
 
 
 def _service(conn: object) -> SessionService:
-    sessions = SqliteMeetingSessionRepository(conn)  # type: ignore[arg-type]
+    sessions = SqliteMeetingSessionRepository(conn)
     return SessionService(
         sessions=sessions,
         transcripts=None,  # type: ignore[arg-type]

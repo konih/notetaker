@@ -153,8 +153,16 @@ def devices(ctx: typer.Context) -> None:
 
 
 @app.command()
-def sessions(ctx: typer.Context) -> None:
-    """List known meeting sessions."""
+def sessions(
+    ctx: typer.Context,
+    search: str = typer.Option(
+        "",
+        "--search",
+        "-s",
+        help="Filter by title, notes, or attendees (case-insensitive substring).",
+    ),
+) -> None:
+    """List known meeting sessions (optionally filtered with --search)."""
     c = _get_container(ctx)
     svc = SessionService(
         sessions=c.sessions,
@@ -163,7 +171,13 @@ def sessions(ctx: typer.Context) -> None:
         summarizer=c.summarizer,
         session_speakers=c.session_speakers,
     )
-    for s in svc.list_sessions():
+    results = svc.search_sessions(search)
+    if not results:
+        typer.echo(
+            f"No sessions match {search.strip()!r}." if search.strip() else "No sessions yet."
+        )
+        return
+    for s in results:
         typer.echo(f"{s.id}  {s.started_at.isoformat()}  {s.title}")
 
 

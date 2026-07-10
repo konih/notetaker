@@ -185,6 +185,13 @@ uv run live-transcriber finalize-pending
 > re-runs finalize on startup for such sessions **ended within the last 24h**,
 > so a normal stop-then-quit no longer silently loses diarization.
 
+List and **search** sessions (filter by title, notes, or attendees):
+
+```bash
+uv run live-transcriber sessions                  # all sessions, newest first
+uv run live-transcriber sessions --search platform  # -s: case-insensitive substring
+```
+
 Speaker keys and display names (see `docs/configuration.md`):
 
 ```bash
