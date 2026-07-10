@@ -11,6 +11,7 @@ from uuid import UUID
 from rich.console import Group
 from rich.panel import Panel
 from rich.text import Text
+from textual import events
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
@@ -716,6 +717,10 @@ class TranscriberApp(App[None]):
     #tab-live #main-row { height: 1fr; }
     #sidebar { width: 32; min-width: 32; border: solid $primary; }
     #transcript { border: solid $accent; min-width: 40; }
+    #live-details { height: auto; padding: 0 1; border-bottom: solid $boost; }
+    #live-details-title { text-style: bold; }
+    #live-title, #live-attendees { margin-bottom: 1; }
+    #live-notes { height: 4; min-height: 3; border: solid $boost; }
     #status { height: auto; padding: 0 1; }
     #notices { height: auto; padding: 0 1; border-top: solid $boost; text-style: italic; color: $success; }
     #errors { height: auto; max-height: 20; overflow-y: auto; padding: 0 1; border-top: solid $boost; }
@@ -753,6 +758,10 @@ class TranscriberApp(App[None]):
         self._controller = controller
         self._last_segment_keys: tuple[tuple[str, str, str], ...] | None = None
         self._last_ui_log_len: int = 0
+        # Inline Live-tab meeting fields (U23): which session's values are currently loaded
+        # into the fields, and the last-persisted snapshot for change detection on auto-save.
+        self._details_loaded_for: UUID | None = None
+        self._last_saved_details: tuple[str, str, tuple[str, ...]] | None = None
 
     def format_title(self, title: str, sub_title: str) -> Content:
         """Header shows meeting context only — the app name (``title``) is not repeated
@@ -767,6 +776,19 @@ class TranscriberApp(App[None]):
         with TabbedContent(initial="tab-live"):
             with TabPane("Live", id="tab-live"), Horizontal(id="main-row"):
                 with Vertical(id="sidebar"):
+                    with Vertical(id="live-details"):
+                        yield Static(
+                            "Meeting [dim](saves automatically)[/]", id="live-details-title"
+                        )
+                        yield TabCompletableInput(
+                            placeholder="Title", id="live-title", disabled=True
+                        )
+                        yield TabCompletableInput(
+                            placeholder="Attendees (comma-separated)",
+                            id="live-attendees",
+                            disabled=True,
+                        )
+                        yield TextArea(id="live-notes", disabled=True)
                     yield Static("", id="status")
                     yield Static("", id="notices")
                     yield Static("", id="errors")
@@ -794,6 +816,9 @@ class TranscriberApp(App[None]):
 
     async def on_mount(self) -> None:
         self.store.subscribe(self._on_state)
+        self.query_one(
+            "#live-attendees", TabCompletableInput
+        ).suggester = CommaSeparatedPeopleSuggester(self.container.people)
         self._controller.confirm_export_overwrite = self._confirm_export_overwrite
         # Tick the live elapsed-time display once a second while recording. The reducer owns
         # recording_started_at; this only re-renders the status block against the wall clock.
@@ -836,6 +861,7 @@ class TranscriberApp(App[None]):
             # on the next dispatch).
             return
 
+        self._sync_live_details(state)
         status.update(self._render_status(state))
         if state.notices:
             notices.update(
@@ -909,6 +935,91 @@ class TranscriberApp(App[None]):
         body = "\n".join(parts) if parts else "—"
         return Panel(Text(body), title="Errors & warnings", border_style="yellow")
 
+    def _sync_live_details(self, state: AppState) -> None:
+        """Keep the inline Live-tab meeting fields (U23) in step with the current session.
+
+        Fields load their values **once** per session (when ``current_session_id`` changes) so
+        that per-second elapsed ticks and per-segment renders never overwrite what the user is
+        typing; a focused field is never clobbered even on that first load.
+        """
+        try:
+            title = self.query_one("#live-title", TabCompletableInput)
+            attendees = self.query_one("#live-attendees", TabCompletableInput)
+            notes = self.query_one("#live-notes", TextArea)
+        except NoMatches:
+            return
+
+        sid = state.current_session_id
+        if sid is None:
+            if self._details_loaded_for is not None:
+                self._details_loaded_for = None
+                self._last_saved_details = None
+                title.value = ""
+                attendees.value = ""
+                notes.text = ""
+            title.disabled = attendees.disabled = notes.disabled = True
+            return
+
+        title.disabled = attendees.disabled = notes.disabled = False
+        if sid == self._details_loaded_for:
+            return
+        session = self.container.sessions.get(sid)
+        if session is None:
+            return
+        if title is not self.focused:
+            title.value = session.title
+        if attendees is not self.focused:
+            attendees.value = ", ".join(session.attendees)
+        if notes is not self.focused:
+            notes.text = session.notes
+        self._details_loaded_for = sid
+        self._last_saved_details = (session.title, session.notes, tuple(session.attendees))
+
+    async def _save_live_details(self) -> None:
+        """Persist the inline Live-tab fields for the current session (U23).
+
+        Auto-save with no button: reused by Enter (``on_input_submitted``), blur
+        (``on_descendant_blur``) and the stop flush. Blank titles are skipped silently
+        (``update_details`` would otherwise raise), and an unchanged snapshot is a no-op so
+        blur/tick storms don't hammer the DB.
+        """
+        sid = self.store.get_state().current_session_id
+        if sid is None:
+            return
+        try:
+            title = self.query_one("#live-title", TabCompletableInput).value.strip()
+            raw_attendees = self.query_one("#live-attendees", TabCompletableInput).value
+            notes = self.query_one("#live-notes", TextArea).text
+        except NoMatches:
+            return
+        if not title:
+            return
+        parts = [p.strip() for p in raw_attendees.replace("\n", ",").split(",")]
+        attendees = [p for p in parts if p]
+        snapshot = (title, notes, tuple(attendees))
+        if snapshot == self._last_saved_details:
+            return
+        self._last_saved_details = snapshot
+        await self.store.dispatch_with_effects(
+            act.SessionDetailsCommitRequested(
+                session_id=sid,
+                title=title,
+                notes=notes,
+                attendees=attendees,
+                at=utc_now(),
+            )
+        )
+        for name in attendees:
+            self.container.people.touch(name)
+
+    async def on_input_submitted(self, event: Input.Submitted) -> None:
+        if event.input.id in ("live-title", "live-attendees"):
+            await self._save_live_details()
+
+    async def on_descendant_blur(self, event: events.DescendantBlur) -> None:
+        if getattr(event.widget, "id", None) in ("live-title", "live-attendees", "live-notes"):
+            await self._save_live_details()
+
     async def action_record(self) -> None:
         st = self.store.get_state()
         if st.recording_status in (
@@ -937,6 +1048,9 @@ class TranscriberApp(App[None]):
         )
 
     async def action_stop(self) -> None:
+        # Flush any in-progress inline edits (notes typed then immediately stopped) before
+        # tearing the recording down (U23).
+        await self._save_live_details()
         await self.store.dispatch_with_effects(act.RecordingStopRequested(at=utc_now()))
 
     def action_meeting_details(self) -> None:

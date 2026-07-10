@@ -47,9 +47,7 @@ def _app_with_live_session(
 async def test_fields_populate_from_current_session() -> None:
     # AC: starting/holding a live meeting shows the fields pre-filled from the session.
     sid = uuid4()
-    existing = MeetingSession(
-        id=sid, title="Meeting 2026-07-10", notes="Prep", attendees=["Carol"]
-    )
+    existing = MeetingSession(id=sid, title="Meeting 2026-07-10", notes="Prep", attendees=["Carol"])
     app, _container = _app_with_live_session(sid, existing)
 
     async with app.run_test(size=(120, 40)) as pilot:
