@@ -112,6 +112,20 @@ async def test_unchanged_values_do_not_re_persist() -> None:
     container.sessions.update_details.assert_not_called()
 
 
+async def test_inline_fields_do_not_steal_default_focus() -> None:
+    # Regression guard: the inline inputs are the first sidebar children, but they must not
+    # grab initial focus — otherwise single-key Live bindings (r/x/t/…) would be typed into
+    # the title field instead of triggering their actions.
+    sid = uuid4()
+    existing = MeetingSession(id=sid, title="Meeting 2026-07-10")
+    app, _container = _app_with_live_session(sid, existing)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        focused_id = getattr(app.focused, "id", None)
+        assert focused_id not in ("live-title", "live-attendees", "live-notes")
+
+
 async def test_submit_triggers_autosave() -> None:
     # AC: pressing Enter in the title field auto-saves (no Save button).
     sid = uuid4()
