@@ -18,7 +18,7 @@ from live_meeting_transcriber.domain.models import (
     TranscriptSegment,
 )
 from live_meeting_transcriber.storage.sqlite import dumps_json, loads_json
-from live_meeting_transcriber.utils.time import utc_now
+from live_meeting_transcriber.utils.time import ensure_aware, utc_now
 
 
 def _dt_to_str(dt: datetime) -> str:
@@ -27,7 +27,11 @@ def _dt_to_str(dt: datetime) -> str:
 
 
 def _dt_from_str(raw: str) -> datetime:
-    return datetime.fromisoformat(raw)
+    # A11: rows written before the tz-aware migration (A1) stored naive ISO strings
+    # (no offset), so a DB may mix naive (old) and aware (new) rows. Coerce every read
+    # to UTC-aware here — the single read boundary — so nothing downstream can hit a
+    # naive/aware comparison TypeError. New rows already carry "+00:00" and are unchanged.
+    return ensure_aware(datetime.fromisoformat(raw))
 
 
 def _row_read(row: Any, key: str) -> Any:
