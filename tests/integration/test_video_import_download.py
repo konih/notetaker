@@ -45,7 +45,9 @@ class _FakeTranscriber:
 
 
 @pytest.mark.integration
-@pytest.mark.skipif(not ffmpeg_available(), reason="requires the ffmpeg binary (real video encode/probe)")
+@pytest.mark.skipif(
+    not ffmpeg_available(), reason="requires the ffmpeg binary (real video encode/probe)"
+)
 def test_transcribe_video_from_downloaded_url(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

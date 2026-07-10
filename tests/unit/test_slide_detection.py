@@ -71,7 +71,9 @@ def test_detect_slide_candidates_respects_min_interval(tmp_path: Path) -> None:
 
 
 @pytest.mark.skipif(not PRESENTATION_EN_VIDEO.is_file(), reason="presentation fixture missing")
-@pytest.mark.skipif(not ffmpeg_available(), reason="requires the ffmpeg binary (real video encode/probe)")
+@pytest.mark.skipif(
+    not ffmpeg_available(), reason="requires the ffmpeg binary (real video encode/probe)"
+)
 def test_presentation_en_fixture_default_params_find_multiple_slides() -> None:
     params = SlideDetectionParams(
         sample_interval_seconds=2.0,

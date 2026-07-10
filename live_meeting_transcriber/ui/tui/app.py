@@ -15,7 +15,7 @@ from rich.text import Text
 from textual import events
 from textual.app import App, ComposeResult, SystemCommand
 from textual.binding import Binding
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.content import Content
 from textual.css.query import NoMatches
 from textual.screen import ModalScreen, Screen
@@ -93,6 +93,38 @@ from live_meeting_transcriber.ui.tui.slide_preview_helpers import (
 )
 from live_meeting_transcriber.ui.tui.tab_complete_input import TabCompletableInput
 from live_meeting_transcriber.utils.time import format_clock, format_local_datetime, utc_now
+
+
+class HelpScreen(ModalScreen[None]):
+    """U16 — ``?`` overlay listing every keyboard shortcut (global + Meetings tab).
+
+    Content is a pure projection of the live ``BINDINGS`` (see ``help_overlay``), so it
+    stays in sync automatically and keeps the trimmed U4 footer's overflow shortcuts
+    discoverable.
+    """
+
+    BINDINGS = [
+        Binding("escape", "close", "Close", show=True),
+        Binding("question_mark", "close", "Close", show=False),
+        Binding("q", "close", "Close", show=False),
+    ]
+
+    def compose(self) -> ComposeResult:
+        from live_meeting_transcriber.ui.tui.help_overlay import (
+            build_help_sections,
+            format_help_markup,
+        )
+
+        sections = build_help_sections(type(self.app).BINDINGS, MeetingBrowser.BINDINGS)
+        yield Vertical(
+            Static("Keyboard shortcuts", classes="settings-title"),
+            VerticalScroll(Static(format_help_markup(sections)), classes="help-scroll"),
+            Static("? or esc: close", classes="hint"),
+            classes="help-dialog",
+        )
+
+    def action_close(self) -> None:
+        self.dismiss()
 
 
 class SettingsScreen(ModalScreen[None]):
@@ -697,6 +729,8 @@ class TranscriberApp(App[None]):
     .settings-dialog { padding: 1 2; width: 90; height: auto; max-height: 90%; background: $surface; border: thick $accent; }
     .settings-title { text-style: bold; }
     .hint { padding-top: 1; text-style: dim; }
+    .help-dialog { padding: 1 2; width: 76; height: 90%; max-height: 90%; background: $surface; border: thick $accent; }
+    .help-scroll { height: 1fr; }
     #slide-preview-dialog { width: 95%; height: 90%; min-height: 28; max-width: 120; padding: 1 2; background: $surface; border: thick $accent; layout: vertical; overflow: hidden; }
     #slide-preview-params { height: auto; max-height: 7; margin-bottom: 1; }
     #slide-preview-status { height: auto; max-height: 4; margin-bottom: 1; overflow-y: auto; }
@@ -787,6 +821,12 @@ class TranscriberApp(App[None]):
 
     def action_focus_logs_tab(self) -> None:
         self.query_one(TabbedContent).active = "tab-logs"
+
+    def action_help(self) -> None:
+        # U16: guard against stacking duplicate overlays if `?` is pressed twice.
+        if isinstance(self.screen, HelpScreen):
+            return
+        self.push_screen(HelpScreen())
 
     async def on_mount(self) -> None:
         self.store.subscribe(self._on_state)
