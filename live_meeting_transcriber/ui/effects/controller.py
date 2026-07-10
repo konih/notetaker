@@ -7,6 +7,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from uuid import UUID
 
+import structlog
+
 from live_meeting_transcriber.application.container import Container
 from live_meeting_transcriber.application.export_overwrite import export_content_identical
 from live_meeting_transcriber.application.recorder import Recorder
@@ -33,6 +35,8 @@ from live_meeting_transcriber.ui.state.model import (
 )
 from live_meeting_transcriber.ui.state.store import Store
 from live_meeting_transcriber.utils.time import utc_now
+
+_log = structlog.get_logger("ui.finalize")
 
 _MAX_LIVE_TRANSCRIPT_LINES = 200
 
@@ -217,6 +221,9 @@ class TuiController:
             )
             return
         except Exception as e:
+            # Log the full traceback to the file sink — the user-visible error only carries
+            # str(e), which is too thin to diagnose failures like "bad value(s) in fds_to_keep".
+            _log.exception("finalize_failed", session_id=str(session_id))
             store.dispatch(act.ErrorRaised(message=f"Finalize failed: {e}", at=utc_now()))
             return
 

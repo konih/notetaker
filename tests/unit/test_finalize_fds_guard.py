@@ -16,11 +16,12 @@ from __future__ import annotations
 import asyncio
 import io
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock
 from uuid import uuid4
 
+import pytest
 from live_meeting_transcriber.application import finalize_service
 from live_meeting_transcriber.utils.std_streams import subprocess_safe_std_streams
 
@@ -56,7 +57,7 @@ def test_guard_provides_valid_fileno_and_restores() -> None:
         sys.stdin, sys.stdout, sys.stderr = saved
 
 
-def test_finalize_offline_runs_pipeline_with_valid_std_fds(monkeypatch) -> None:
+def test_finalize_offline_runs_pipeline_with_valid_std_fds(monkeypatch: pytest.MonkeyPatch) -> None:
     """The offline (TUI) finalize path must give the WhisperX pipeline real std fds
     even when the surrounding process redirected std streams to ``fileno() == -1``."""
     fake_out, fake_err = _FilenoMinusOne(), _FilenoMinusOne()
@@ -78,7 +79,7 @@ def test_finalize_offline_runs_pipeline_with_valid_std_fds(monkeypatch) -> None:
     monkeypatch.setattr(
         finalize_service,
         "_finalize_load_inputs",
-        lambda **kw: (datetime(2026, 1, 1, tzinfo=timezone.utc), Path("full_session.wav"), []),
+        lambda **kw: (datetime(2026, 1, 1, tzinfo=UTC), Path("full_session.wav"), []),
     )
     monkeypatch.setattr(
         finalize_service,
