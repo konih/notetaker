@@ -104,7 +104,13 @@ Interactive terminal UI (live transcript, status, settings, session browser):
 uv run live-transcriber tui
 ```
 
-In the TUI, **`m`** opens **Sessions** (browse SQLite sessions, **`r`** refresh, **`e`** rename). The status sidebar shows the **log file path** after settings load.
+**Keyboard.** The always-visible footer shows only the core recording actions —
+**`r`** record, **`x`** stop, **`k`** summarize, **`w`** export, **`q`** quit — so it fits
+a standard terminal without clipping. Every other action stays one keystroke away and is
+listed in the **command palette** (**`Ctrl+P`**): **`t`** edit meeting, **`s`** settings,
+**`a`** audio sources, **`m`** sessions, **`c`** ack errors, **`Ctrl+D`** speaker ID, and
+**`Ctrl+1/2/3`** to switch the Live/Meetings/Logs tabs. In the Sessions view, **`r`**
+refreshes and **`e`** renames. The status sidebar shows the **log file path** after settings load.
 
 List available sources:
 

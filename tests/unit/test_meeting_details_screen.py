@@ -102,7 +102,7 @@ async def test_name_speakers_empty_hint_points_to_speaker_id() -> None:
         texts = [str(w.render()) for w in screen.query(Static)]
         hint = next(t for t in texts if "No speakers detected" in t)
         assert "Speaker ID" in hint
-        assert "Ctrl+I" in hint
+        assert "Ctrl+D" in hint
 
 
 async def test_name_speakers_action_no_session_notifies() -> None:

@@ -3,21 +3,22 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import functools
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 
 from rich.console import Group
 from rich.panel import Panel
 from rich.text import Text
 from textual import events
-from textual.app import App, ComposeResult
+from textual.app import App, ComposeResult, SystemCommand
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.content import Content
 from textual.css.query import NoMatches
-from textual.screen import ModalScreen
+from textual.screen import ModalScreen, Screen
 from textual.widget import Widget
 from textual.widgets import (
     Button,
@@ -63,6 +64,10 @@ from live_meeting_transcriber.ui.tui.empty_states import (
     LIVE_EMPTY_HINT,
     SESSIONS_EMPTY_HINT,
     audio_prerequisite_warnings,
+)
+from live_meeting_transcriber.ui.tui.footer_bindings import (
+    FOOTER_ACTIONS,
+    overflow_footer_actions,
 )
 from live_meeting_transcriber.ui.tui.meeting_browser import (
     ConfirmDeleteMeetingModal,
@@ -452,7 +457,7 @@ class NameSpeakersScreen(ModalScreen[None]):
             children.append(
                 Static(
                     "No speakers detected yet. Run Speaker ID on the finished meeting "
-                    "(Meetings tab · Ctrl+I) to detect and name speakers.",
+                    "(Meetings tab · Ctrl+D) to detect and name speakers.",
                     classes="dim",
                 )
             )
@@ -657,21 +662,12 @@ class TranscriberApp(App[None]):
     """Textual front-end: renders from Store state only."""
 
     TITLE = "live-meeting-transcriber"
+    # U4: only the core recording actions live in the always-visible footer; the
+    # overflow actions stay key-bound (``show=False``) and are listed in the
+    # command palette via ``get_system_commands``. Single source of truth:
+    # ``footer_bindings.FOOTER_ACTIONS``.
     BINDINGS = [
-        Binding("q", "quit", "Quit", show=True),
-        Binding("r", "record", "Record", show=True),
-        Binding("x", "stop", "Stop", show=True),
-        Binding("t", "name_speakers", "Name speakers", show=True),
-        Binding("w", "export_md", "Export", show=True, priority=True),
-        Binding("k", "summarize", "Summarize", show=True, priority=True),
-        Binding("s", "settings", "Settings", show=True),
-        Binding("a", "audio_sources", "Audio sources", show=True),
-        Binding("m", "sessions", "Sessions", show=True),
-        Binding("c", "ack_errors", "Ack errors", show=True),
-        Binding("ctrl+1", "focus_live_tab", "Live tab", show=True),
-        Binding("ctrl+2", "focus_meetings_tab", "Meetings tab", show=True),
-        Binding("ctrl+3", "focus_logs_tab", "Logs tab", show=True),
-        Binding("ctrl+i", "finalize_speakers", "Speaker ID", show=True, priority=True),
+        Binding(a.key, a.action, a.label, show=a.core, priority=a.priority) for a in FOOTER_ACTIONS
     ]
 
     CSS = """
@@ -733,6 +729,19 @@ class TranscriberApp(App[None]):
         there is no context to show.
         """
         return Content(sub_title or title)
+
+    def get_system_commands(self, screen: Screen[Any]) -> Iterable[SystemCommand]:
+        """Keep the overflow actions (hidden from the trimmed footer, U4)
+        discoverable by listing them in the command palette alongside the
+        built-in commands. Each entry runs the same action as its key binding.
+        """
+        yield from super().get_system_commands(screen)
+        for action in overflow_footer_actions():
+            yield SystemCommand(
+                action.label,
+                f"{action.key} — {action.label}",
+                functools.partial(self.run_action, action.action),
+            )
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -835,7 +844,7 @@ class TranscriberApp(App[None]):
         else:
             notices.update(
                 Text.from_markup(
-                    "[dim]w: export · k: summarize · ctrl+i: speaker ID · ctrl+3: logs[/]"
+                    "[dim]w: export · k: summarize · ctrl+d: speaker ID · ctrl+3: logs[/]"
                 )
             )
         err_panel.update(self._render_errors(state))
