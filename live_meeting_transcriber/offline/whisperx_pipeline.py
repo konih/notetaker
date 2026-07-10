@@ -31,19 +31,61 @@ def _wav_is_stereo(path: Path) -> bool:
         return False
 
 
-def _resolve_asr_device(settings: Settings) -> str:
-    if settings.whisperx_device:
-        return settings.whisperx_device.strip()
+# CTranslate2 (WhisperX's ASR backend) supports only CPU and CUDA — it has no MPS/Metal
+# backend, and float16 is not an efficient CPU compute type. On Apple Silicon the naive
+# auto-defaults (mps + float16) therefore crash finalize before it produces any transcript.
+_CPU_UNSAFE_COMPUTE_TYPES = frozenset({"float16", "int8_float16"})
+
+
+def _detect_torch_devices() -> tuple[bool, bool]:
+    """Return ``(has_cuda, has_mps)``; ``(False, False)`` if torch is unavailable."""
     try:
         import torch
-
-        if torch.cuda.is_available():
-            return "cuda"
-        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-            return "mps"
-        return "cpu"
     except ImportError:
+        return False, False
+    has_cuda = bool(torch.cuda.is_available())
+    has_mps = bool(getattr(torch.backends, "mps", None)) and bool(torch.backends.mps.is_available())
+    return has_cuda, has_mps
+
+
+def _auto_asr_device(*, has_cuda: bool) -> str:
+    """Pick the WhisperX ASR device. CTranslate2 cannot use MPS, so non-CUDA -> CPU."""
+    return "cuda" if has_cuda else "cpu"
+
+
+def _resolve_asr_device(settings: Settings) -> str:
+    explicit = (settings.whisperx_device or "").strip()
+    if explicit:
+        device = explicit
+    else:
+        has_cuda, _has_mps = _detect_torch_devices()
+        device = _auto_asr_device(has_cuda=has_cuda)
+    # 'mps' (auto-detected on older builds or set explicitly) would raise
+    # ``ValueError: unsupported device mps`` inside CTranslate2 — coerce to CPU.
+    if device == "mps":
+        get_logger(component="whisperx_finalize").info(
+            "asr_device_coerced",
+            requested="mps",
+            using="cpu",
+            reason="CTranslate2 ASR backend has no MPS support",
+        )
         return "cpu"
+    return device
+
+
+def _resolve_compute_type(settings: Settings, device: str) -> str:
+    """Coerce a CPU-invalid compute type (float16) to int8; keep GPU/explicit choices."""
+    compute_type = (settings.whisperx_compute_type or "").strip() or "float16"
+    if device == "cpu" and compute_type in _CPU_UNSAFE_COMPUTE_TYPES:
+        get_logger(component="whisperx_finalize").info(
+            "compute_type_coerced",
+            requested=compute_type,
+            using="int8",
+            device="cpu",
+            reason="CTranslate2 has no efficient float16 compute type on CPU",
+        )
+        return "int8"
+    return compute_type
 
 
 def _resolve_torch_device(settings: Settings, asr_device: str) -> str:
@@ -101,6 +143,7 @@ def run_whisperx_finalize(
 
     _progress_step(progress, "Loading full-session WAV into memory…")
     device = _resolve_asr_device(settings)
+    compute_type = _resolve_compute_type(settings, device)
     align_device = _resolve_torch_device(settings, device)
     diarize_device = _resolve_diarize_device(settings, align_device)
     language = settings.whisperx_language
@@ -115,7 +158,7 @@ def run_whisperx_finalize(
     model = whisperx.load_model(
         settings.whisperx_model,
         device,
-        compute_type=settings.whisperx_compute_type,
+        compute_type=compute_type,
         language=whisper_lang,
     )
     _progress_step(progress, "Transcribing (this can take several minutes)…")

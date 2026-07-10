@@ -98,9 +98,9 @@ Only existing files are loaded. See [`install-desktop.md`](install-desktop.md) f
 
 - `FINALIZE_ON_SESSION_STOP`: default `false`. When `true` (and `HF_TOKEN` is set), stopping a recording automatically enqueues the offline finalize pass; otherwise run `live-transcriber finalize` manually.
 - `WHISPERX_MODEL`: default `large-v3-turbo` — Whisper checkpoint used for the finalize re-transcription.
-- `WHISPERX_DEVICE`: optional; compute device for the WhisperX ASR model (e.g. `cpu`, `cuda`, `mps`). Unset lets WhisperX pick.
+- `WHISPERX_DEVICE`: optional; compute device for the WhisperX ASR model — **`cpu` or `cuda` only** (WhisperX's ASR backend is CTranslate2, which has **no MPS/Metal backend**). Unset auto-selects `cuda` when available, otherwise `cpu`. On **Apple Silicon the ASR always runs on CPU** — an `mps` value (auto or explicit) is coerced to `cpu`, since CTranslate2 cannot use it.
 - `WHISPERX_TORCH_DEVICE`: optional; overrides the torch device for alignment when it must differ from `WHISPERX_DEVICE`.
-- `WHISPERX_COMPUTE_TYPE`: default `float16` — CTranslate2 compute type (e.g. `int8`, `float32`); use `int8` on CPU.
+- `WHISPERX_COMPUTE_TYPE`: default `float16` — CTranslate2 compute type (e.g. `int8`, `float32`). `float16` has no efficient CPU path, so on CPU (incl. Apple Silicon) it is automatically downgraded to `int8`.
 - `WHISPERX_BATCH_SIZE`: default `8` (1–64) — lower it (2–4) and/or pick a smaller `WHISPERX_MODEL` if transcription OOMs.
 - `WHISPERX_LANGUAGE`: optional ISO code (e.g. `en`); leave empty for auto-detect.
 - `WHISPERX_SKIP_ALIGNMENT`: default `false` — skip the word-alignment stage (faster, coarser timestamps).
