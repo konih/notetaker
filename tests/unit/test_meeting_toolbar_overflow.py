@@ -18,7 +18,8 @@ from live_meeting_transcriber.ui.effects.controller import TuiController
 from live_meeting_transcriber.ui.state.model import initial_app_state
 from live_meeting_transcriber.ui.state.store import Store
 from live_meeting_transcriber.ui.tui.app import TranscriberApp
-from live_meeting_transcriber.ui.tui.meeting_browser import MeetingActionsMenu, MeetingBrowser
+from live_meeting_transcriber.ui.tui.meeting_browser import MeetingBrowser
+from live_meeting_transcriber.ui.tui.meeting_modals import MeetingActionsMenu
 from live_meeting_transcriber.ui.tui.meeting_toolbar import (
     MEETING_TOOLBAR_ACTIONS,
     MORE_BUTTON_ID,

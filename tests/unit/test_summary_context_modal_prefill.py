@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from live_meeting_transcriber.ui.tui.meeting_browser import SummaryContextModal
+from live_meeting_transcriber.ui.tui.meeting_modals import SummaryContextModal
 from textual.app import App
 from textual.widgets import TextArea
 

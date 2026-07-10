@@ -70,10 +70,10 @@ from live_meeting_transcriber.ui.tui.footer_bindings import (
     FOOTER_ACTIONS,
     overflow_footer_actions,
 )
-from live_meeting_transcriber.ui.tui.meeting_browser import (
+from live_meeting_transcriber.ui.tui.meeting_browser import MeetingBrowser
+from live_meeting_transcriber.ui.tui.meeting_modals import (
     ConfirmDeleteMeetingModal,
     ConfirmOverwriteExportModal,
-    MeetingBrowser,
     SummaryContextModal,
 )
 from live_meeting_transcriber.ui.tui.people_suggesters import (
