@@ -9,6 +9,7 @@ These tests pin the correct resolution.
 
 from __future__ import annotations
 
+import pytest
 from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.offline import whisperx_pipeline as wp
 
@@ -27,18 +28,18 @@ def test_auto_asr_device_without_cuda_is_cpu_never_mps() -> None:
     assert wp._auto_asr_device(has_cuda=False) == "cpu"
 
 
-def test_resolve_asr_device_auto_mps_only_uses_cpu(monkeypatch) -> None:
+def test_resolve_asr_device_auto_mps_only_uses_cpu(monkeypatch: pytest.MonkeyPatch) -> None:
     # The exact regression: (has_cuda=False, has_mps=True) previously returned 'mps'.
     monkeypatch.setattr(wp, "_detect_torch_devices", lambda: (False, True))
     assert wp._resolve_asr_device(_settings()) == "cpu"
 
 
-def test_resolve_asr_device_auto_cuda(monkeypatch) -> None:
+def test_resolve_asr_device_auto_cuda(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(wp, "_detect_torch_devices", lambda: (True, False))
     assert wp._resolve_asr_device(_settings()) == "cuda"
 
 
-def test_resolve_asr_device_auto_cpu_only(monkeypatch) -> None:
+def test_resolve_asr_device_auto_cpu_only(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(wp, "_detect_torch_devices", lambda: (False, False))
     assert wp._resolve_asr_device(_settings()) == "cpu"
 
