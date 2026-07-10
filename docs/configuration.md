@@ -78,6 +78,10 @@ Only existing files are loaded. See [`install-desktop.md`](install-desktop.md) f
 - `KEEP_AUDIO_CHUNKS`: default `0`
 - `SCREENSHOTS_EXPORT_ENABLED`: default `true` — embed matching screenshots in markdown exports
 - `SCREENSHOTS_SOURCE_DIR`: optional; default `~/Pictures/Screenshots` (GNOME filenames `Screenshot from YYYY-MM-DD HH-MM-SS.png`)
+- `OBSIDIAN_PEOPLE_DIR`: optional; folder of person notes used for attendee autocomplete and where new person notes are created (see `OBSIDIAN_PERSON_TEMPLATE`).
+- `OBSIDIAN_MEETINGS_DIR`: optional; folder where exported meeting notes are written (also the anchor for the default `OBSIDIAN_SCREENSHOTS_DIR`).
+- `OBSIDIAN_MEETING_TEMPLATE`: optional; path to a Markdown template applied when exporting a meeting note.
+- `OBSIDIAN_PERSON_TEMPLATE`: optional; path to a Markdown template applied when a new person note is created in `OBSIDIAN_PEOPLE_DIR`.
 - `OBSIDIAN_SCREENSHOTS_DIR`: optional; default `<parent of OBSIDIAN_MEETINGS_DIR>/Images/Screenshots`
 - `DIARIZATION_ENABLED` / `DIARIZATION_PROVIDER`: legacy flags (UI/settings); **live recording does not run pyannote per chunk**. Speaker attribution paths:
   - **Offline (recommended):** `live-transcriber finalize` — WhisperX ASR + pyannote on `full_session.wav` (needs `uv sync --extra whisperx`, `HF_TOKEN`, Python ≤ 3.13 for torch). Uses `DIARIZATION_MIN_SPEAKERS` / `DIARIZATION_MAX_SPEAKERS` / `DIARIZATION_NUM_SPEAKERS` when diarization runs inside finalize.
@@ -87,6 +91,18 @@ Only existing files are loaded. See [`install-desktop.md`](install-desktop.md) f
 - `PYANNOTE_MODEL`: default `pyannote/speaker-diarization-3.1` (offline finalize / optional `diarization` extra).
 - `DIARIZATION_NUM_SPEAKERS`: optional exact speaker count for pyannote during finalize.
 - `DIARIZATION_MIN_SPEAKERS` / `DIARIZATION_MAX_SPEAKERS`: optional bounds when `DIARIZATION_NUM_SPEAKERS` is unset. `MIN` must be ≤ `MAX`.
+
+**Offline finalize (WhisperX)** — the `live-transcriber finalize` re-transcription + diarization pass over `full_session.wav` (needs `uv sync --extra whisperx`, `HF_TOKEN`, Python ≤ 3.13 for torch):
+
+- `FINALIZE_ON_SESSION_STOP`: default `false`. When `true` (and `HF_TOKEN` is set), stopping a recording automatically enqueues the offline finalize pass; otherwise run `live-transcriber finalize` manually.
+- `WHISPERX_MODEL`: default `large-v3-turbo` — Whisper checkpoint used for the finalize re-transcription.
+- `WHISPERX_DEVICE`: optional; compute device for the WhisperX ASR model (e.g. `cpu`, `cuda`, `mps`). Unset lets WhisperX pick.
+- `WHISPERX_TORCH_DEVICE`: optional; overrides the torch device for alignment when it must differ from `WHISPERX_DEVICE`.
+- `WHISPERX_COMPUTE_TYPE`: default `float16` — CTranslate2 compute type (e.g. `int8`, `float32`); use `int8` on CPU.
+- `WHISPERX_BATCH_SIZE`: default `8` (1–64) — lower it (2–4) and/or pick a smaller `WHISPERX_MODEL` if transcription OOMs.
+- `WHISPERX_LANGUAGE`: optional ISO code (e.g. `en`); leave empty for auto-detect.
+- `WHISPERX_SKIP_ALIGNMENT`: default `false` — skip the word-alignment stage (faster, coarser timestamps).
+- `WHISPERX_DIARIZE_DEVICE`: optional; device for the pyannote diarization model. Unset defaults to CPU when alignment uses CUDA/MPS (avoids a second GPU model OOMing); set to `cuda`/`cuda:0` to force GPU diarization if you have the VRAM.
 
 Speaker CLI:
 
