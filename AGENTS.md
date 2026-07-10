@@ -27,7 +27,7 @@ report-only pilot — `task arch:check` prints them without failing. Do not add 
 
 ```bash
 task install          # uv sync --all-extras
-task check            # ruff format --check, ruff check, mypy, pytest (unit only)
+task check            # ruff format --check, ruff check, mypy, pytest -m "not integration" (unit + e2e smoke) with coverage floor
 uv run pytest -q      # all tests; integration skipped by default
 uv run ruff check .   # lint
 uv run ruff format .  # format
@@ -35,7 +35,7 @@ uv run ruff format .  # format
 
 - **Unit tests (default):** `uv run pytest` or `task test:unit` (`-m "not integration"`).
 - **Integration tests:** `RUN_INTEGRATION_TESTS=1 uv run pytest -m integration` or `task test:integration`.
-- **CI parity:** `task check` runs the same pytest + Ruff gates as GitHub Actions, plus a clean mypy typecheck (mypy is green locally; wiring it into CI is tracked separately).
+- **CI parity:** `task check` runs the same gates as GitHub Actions — Ruff (whole-tree `.` scope in both), mypy (CI syncs `--all-extras` to match), and `pytest -m "not integration"` with a coverage floor (`[tool.coverage.report] fail_under`, ratcheting toward 90% per OQ-1). CI's `test` job runs the full `pytest` and enforces the same floor.
 
 ### Python version and optional extras
 

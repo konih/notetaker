@@ -23,3 +23,8 @@ references/
 tests/fixtures/.cache/
 tests/fixtures/sample_presentation.mp4
 tests/fixtures/sample_presentation_120s.mp4
+# Coverage artifacts
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml

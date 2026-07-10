@@ -80,12 +80,12 @@ tasks:
       - uv run lint-imports || true
 
   check:
-    desc: Lint + format check + typecheck + tests
+    desc: Lint + format check + typecheck + tests (with coverage floor)
     cmds:
       - uv run ruff format --check .
       - uv run ruff check .
       - uv run mypy .
-      - uv run pytest -m "not integration"
+      - uv run pytest -m "not integration" --cov=live_meeting_transcriber --cov-report=term-missing
 
   run:
     desc: Show CLI help

@@ -31,8 +31,31 @@ jobs:
       - name: Sync dependencies
         run: uv sync --python ${{ matrix.python-version }} --extra dev
 
-      - name: Pytest
-        run: uv run --python ${{ matrix.python-version }} pytest
+      - name: Pytest (with coverage floor)
+        # --cov-fail-under is set in [tool.coverage.report] (pyproject.toml). Fails the
+        # build when coverage drops below the OQ-1 floor (ratcheting toward 90%).
+        run: uv run --python ${{ matrix.python-version }} pytest --cov=live_meeting_transcriber --cov-report=term-missing
+
+  typecheck:
+    name: Mypy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - run: uv python install 3.12
+
+      # mypy needs the extras' real types (torch, numpy, huggingface_hub, pyannote): some
+      # modules carry `# type: ignore` that is *unused* when the extra is absent, so a
+      # dev-only sync reddens strict mypy. --all-extras matches the local `task check`.
+      - name: Sync all extras
+        run: uv sync --python 3.12 --all-extras
+
+      - name: Mypy
+        run: uv run mypy .
 
   lint:
     name: Ruff
@@ -49,11 +72,12 @@ jobs:
       - name: Sync dev tools
         run: uv sync --python 3.12 --extra dev
 
+      # Whole-tree scope (`.`), matching Taskfile.yml `task check`, so scripts/ is linted too.
       - name: Ruff check
-        run: uv run ruff check live_meeting_transcriber tests
+        run: uv run ruff check .
 
       - name: Ruff format
-        run: uv run ruff format --check live_meeting_transcriber tests
+        run: uv run ruff format --check .
 
   e2e:
     name: E2E smoke (ffmpeg)
