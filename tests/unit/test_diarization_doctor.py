@@ -7,7 +7,6 @@ touch the network, the filesystem, or optional heavy imports.
 from __future__ import annotations
 
 import pytest
-
 from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.diagnostics import diarization_doctor as doc
 

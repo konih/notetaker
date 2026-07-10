@@ -11,6 +11,11 @@ tasks:
     cmds:
       - bash scripts/install_video_prereqs.sh
 
+  diarization:doctor:
+    desc: Check offline-diarization prerequisites (extras, ffmpeg, HF token, gated model, device)
+    cmds:
+      - uv run live-transcriber doctor
+
   fixtures:sample-video:
     desc: Generate synthetic presentation MP4 under tests/fixtures/
     deps: [install:video-prereqs]

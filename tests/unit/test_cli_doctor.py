@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import pytest
-from typer.testing import CliRunner
-
 from live_meeting_transcriber.cli.main import app
 from live_meeting_transcriber.diagnostics import diarization_doctor as doc
+from typer.testing import CliRunner
 
 runner = CliRunner()
 

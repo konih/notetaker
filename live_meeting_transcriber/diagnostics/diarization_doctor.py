@@ -73,9 +73,7 @@ def check_ffmpeg(*, which: Callable[[str], str | None] = shutil.which) -> CheckR
     return CheckResult(name, True, "found on PATH")
 
 
-def check_hf_token(
-    token: str | None, *, whoami: Callable[[str], object]
-) -> CheckResult:
+def check_hf_token(token: str | None, *, whoami: Callable[[str], object]) -> CheckResult:
     """Distinguish a *missing* token from an *invalid* one — the two failure modes seen."""
     name = "Hugging Face token"
     if not token or not token.strip():
@@ -87,7 +85,7 @@ def check_hf_token(
         )
     try:
         info = whoami(token.strip())
-    except Exception as e:  # noqa: BLE001 — any auth failure means the token is unusable
+    except Exception as e:
         return CheckResult(
             name,
             False,
@@ -109,11 +107,14 @@ def check_gated_model_access(
     licence_url = f"https://hf.co/{model_id}"
     if not token or not token.strip():
         return CheckResult(
-            name, False, "no valid HF_TOKEN to check with", f"set HF_TOKEN, then accept {licence_url}"
+            name,
+            False,
+            "no valid HF_TOKEN to check with",
+            f"set HF_TOKEN, then accept {licence_url}",
         )
     try:
         model_info(model_id, token.strip())
-    except Exception as e:  # noqa: BLE001 — gated/HTTP errors all mean "no access"
+    except Exception as e:
         return CheckResult(
             name,
             False,
