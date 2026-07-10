@@ -40,8 +40,16 @@ class FakeDevices:
 
 
 class FakeRecorder:
-    def __init__(self, **_kwargs: object) -> None:
-        pass
+    """Stand-in for ``Recorder`` that mirrors its real persist-then-notify contract.
+
+    The production recorder ``append``s every streamed segment to the transcript repository
+    *and* calls ``on_segment`` (see ``application/recorder.py``). Capturing the injected
+    ``transcripts`` repo here keeps the fake faithful so e2e tests can assert the transcript
+    was actually persisted, not merely echoed to stdout.
+    """
+
+    def __init__(self, *, transcripts: object | None = None, **_kwargs: object) -> None:
+        self._transcripts = transcripts
 
     async def record_forever(
         self,
@@ -61,6 +69,8 @@ class FakeRecorder:
             ended_at=utc_now() + timedelta(seconds=1),
             text="e2e smoke transcript",
         )
+        if self._transcripts is not None:
+            self._transcripts.append(seg)  # type: ignore[attr-defined]
         on_segment(seg)
         await asyncio.sleep(0)
 

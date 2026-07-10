@@ -56,6 +56,9 @@ def test_cli_finalize_smoke_e2e(monkeypatch: pytest.MonkeyPatch, tmp_path: Path)
     assert result.exit_code == 0, result.stdout + result.stderr
     assert "Replaced transcript with 1 segment" in result.stdout
 
+    # Persisted-state depth (T5): finalize must *replace* the transcript with exactly the
+    # diarized segments, speaker label and all — the labelling is the whole point of the pass.
     segments = container.transcripts.list_by_session(sid)
-    assert len(segments) == 1
+    assert len(segments) == 1, "finalize must replace, not append"
     assert segments[0].text == "finalized segment"
+    assert segments[0].speaker == "speaker_1", "the diarized speaker label must be persisted"
