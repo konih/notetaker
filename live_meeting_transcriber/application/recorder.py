@@ -9,14 +9,11 @@ from uuid import UUID
 
 from live_meeting_transcriber.application.dual_path import transcriber_supports_dual_path
 from live_meeting_transcriber.audio.session_recording import (
-    append_chunk_to_full_session_wav,
-    full_session_wav_path,
+    append_chunk_with_timeline,
     session_audio_dir,
 )
 from live_meeting_transcriber.audio.stereo import extract_mono_channel_wav, rms_mixdown_to_mono_wav
-from live_meeting_transcriber.audio.timeline import AudioTimelineEntry, append_timeline_entry
 from live_meeting_transcriber.audio.wav_level import peak_linear_from_wav_path
-from live_meeting_transcriber.audio.wav_segment import safe_wav_duration_seconds
 from live_meeting_transcriber.domain.application_events import (
     ApplicationEvent,
     AudioChunkCaptured,
@@ -86,6 +83,15 @@ class Recorder:
                 log.warning("audio_chunk_cleanup_failed", path=str(chunk.path))
         await asyncio.sleep(0)
 
+    def _discard_chunk_audio(self, chunk: AudioChunk, log: Any) -> None:
+        """Remove the per-chunk WAV once its audio has been folded into the session
+        WAV (and transcribed), unless the operator asked to keep chunks."""
+        if not self.keep_audio_chunks:
+            try:
+                chunk.path.unlink(missing_ok=True)
+            except OSError:
+                log.warning("audio_chunk_cleanup_failed", path=str(chunk.path))
+
     async def _ingest_captured_chunk(
         self,
         *,
@@ -101,39 +107,19 @@ class Recorder:
 
         # Persist audio to the full-session WAV first so the meeting can still be
         # finalized offline even when live transcription is unavailable.
-        file_dur = safe_wav_duration_seconds(chunk.path)
-        if file_dur <= 0.0:
-            file_dur = chunk.duration_seconds
-
-        full_wav = full_session_wav_path(session_audio_root)
-        audio_start = safe_wav_duration_seconds(full_wav)
-        audio_end = audio_start + file_dur
-        try:
-            append_chunk_to_full_session_wav(
-                session_audio_root=session_audio_root,
-                chunk_wav=chunk.path,
-                sample_rate_hz=sample_rate_hz,
-            )
-        except Exception as e:
-            log.warning("session_full_audio_append_failed", error=str(e))
-        else:
-            append_timeline_entry(
-                session_audio_root,
-                AudioTimelineEntry(
-                    audio_start_sec=audio_start,
-                    audio_end_sec=audio_end,
-                    wall_started_at=chunk.started_at,
-                    wall_ended_at=chunk.ended_at,
-                ),
-            )
+        append_chunk_with_timeline(
+            session_audio_root=session_audio_root,
+            chunk_wav=chunk.path,
+            sample_rate_hz=sample_rate_hz,
+            wall_started_at=chunk.started_at,
+            wall_ended_at=chunk.ended_at,
+            fallback_duration_seconds=chunk.duration_seconds,
+            log=log,
+        )
 
         if not transcription_enabled:
             # Live transcription disabled (e.g. model unavailable); audio is kept above.
-            if not self.keep_audio_chunks:
-                try:
-                    chunk.path.unlink(missing_ok=True)
-                except OSError:
-                    log.warning("audio_chunk_cleanup_failed", path=str(chunk.path))
+            self._discard_chunk_audio(chunk, log)
             await asyncio.sleep(0)
             return
 
@@ -154,171 +140,99 @@ class Recorder:
                 message="AUDIO_STEREO_MODE=dual_path requires faster_whisper; using mixdown.",
             )
 
+        if use_dual:
+            await self._transcribe_dual_path(
+                session_id=session_id,
+                chunk=chunk,
+                sample_rate_hz=sample_rate_hz,
+                on_application_event=on_application_event,
+                on_segment=on_segment,
+                log=log,
+            )
+        else:
+            await self._transcribe_mixdown(
+                session_id=session_id,
+                chunk=chunk,
+                sample_rate_hz=sample_rate_hz,
+                on_application_event=on_application_event,
+                on_segment=on_segment,
+                log=log,
+            )
+
+        await asyncio.sleep(0)
+
+    async def _transcribe_dual_path(
+        self,
+        *,
+        session_id: UUID,
+        chunk: AudioChunk,
+        sample_rate_hz: int,
+        on_application_event: Callable[[ApplicationEvent], None] | None,
+        on_segment: Callable[[TranscriptSegment], None] | None,
+        log: Any,
+    ) -> None:
+        """Stereo path: split mic/system channels and transcribe each separately so the
+        provider can attribute speakers. Preserves per-segment speaker labels and reports
+        the detected speakers — unlike the mixdown path, which forces ``unknown``."""
         temp_paths: list[Path] = []
         try:
-            if use_dual:
-                mic_path = extract_mono_channel_wav(chunk.path, 0, sample_rate_hz=sample_rate_hz)
-                sys_path = extract_mono_channel_wav(chunk.path, 1, sample_rate_hz=sample_rate_hz)
-                temp_paths.extend([mic_path, sys_path])
-                try:
-                    segments = await self.transcriber.transcribe_stereo_chunk(  # type: ignore[attr-defined]
-                        chunk=chunk, mic_path=mic_path, sys_path=sys_path
-                    )
-                except TranscriptionProviderError as e:
-                    if not e.recoverable:
-                        raise
-                    log.warning(
-                        "transcription_chunk_failed",
-                        chunk_id=str(chunk.id),
-                        error=str(e),
-                        exc_info=True,
-                    )
-                    await self._skip_transcription_chunk(
-                        chunk=chunk,
-                        on_application_event=on_application_event,
-                        event=TranscriptionChunkFailed(
-                            session_id=session_id,
-                            chunk_id=chunk.id,
-                            message=str(e),
-                            at=utc_now(),
-                        ),
-                        log=log,
-                    )
-                    return
-                except Exception as e:
-                    log.exception("transcription_chunk_failed", chunk_id=str(chunk.id))
-                    await self._skip_transcription_chunk(
-                        chunk=chunk,
-                        on_application_event=on_application_event,
-                        event=TranscriptionChunkFailed(
-                            session_id=session_id,
-                            chunk_id=chunk.id,
-                            message=str(e),
-                            at=utc_now(),
-                        ),
-                        log=log,
-                    )
-                    return
-                if not segments:
-                    log.warning("transcription_empty_chunk", chunk_id=str(chunk.id))
-                    await self._skip_transcription_chunk(
-                        chunk=chunk,
-                        on_application_event=on_application_event,
-                        event=TranscriptionChunkEmpty(
-                            session_id=session_id,
-                            chunk_id=chunk.id,
-                            at=utc_now(),
-                        ),
-                        log=log,
-                    )
-                    return
-                detected = frozenset({s.speaker for s in segments if s.speaker})
-                for segment in segments:
-                    self.transcripts.append(segment)
-                    log.info("transcript_segment_saved", segment_id=str(segment.id))
-                    _emit(
-                        on_application_event,
-                        TranscriptSegmentPersisted(segment=segment, at=utc_now()),
-                    )
-                    if on_segment is not None:
-                        on_segment(segment)
-                last_seg = segments[-1]
-                _emit(
-                    on_application_event,
-                    TranscriptionChunkCompleted(
-                        session_id=session_id, chunk_id=chunk.id, at=utc_now()
-                    ),
+            mic_path = extract_mono_channel_wav(chunk.path, 0, sample_rate_hz=sample_rate_hz)
+            sys_path = extract_mono_channel_wav(chunk.path, 1, sample_rate_hz=sample_rate_hz)
+            temp_paths.extend([mic_path, sys_path])
+            try:
+                segments = await self.transcriber.transcribe_stereo_chunk(  # type: ignore[attr-defined]
+                    chunk=chunk, mic_path=mic_path, sys_path=sys_path
                 )
-                _emit(
-                    on_application_event,
-                    DiarizationChunkCompleted(
-                        segment=last_seg,
-                        detected_speakers=detected,
+            except TranscriptionProviderError as e:
+                if not e.recoverable:
+                    raise
+                log.warning(
+                    "transcription_chunk_failed",
+                    chunk_id=str(chunk.id),
+                    error=str(e),
+                    exc_info=True,
+                )
+                await self._skip_transcription_chunk(
+                    chunk=chunk,
+                    on_application_event=on_application_event,
+                    event=TranscriptionChunkFailed(
+                        session_id=session_id,
+                        chunk_id=chunk.id,
+                        message=str(e),
                         at=utc_now(),
                     ),
+                    log=log,
                 )
-            else:
-                work_chunk = chunk
-                if chunk.channels == 2:
-                    mono_p = rms_mixdown_to_mono_wav(chunk.path, sample_rate_hz=sample_rate_hz)
-                    temp_paths.append(mono_p)
-                    work_chunk = chunk.model_copy(
-                        update={
-                            "path": mono_p,
-                            "channels": 1,
-                        }
-                    )
-                try:
-                    segment = await self.transcriber.transcribe(chunk=work_chunk)
-                except EmptyTranscriptionError:
-                    log.warning("transcription_empty_chunk", chunk_id=str(chunk.id))
-                    await self._skip_transcription_chunk(
-                        chunk=chunk,
-                        on_application_event=on_application_event,
-                        event=TranscriptionChunkEmpty(
-                            session_id=session_id,
-                            chunk_id=chunk.id,
-                            at=utc_now(),
-                        ),
-                        log=log,
-                    )
-                    return
-                except TranscriptionProviderError as e:
-                    if not e.recoverable:
-                        raise
-                    log.warning(
-                        "transcription_chunk_failed",
-                        chunk_id=str(chunk.id),
-                        error=str(e),
-                        exc_info=True,
-                    )
-                    await self._skip_transcription_chunk(
-                        chunk=chunk,
-                        on_application_event=on_application_event,
-                        event=TranscriptionChunkFailed(
-                            session_id=session_id,
-                            chunk_id=chunk.id,
-                            message=str(e),
-                            at=utc_now(),
-                        ),
-                        log=log,
-                    )
-                    return
-                except Exception as e:
-                    log.exception("transcription_chunk_failed", chunk_id=str(chunk.id))
-                    await self._skip_transcription_chunk(
-                        chunk=chunk,
-                        on_application_event=on_application_event,
-                        event=TranscriptionChunkFailed(
-                            session_id=session_id,
-                            chunk_id=chunk.id,
-                            message=str(e),
-                            at=utc_now(),
-                        ),
-                        log=log,
-                    )
-                    return
-
-                segment = segment.model_copy(
-                    update={
-                        "speaker": "unknown",
-                        "chunk_id": chunk.id,
-                    }
-                )
-                _emit(
-                    on_application_event,
-                    TranscriptionChunkCompleted(
-                        session_id=session_id, chunk_id=chunk.id, at=utc_now()
-                    ),
-                )
-                _emit(
-                    on_application_event,
-                    DiarizationChunkCompleted(
-                        segment=segment,
-                        detected_speakers=frozenset(),
+                return
+            except Exception as e:
+                log.exception("transcription_chunk_failed", chunk_id=str(chunk.id))
+                await self._skip_transcription_chunk(
+                    chunk=chunk,
+                    on_application_event=on_application_event,
+                    event=TranscriptionChunkFailed(
+                        session_id=session_id,
+                        chunk_id=chunk.id,
+                        message=str(e),
                         at=utc_now(),
                     ),
+                    log=log,
                 )
+                return
+            if not segments:
+                log.warning("transcription_empty_chunk", chunk_id=str(chunk.id))
+                await self._skip_transcription_chunk(
+                    chunk=chunk,
+                    on_application_event=on_application_event,
+                    event=TranscriptionChunkEmpty(
+                        session_id=session_id,
+                        chunk_id=chunk.id,
+                        at=utc_now(),
+                    ),
+                    log=log,
+                )
+                return
+            detected = frozenset({s.speaker for s in segments if s.speaker})
+            for segment in segments:
                 self.transcripts.append(segment)
                 log.info("transcript_segment_saved", segment_id=str(segment.id))
                 _emit(
@@ -327,7 +241,19 @@ class Recorder:
                 )
                 if on_segment is not None:
                     on_segment(segment)
-
+            last_seg = segments[-1]
+            _emit(
+                on_application_event,
+                TranscriptionChunkCompleted(session_id=session_id, chunk_id=chunk.id, at=utc_now()),
+            )
+            _emit(
+                on_application_event,
+                DiarizationChunkCompleted(
+                    segment=last_seg,
+                    detected_speakers=detected,
+                    at=utc_now(),
+                ),
+            )
         finally:
             for p in temp_paths:
                 try:
@@ -335,13 +261,117 @@ class Recorder:
                 except OSError:
                     pass
 
-        if not self.keep_audio_chunks:
-            try:
-                chunk.path.unlink(missing_ok=True)
-            except OSError:
-                log.warning("audio_chunk_cleanup_failed", path=str(chunk.path))
+        self._discard_chunk_audio(chunk, log)
 
-        await asyncio.sleep(0)
+    async def _transcribe_mixdown(
+        self,
+        *,
+        session_id: UUID,
+        chunk: AudioChunk,
+        sample_rate_hz: int,
+        on_application_event: Callable[[ApplicationEvent], None] | None,
+        on_segment: Callable[[TranscriptSegment], None] | None,
+        log: Any,
+    ) -> None:
+        """Mono path: mix a stereo chunk down (or use mono as-is) and transcribe once.
+        There is no speaker attribution, so the single segment is forced to ``unknown``."""
+        temp_paths: list[Path] = []
+        try:
+            work_chunk = chunk
+            if chunk.channels == 2:
+                mono_p = rms_mixdown_to_mono_wav(chunk.path, sample_rate_hz=sample_rate_hz)
+                temp_paths.append(mono_p)
+                work_chunk = chunk.model_copy(
+                    update={
+                        "path": mono_p,
+                        "channels": 1,
+                    }
+                )
+            try:
+                segment = await self.transcriber.transcribe(chunk=work_chunk)
+            except EmptyTranscriptionError:
+                log.warning("transcription_empty_chunk", chunk_id=str(chunk.id))
+                await self._skip_transcription_chunk(
+                    chunk=chunk,
+                    on_application_event=on_application_event,
+                    event=TranscriptionChunkEmpty(
+                        session_id=session_id,
+                        chunk_id=chunk.id,
+                        at=utc_now(),
+                    ),
+                    log=log,
+                )
+                return
+            except TranscriptionProviderError as e:
+                if not e.recoverable:
+                    raise
+                log.warning(
+                    "transcription_chunk_failed",
+                    chunk_id=str(chunk.id),
+                    error=str(e),
+                    exc_info=True,
+                )
+                await self._skip_transcription_chunk(
+                    chunk=chunk,
+                    on_application_event=on_application_event,
+                    event=TranscriptionChunkFailed(
+                        session_id=session_id,
+                        chunk_id=chunk.id,
+                        message=str(e),
+                        at=utc_now(),
+                    ),
+                    log=log,
+                )
+                return
+            except Exception as e:
+                log.exception("transcription_chunk_failed", chunk_id=str(chunk.id))
+                await self._skip_transcription_chunk(
+                    chunk=chunk,
+                    on_application_event=on_application_event,
+                    event=TranscriptionChunkFailed(
+                        session_id=session_id,
+                        chunk_id=chunk.id,
+                        message=str(e),
+                        at=utc_now(),
+                    ),
+                    log=log,
+                )
+                return
+
+            segment = segment.model_copy(
+                update={
+                    "speaker": "unknown",
+                    "chunk_id": chunk.id,
+                }
+            )
+            _emit(
+                on_application_event,
+                TranscriptionChunkCompleted(session_id=session_id, chunk_id=chunk.id, at=utc_now()),
+            )
+            _emit(
+                on_application_event,
+                DiarizationChunkCompleted(
+                    segment=segment,
+                    detected_speakers=frozenset(),
+                    at=utc_now(),
+                ),
+            )
+            self.transcripts.append(segment)
+            log.info("transcript_segment_saved", segment_id=str(segment.id))
+            _emit(
+                on_application_event,
+                TranscriptSegmentPersisted(segment=segment, at=utc_now()),
+            )
+            if on_segment is not None:
+                on_segment(segment)
+        finally:
+            for p in temp_paths:
+                try:
+                    p.unlink(missing_ok=True)
+                except OSError:
+                    pass
+
+        self._discard_chunk_audio(chunk, log)
 
     async def record_forever(
         self,
