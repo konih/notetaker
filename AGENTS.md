@@ -189,6 +189,20 @@ End-to-end means exercising the **CLI → application container → SQLite** pat
 
 Add new e2e tests under `tests/e2e/`; prefer mocks over network/GPU. Do not call OpenAI in CI without explicit opt-in.
 
+### Test pyramid policy (summary)
+
+The full policy of record — layer contracts, target ratios, coverage ratchet, skip/flaky
+governance, and SLOs — lives in [`docs/development.md`](docs/development.md#test-pyramid-policy).
+Key rules agents must follow:
+
+- **E2E asserts persisted state**, not exit codes alone — a critical-workflow e2e (`record`,
+  `finalize`, `cleanup`, video import) must assert a DB row / file written-or-removed / `ended_at` set.
+- **Keep e2e small, unit broad.** The [pyramid drift-guard](tests/unit/test_test_pyramid_policy.py)
+  fails CI if unit files drop below 75 %, e2e exceed 15 %, or the integration lane disappears.
+- **Coverage floor only ratchets up** (`fail_under`, currently 65 → 90 target); never lower it.
+- **Every skip/xfail carries a `reason=`.** Flaky tests are quarantined the same day (zero CI
+  retry budget), fixed or deleted within a week — a stale skip is a governance failure caught at audit.
+
 ## Diarization (agent quick reference)
 
 - **Live recording:** Chunk transcription only; **no** per-chunk pyannote in the recorder. Speaker hints during live capture come from **`AUDIO_STEREO_MODE=dual_path`** + `faster_whisper` (mic vs system channels), not from `DIARIZATION_ENABLED`.
