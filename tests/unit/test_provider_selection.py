@@ -14,7 +14,18 @@ def test_provider_selection_requires_key_for_openai_transcription(tmp_path: Path
         transcription_provider="openai",
         database_url=f"sqlite:////{tmp_path}/db.sqlite3",
     )
-    with pytest.raises(ProviderSelectionError):
+    with pytest.raises(ProviderSelectionError, match="OPENAI_API_KEY"):
+        build_container(s)
+
+
+def test_missing_openai_key_error_offers_keyless_alternative(tmp_path: Path) -> None:
+    """The error must be actionable: name the keyless faster_whisper fallback (F3)."""
+    s = Settings(
+        openai_api_key=None,
+        transcription_provider="openai",
+        database_url=f"sqlite:////{tmp_path}/db.sqlite3",
+    )
+    with pytest.raises(ProviderSelectionError, match="faster_whisper"):
         build_container(s)
 
 
