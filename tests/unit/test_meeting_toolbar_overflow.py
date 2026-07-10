@@ -35,7 +35,9 @@ from textual.widgets import Button, OptionList, TabbedContent
 
 def test_primary_actions_are_a_small_set() -> None:
     primary = primary_toolbar_actions()
-    assert 1 <= len(primary) <= 6
+    # Speaker ID (P0) and Delete (U24) were promoted to visible buttons because their only
+    # keyboard triggers were dead chords; the set is still well under the original ten.
+    assert 1 <= len(primary) <= 7
     # Fewer visible buttons than the original ten-button toolbar.
     assert len(primary) < len(MEETING_TOOLBAR_ACTIONS)
 
@@ -59,11 +61,13 @@ def test_dynamic_state_buttons_stay_primary() -> None:
     assert "meeting-btn-slide-preview" in primary_ids
 
 
-def test_destructive_and_rare_actions_move_to_overflow() -> None:
+def test_rare_actions_move_to_overflow() -> None:
     overflow_ids = {a.button_id for a in overflow_toolbar_actions()}
-    assert "meeting-btn-delete" in overflow_ids  # destructive → hidden by default
+    # Delete moved to a visible primary button (U24) — it is no longer overflow-only.
+    assert "meeting-btn-delete" not in overflow_ids
     assert "meeting-btn-import-video" in overflow_ids
     assert "meeting-btn-refresh" in overflow_ids
+    assert "meeting-btn-edit-line" in overflow_ids
 
 
 def test_action_lookup_by_button_id() -> None:

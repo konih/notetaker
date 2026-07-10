@@ -112,13 +112,15 @@ async def test_empty_errors_panel_is_compact_single_line() -> None:
         assert errors.size.height <= 1
 
 
-async def test_transcript_gains_width_over_baseline() -> None:
+async def test_transcript_keeps_workable_width_with_broader_sidebar() -> None:
+    # U24 (operator-directed) broadened the sidebar to fit the labeled meeting-details panel,
+    # superseding U8's max-transcript-width tradeoff. The transcript still keeps a usable
+    # width; the density wins in this file (compact errors, no UUID, short session line) stand.
     app = _app()
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
         transcript = app.query_one("#transcript", RichLog)
-        # Baseline (38-wide sidebar) left the transcript at width 80.
-        assert transcript.size.width > 80
+        assert transcript.size.width > 60
 
 
 async def test_errors_panel_expands_when_error_present() -> None:
