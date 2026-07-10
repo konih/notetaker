@@ -1,13 +1,23 @@
-"""Integration: import an English presentation URL via transcribe-video (mocked STT)."""
+"""Integration: transcribe-video import pipeline with the download boundary mocked.
+
+Exercises ``VideoImportService`` end-to-end — download seam -> slide extraction ->
+chunked ASR -> SQLite persistence — against **real ffmpeg** and a **committed fixture
+video**, but replaces the network download (yt-dlp against a live YouTube URL) with a
+deterministic stub. The original test downloaded a real URL, so it never ran in CI
+(``RUN_INTEGRATION_TESTS`` unset) and was network-flaky; this version is the
+deterministic integration lane (C3 / test-pyramid Phase 2). Kept ``@pytest.mark.integration``
+so it stays counted as the integration layer (T5 drift-guard) and runs in CI's ``integration``
+job (which installs ffmpeg).
+"""
 
 from __future__ import annotations
 
 import asyncio
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
+from live_meeting_transcriber.application import video_import_service as vis
 from live_meeting_transcriber.application.video_import_service import VideoImportService
 from live_meeting_transcriber.domain.models import AudioChunk, TranscriptSegment
 from live_meeting_transcriber.storage.repositories import (
@@ -16,6 +26,10 @@ from live_meeting_transcriber.storage.repositories import (
 )
 from live_meeting_transcriber.storage.sqlite import open_connection
 from tests.e2e.video_helpers import ffmpeg_available, patch_data_dir, video_import_settings
+
+_FIXTURE = (
+    Path(__file__).resolve().parents[1] / "fixtures" / "video" / "presentation_en_15s_360p.mp4"
+)
 
 
 @dataclass(frozen=True)
@@ -30,44 +44,27 @@ class _FakeTranscriber:
         )
 
 
-def _ytdlp_available() -> bool:
-    try:
-        subprocess.run(["yt-dlp", "--version"], check=True, capture_output=True)
-        return True
-    except (FileNotFoundError, subprocess.CalledProcessError):
-        return False
-
-
 @pytest.mark.integration
 @pytest.mark.skipif(not ffmpeg_available(), reason="ffmpeg not available")
-@pytest.mark.skipif(not _ytdlp_available(), reason="yt-dlp not available")
 def test_transcribe_video_from_downloaded_url(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    assert _FIXTURE.is_file(), f"missing committed fixture video: {_FIXTURE}"
     patch_data_dir(monkeypatch, tmp_path)
-    cache_dir = tmp_path / "cache"
-    cache_dir.mkdir()
-    out = cache_dir / "presentation_en_source.mp4"
-    # English tech presentation with slides (see tests/fixtures/README.md).
-    url = "https://www.youtube.com/watch?v=DZL-ExKPjnc"
 
-    subprocess.run(
-        [
-            "yt-dlp",
-            "--no-playlist",
-            "-f",
-            "best[height<=360][ext=mp4]/best[ext=mp4]/best",
-            "--merge-output-format",
-            "mp4",
-            "-o",
-            str(out),
-            url,
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    assert out.is_file()
+    # An English tech presentation with slides. Resolving it "downloads" to the fixture.
+    url = "https://www.youtube.com/watch?v=DZL-ExKPjnc"
+    resolved_sources: list[str] = []
+
+    def _fake_resolve(*, source: str, download_dir: Path) -> Path:
+        # Stand in for yt-dlp: record the requested source, place the fixture where a
+        # real download would have landed, and return that path.
+        resolved_sources.append(source)
+        dest = download_dir / _FIXTURE.name
+        dest.write_bytes(_FIXTURE.read_bytes())
+        return dest
+
+    monkeypatch.setattr(vis, "resolve_media_source", _fake_resolve)
 
     settings = video_import_settings(
         tmp_path,
@@ -91,6 +88,8 @@ def test_transcribe_video_from_downloaded_url(
         )
     )
 
+    # The URL was routed through the (mocked) download seam, then the real pipeline ran.
+    assert resolved_sources == [url]
     assert result.segment_count >= 1
     assert result.slide_count >= 1
 
