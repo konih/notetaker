@@ -31,7 +31,7 @@ def build_settings_sections(state: AppState) -> list[SettingsSection]:
         f"Label speakers after the meeting: {_on_off(state.finalize_on_session_stop)}",
         f"Speaker model: {state.whisperx_model or '—'}",
         f"Ready to label speakers: {'yes' if state.hf_token_configured else 'no (needs setup)'}",
-        "Run now: ctrl+i from Live or Meetings",
+        "Run now: ctrl+d from Live or Meetings",
     ]
 
     storage_lines = [

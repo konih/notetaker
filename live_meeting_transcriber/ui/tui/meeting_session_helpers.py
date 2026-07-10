@@ -108,7 +108,7 @@ def format_meeting_row_title(
 
     A meeting whose recording was interrupted (app crash / force-quit) never got ``ended_at`` set,
     so it is stuck all-"unknown" until re-diarized. Flag it so the operator can find it and run
-    Speaker ID (Ctrl+I) — but never flag the session that is actively recording right now.
+    Speaker ID (Ctrl+D) — but never flag the session that is actively recording right now.
     """
     title = session.title
     truncated = title[:max_len] + ("…" if len(title) > max_len else "")

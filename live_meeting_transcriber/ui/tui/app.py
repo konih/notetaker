@@ -467,7 +467,7 @@ class EditMeetingDetailsScreen(ModalScreen[None]):
             children.append(
                 Static(
                     "No speakers detected yet. Run Speaker ID on the finished meeting "
-                    "(Meetings tab · Ctrl+I) to detect and name speakers.",
+                    "(Meetings tab · Ctrl+D) to detect and name speakers.",
                     classes="dim",
                 )
             )
@@ -707,7 +707,9 @@ class TranscriberApp(App[None]):
         Binding("ctrl+1", "focus_live_tab", "Live tab", show=True),
         Binding("ctrl+2", "focus_meetings_tab", "Meetings tab", show=True),
         Binding("ctrl+3", "focus_logs_tab", "Logs tab", show=True),
-        Binding("ctrl+i", "finalize_speakers", "Speaker ID", show=True, priority=True),
+        # ctrl+d, not ctrl+i: ctrl+i is byte-identical to Tab (0x09) on terminals
+        # without the kitty keyboard protocol, so the old binding never fired.
+        Binding("ctrl+d", "finalize_speakers", "Speaker ID", show=True, priority=True),
     ]
 
     CSS = """
@@ -846,7 +848,7 @@ class TranscriberApp(App[None]):
         else:
             notices.update(
                 Text.from_markup(
-                    "[dim]w: export · k: summarize · ctrl+i: speaker ID · ctrl+3: logs[/]"
+                    "[dim]w: export · k: summarize · ctrl+d: speaker ID · ctrl+3: logs[/]"
                 )
             )
         err_panel.update(self._render_errors(state))

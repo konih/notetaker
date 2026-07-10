@@ -308,7 +308,10 @@ class MeetingBrowser(Vertical):
 
     DEFAULT_CSS = """
     #meeting-toolbar { height: auto; margin-bottom: 1; }
-    #meeting-toolbar Button { margin-right: 1; }
+    /* Size toolbar buttons to their labels (Textual's default Button min-width is 16)
+       so the primary row — now including the promoted Speaker ID button — fits the
+       120-col baseline instead of overflowing and clipping the rightmost button. */
+    #meeting-toolbar Button { margin-right: 1; min-width: 8; width: auto; }
     """
 
     BINDINGS = [
@@ -324,7 +327,9 @@ class MeetingBrowser(Vertical):
             group=Binding.Group(description="Delete meeting", compact=True),
         ),
         Binding("ctrl+e", "edit_segment", "Edit line", show=True, priority=True),
-        Binding("ctrl+i", "finalize_selected_speakers", "Speaker ID", show=False, priority=True),
+        # ctrl+d, not ctrl+i: terminals collapse ctrl+i onto Tab (0x09), so the old
+        # binding never fired and Speaker ID was unrunnable from the keyboard here.
+        Binding("ctrl+d", "finalize_selected_speakers", "Speaker ID", show=True, priority=True),
         Binding("i", "show_session_media", "Media files", show=False, priority=True),
         Binding("p", "slide_preview", "Slide preview", show=False, priority=True),
         Binding("ctrl+v", "import_video", "Import video", show=True, priority=True),

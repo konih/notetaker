@@ -37,7 +37,9 @@ class ToolbarAction:
 MEETING_TOOLBAR_ACTIONS: tuple[ToolbarAction, ...] = (
     ToolbarAction("meeting-btn-save", "Save", "action_save_meeting", "primary", primary=True),
     ToolbarAction("meeting-btn-summarize", "Summarize", "action_summarize_meeting", primary=True),
-    ToolbarAction("meeting-btn-export", "Export markdown", "action_export_meeting", primary=True),
+    # Label trimmed "Export markdown" → "Export" so the primary row (now including the
+    # promoted Speaker ID button) still fits the 120-col baseline without overflowing.
+    ToolbarAction("meeting-btn-export", "Export", "action_export_meeting", primary=True),
     ToolbarAction(
         "meeting-btn-continue-record",
         "Continue recording",
@@ -48,8 +50,16 @@ MEETING_TOOLBAR_ACTIONS: tuple[ToolbarAction, ...] = (
         "meeting-btn-slide-preview", "Slide preview", "action_slide_preview", primary=True
     ),
     ToolbarAction("meeting-btn-import-video", "Import video", "action_import_video", "success"),
+    # Speaker ID stays primary (P0): its only keyboard trigger used to be ``ctrl+i``,
+    # which terminals collapse onto Tab (0x09) so the binding never fired — leaving the
+    # buried overflow menu as the sole path. A visible button makes finalizing a past
+    # meeting reachable with a click, independent of the keyboard.
     ToolbarAction(
-        "meeting-btn-speaker-id", "Speaker ID", "action_finalize_selected_speakers", "success"
+        "meeting-btn-speaker-id",
+        "Speaker ID",
+        "action_finalize_selected_speakers",
+        "success",
+        primary=True,
     ),
     ToolbarAction("meeting-btn-edit-line", "Edit line", "action_edit_segment"),
     ToolbarAction("meeting-btn-refresh", "Refresh", "action_refresh_list"),
