@@ -20,6 +20,7 @@ def _write_mono_wav(path: Path, *, samples: list[int], sample_rate: int = 16000)
 
 
 def test_load_pyannote_audio_input_mono(tmp_path: Path) -> None:
+    pytest.importorskip("torch", reason="torch extra not installed")
     wav_path = tmp_path / "mono.wav"
     _write_mono_wav(wav_path, samples=[0, 1000, -1000, 0])
     payload = load_pyannote_audio_input(wav_path)

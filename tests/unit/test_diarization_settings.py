@@ -62,6 +62,7 @@ def test_build_pyannote_passes_pipeline_kwargs(tmp_path: Path) -> None:
 
 
 def test_pyannote_run_sync_typeerror_falls_back_without_kwargs(tmp_path: Path) -> None:
+    pytest.importorskip("torch", reason="torch extra not installed")
     import struct
     import wave
 

@@ -9,6 +9,7 @@ from live_meeting_transcriber.video.slide_common import effective_min_slide_inte
 from live_meeting_transcriber.video.slide_detection import detect_slide_candidates
 from live_meeting_transcriber.video.strategies.factory import build_slide_strategy
 from live_meeting_transcriber.video.strategies.ffmpeg_scene import FfmpegSceneStrategy
+from tests.e2e.video_helpers import ffmpeg_available
 from tests.fixtures.paths import PRESENTATION_EN_VIDEO
 
 
@@ -70,6 +71,7 @@ def test_detect_slide_candidates_respects_min_interval(tmp_path: Path) -> None:
 
 
 @pytest.mark.skipif(not PRESENTATION_EN_VIDEO.is_file(), reason="presentation fixture missing")
+@pytest.mark.skipif(not ffmpeg_available(), reason="ffmpeg not available")
 def test_presentation_en_fixture_default_params_find_multiple_slides() -> None:
     params = SlideDetectionParams(
         sample_interval_seconds=2.0,
