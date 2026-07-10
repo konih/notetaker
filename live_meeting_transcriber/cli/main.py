@@ -11,7 +11,11 @@ import typer
 from rich.progress import BarColumn, Progress, TaskID, TextColumn, TimeElapsedColumn
 
 from live_meeting_transcriber.application.cleanup_service import run_cleanup
-from live_meeting_transcriber.application.container import Container, build_container
+from live_meeting_transcriber.application.container import (
+    Container,
+    ProviderSelectionError,
+    build_container,
+)
 from live_meeting_transcriber.application.finalize_service import (
     finalize_session_sync,
     find_unfinalized_sessions,
@@ -81,7 +85,13 @@ def _main_callback(ctx: typer.Context) -> None:
         log_file_max_bytes=settings.log_file_max_bytes,
         log_file_backup_count=settings.log_file_backup_count,
     )
-    container = build_container(settings)
+    try:
+        container = build_container(settings)
+    except ProviderSelectionError as e:
+        # Provider misconfiguration (e.g. missing OPENAI_API_KEY) is a user error,
+        # not a bug: show the actionable message instead of a Python traceback.
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=2) from e
     atexit.register(container.close)
     ctx.obj = container
 

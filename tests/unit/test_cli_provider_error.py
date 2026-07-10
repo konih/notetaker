@@ -10,12 +10,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import live_meeting_transcriber.cli.main as cli_main
 import pytest
 from live_meeting_transcriber.application.container import ProviderSelectionError
 from live_meeting_transcriber.config.settings import Settings
 from typer.testing import CliRunner
-
-import live_meeting_transcriber.cli.main as cli_main
 
 
 def _openai_no_key_settings(tmp_path: Path) -> Settings:
