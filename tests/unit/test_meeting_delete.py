@@ -118,8 +118,11 @@ async def test_delete_button_removes_the_meeting_end_to_end(tmp_path: Path) -> N
         for _ in range(6):
             await pilot.pause()
 
+        # Observable outcome — the row is actually gone from the visible table, not just
+        # from the mock's backing list (this is the user's complaint: "still there").
+        assert table.row_count == 0
+
     container.sessions.delete.assert_called_once_with(sid)
-    assert container.sessions.list() == []  # row actually gone
 
 
 async def test_delete_key_triggers_the_same_flow(tmp_path: Path) -> None:
@@ -141,3 +144,29 @@ async def test_delete_key_triggers_the_same_flow(tmp_path: Path) -> None:
             await pilot.pause()
 
     container.sessions.delete.assert_called_once_with(sid)
+
+
+async def test_typing_d_in_a_meeting_field_does_not_delete(tmp_path: Path) -> None:
+    # Safety: `d` is a plain, non-priority binding, so pressing it while editing a text field
+    # (titles/notes are full of the letter d) must type — never trigger the delete confirm.
+    from live_meeting_transcriber.ui.tui.tab_complete_input import TabCompletableInput
+
+    sid = uuid4()
+    session = MeetingSession(id=sid, title="Weekly sync")
+    container = _container(tmp_path, [session])
+    app = _app(container)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        browser = await _browser(app, pilot)
+        browser.query_one("#meeting-sessions-table", DataTable).focus()
+        await pilot.pause()
+        title = browser.query_one("#meeting-title", TabCompletableInput)
+        title.focus()
+        await pilot.pause()
+        await pilot.press("d")
+        await pilot.pause()
+        assert not isinstance(app.screen, ConfirmDeleteMeetingModal)
+        assert "d" in title.value
+
+    container.sessions.delete.assert_not_called()
