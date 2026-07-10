@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import UUID
 
+from live_meeting_transcriber.application.session_search import filter_sessions
 from live_meeting_transcriber.domain.models import MeetingSession, Summary
 from live_meeting_transcriber.domain.ports import (
     MeetingSessionRepository,
@@ -28,6 +29,13 @@ class SessionService:
 
     def list_sessions(self) -> list[MeetingSession]:
         return self.sessions.list()
+
+    def search_sessions(self, query: str) -> list[MeetingSession]:
+        """List sessions whose title, notes, or attendees match ``query`` (F2).
+
+        An empty/whitespace query returns all sessions (same order as ``list_sessions``).
+        """
+        return filter_sessions(self.sessions.list(), query)
 
     def get_session(self, session_id: UUID) -> MeetingSession:
         session = self.sessions.get(session_id)
