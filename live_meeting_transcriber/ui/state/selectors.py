@@ -28,10 +28,12 @@ def select_decayed_level(state: AppState, now: datetime) -> float | None:
     """Last chunk peak decayed toward zero since it was captured (U13).
 
     The meter is fed one peak per audio chunk (~every ``chunk_seconds``). Holding that
-    value between updates freezes the bar on a stale "loud" reading — during silence or
-    after stop it keeps implying live audio. Linearly decaying it over the chunk window
-    makes it honest: a re-armed peak each chunk keeps active speech high, while silence
-    lets the bar fall off. Returns ``None`` when idle or before the first reading.
+    value indefinitely freezes the bar on a stale "loud" reading — during silence or after
+    stop it keeps implying live audio. This is a **peak-hold with delayed decay**: the peak
+    is held for one expected chunk interval (so normal, continuous speech does *not* pulse
+    full→empty between updates), then falls off linearly to zero over the following interval
+    when a chunk is late — i.e. real silence, a stalled capture, or a stopped session.
+    Returns ``None`` when idle or before the first reading.
     """
     if state.recording_status != RecordingStatus.recording:
         return None
@@ -39,7 +41,8 @@ def select_decayed_level(state: AppState, now: datetime) -> float | None:
         return None
     window = max(float(state.chunk_seconds), 1.0)
     elapsed = (now - state.last_level_at).total_seconds()
-    factor = max(0.0, 1.0 - elapsed / window)
+    # Hold at full for one interval; decay over the next; zero once two intervals stale.
+    factor = 1.0 if elapsed <= window else max(0.0, 1.0 - (elapsed - window) / window)
     return state.current_level_meter * factor
 
 

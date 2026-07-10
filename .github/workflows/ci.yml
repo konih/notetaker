@@ -118,14 +118,14 @@ jobs:
       - name: Sync dev tools
         run: uv sync --python 3.12 --extra dev
 
-      - name: Install video prerequisites
+      # The integration lane mocks external network boundaries (e.g. yt-dlp) and runs
+      # against committed fixtures, so it only needs ffmpeg — not the yt-dlp prereq script.
+      - name: Install ffmpeg
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
-          bash scripts/install_video_prereqs.sh
 
-      # Integration tests mock external network boundaries (e.g. yt-dlp) and run against
-      # committed fixtures, so they are deterministic — no RUN_INTEGRATION_TESTS gate.
+      # Deterministic — no RUN_INTEGRATION_TESTS gate.
       - name: Integration pytest
         run: uv run pytest -m integration -q
 

@@ -163,9 +163,10 @@ def test_select_level_bar() -> None:
     assert "░" in b
 
 
-def test_select_decayed_level_falls_off_between_chunk_updates() -> None:
-    # U13: the meter holds a per-chunk peak; between updates it must decay toward
-    # zero so it doesn't freeze on a stale "loud" reading (silence => bar falls).
+def test_select_decayed_level_holds_one_interval_then_falls_off() -> None:
+    # U13: peak-hold with delayed decay. The per-chunk peak is held for one chunk
+    # interval so continuous speech does NOT pulse full->empty between updates; it only
+    # decays once a chunk is late (real silence / stalled capture / stopped session).
     t0 = utc_now()
     s = AppState(
         recording_status=RecordingStatus.recording,
@@ -174,10 +175,11 @@ def test_select_decayed_level_falls_off_between_chunk_updates() -> None:
         chunk_seconds=10,
     )
     assert select_decayed_level(s, t0) == 0.8  # fresh reading: full peak
-    mid = select_decayed_level(s, t0 + timedelta(seconds=5))
-    assert mid is not None and 0.3 < mid < 0.5  # ~halfway through the window
-    # Past the decay window it floors at zero rather than going negative.
-    assert select_decayed_level(s, t0 + timedelta(seconds=30)) == 0.0
+    assert select_decayed_level(s, t0 + timedelta(seconds=8)) == 0.8  # held: no mid-chunk pulse
+    mid = select_decayed_level(s, t0 + timedelta(seconds=15))  # a chunk is late -> decaying
+    assert mid is not None and 0.3 < mid < 0.5
+    # Two intervals stale: floored at zero rather than a frozen peak.
+    assert select_decayed_level(s, t0 + timedelta(seconds=25)) == 0.0
 
 
 def test_select_decayed_level_none_when_idle_or_unset() -> None:
@@ -198,7 +200,7 @@ def test_select_level_bar_decays_with_now() -> None:
         chunk_seconds=10,
     )
     fresh = select_level_bar(s, t0, width=10)
-    stale = select_level_bar(s, t0 + timedelta(seconds=8), width=10)
+    stale = select_level_bar(s, t0 + timedelta(seconds=18), width=10)  # past hold, decaying
     assert fresh.count("█") > stale.count("█")  # decayed reading => fewer filled blocks
     # Passing no clock keeps the legacy (non-decaying) behaviour for callers that
     # don't have a wall clock handy.
