@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -38,6 +38,34 @@ def test_repositories_create_list_get_sessions(tmp_path: Path) -> None:
         sessions = repo.list()
         assert len(sessions) == 1
         assert sessions[0].id == session.id
+    finally:
+        conn.close()
+
+
+def test_legacy_naive_timestamp_reads_back_tz_aware(tmp_path: Path) -> None:
+    # A11: rows written before the tz-aware migration (A1) stored naive ISO strings
+    # (no "+00:00"). Reading them must coerce to UTC-aware so a later Python-side
+    # comparison against tz-aware `utc_now()` cannot raise `TypeError: can't compare
+    # offset-naive and offset-aware datetimes`.
+    conn = open_connection(f"sqlite:////{tmp_path}/db.sqlite3")
+    try:
+        sessions = SqliteMeetingSessionRepository(conn)
+        s = sessions.create(MeetingSession(title="Legacy"))
+        # Simulate an old naive row by rewriting started_at without an offset.
+        naive_iso = "2024-01-01T10:00:00"
+        assert "+" not in naive_iso and "Z" not in naive_iso
+        conn.execute(
+            "UPDATE meeting_sessions SET started_at = ? WHERE id = ?",
+            (naive_iso, str(s.id)),
+        )
+
+        got = sessions.get(s.id)
+
+        assert got is not None
+        assert got.started_at.tzinfo is not None, "legacy naive row must read back aware"
+        assert got.started_at == datetime(2024, 1, 1, 10, 0, 0, tzinfo=UTC)
+        # The whole point: this comparison must not raise.
+        assert got.started_at < utc_now()
     finally:
         conn.close()
 
