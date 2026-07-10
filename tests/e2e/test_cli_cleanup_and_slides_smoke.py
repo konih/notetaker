@@ -72,12 +72,14 @@ def _container(tmp_path: Path, settings: Settings) -> Container:
 @pytest.fixture
 def sample_video(tmp_path: Path) -> Path:
     if not ffmpeg_available():
-        pytest.skip("ffmpeg not available")
+        pytest.skip("requires the ffmpeg binary (real video encode/probe)")
     dest = tmp_path / "sample_presentation.mp4"
     return generate_sample_video(dest, slide_seconds=15.0)
 
 
-@pytest.mark.skipif(not ffmpeg_available(), reason="ffmpeg not available")
+@pytest.mark.skipif(
+    not ffmpeg_available(), reason="requires the ffmpeg binary (real video encode/probe)"
+)
 def test_cli_cleanup_orphans_dry_run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     patch_data_dir(monkeypatch, tmp_path)
     settings = video_import_settings(tmp_path)
@@ -116,7 +118,9 @@ def test_cli_cleanup_orphans_yes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     assert not orphan_dir.exists()
 
 
-@pytest.mark.skipif(not ffmpeg_available(), reason="ffmpeg not available")
+@pytest.mark.skipif(
+    not ffmpeg_available(), reason="requires the ffmpeg binary (real video encode/probe)"
+)
 def test_cli_slides_preview_smoke(
     monkeypatch: pytest.MonkeyPatch, sample_video: Path, tmp_path: Path
 ) -> None:
@@ -155,7 +159,9 @@ def test_cli_slides_preview_smoke(
     assert "Candidates: 3" in cli.stdout
 
 
-@pytest.mark.skipif(not ffmpeg_available(), reason="ffmpeg not available")
+@pytest.mark.skipif(
+    not ffmpeg_available(), reason="requires the ffmpeg binary (real video encode/probe)"
+)
 def test_preview_threshold_changes_candidate_count(
     monkeypatch: pytest.MonkeyPatch, sample_video: Path, tmp_path: Path
 ) -> None:

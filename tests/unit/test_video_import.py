@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import shutil
 import wave
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -22,6 +21,16 @@ from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.models import AudioChunk, SlideCandidate, TranscriptSegment
 from live_meeting_transcriber.transcription.openai_transcriber import OpenAITranscriptionError
 from live_meeting_transcriber.video.strategies.frame_diff import mean_absolute_difference
+from tests.e2e.video_helpers import ffmpeg_available
+
+# T3: these tests split real WAV files with the ffmpeg binary (no way to mock the
+# actual chunk-splitting), so they legitimately skip when it's absent — an
+# environment gate, not a broken test. Use the shared `ffmpeg_available()` probe
+# (runs `ffmpeg -version`, i.e. verifies it's runnable, not just on PATH) so the
+# gate matches the rest of the suite instead of ad-hoc `shutil.which` body checks.
+requires_ffmpeg = pytest.mark.skipif(
+    not ffmpeg_available(), reason="requires the ffmpeg binary to split real WAV chunks"
+)
 
 
 def _write_silent_wav(path: Path, *, seconds: float, rate: int = 16000, channels: int = 1) -> None:
@@ -69,10 +78,9 @@ def test_effective_video_chunk_seconds_explicit_chunking() -> None:
     )
 
 
+@requires_ffmpeg
 @pytest.mark.asyncio
 async def test_transcribe_wav_in_chunks_single_request_for_short_video(tmp_path: Path) -> None:
-    if shutil.which("ffmpeg") is None:
-        pytest.skip("ffmpeg not available")
     full_wav = tmp_path / "full.wav"
     _write_silent_wav(full_wav, seconds=30.0)
     chunk_dir = tmp_path / "chunks"
@@ -104,10 +112,9 @@ async def test_transcribe_wav_in_chunks_single_request_for_short_video(tmp_path:
     assert len(transcriber.calls) == 1
 
 
+@requires_ffmpeg
 @pytest.mark.asyncio
 async def test_transcribe_wav_in_chunks_skips_sub_minimum_tail(tmp_path: Path) -> None:
-    if shutil.which("ffmpeg") is None:
-        pytest.skip("ffmpeg not available")
     full_wav = tmp_path / "full.wav"
     _write_silent_wav(full_wav, seconds=120.064)
     chunk_dir = tmp_path / "chunks"
@@ -255,10 +262,9 @@ def test_planned_chunk_count_200s_video() -> None:
     assert _planned_chunk_count(200.0, 10.0) == 20
 
 
+@requires_ffmpeg
 @pytest.mark.asyncio
 async def test_transcribe_wav_in_chunks_200s_processes_all_chunks(tmp_path: Path) -> None:
-    if shutil.which("ffmpeg") is None:
-        pytest.skip("ffmpeg not available")
     full_wav = tmp_path / "full.wav"
     _write_silent_wav(full_wav, seconds=200.0)
     chunk_dir = tmp_path / "chunks"
@@ -307,12 +313,11 @@ class _FailingAfterFirstTranscriber:
         )
 
 
+@requires_ffmpeg
 @pytest.mark.asyncio
 async def test_transcribe_wav_in_chunks_api_failure_returns_partial_summary(
     tmp_path: Path,
 ) -> None:
-    if shutil.which("ffmpeg") is None:
-        pytest.skip("ffmpeg not available")
     full_wav = tmp_path / "full.wav"
     _write_silent_wav(full_wav, seconds=30.0)
     chunk_dir = tmp_path / "chunks"

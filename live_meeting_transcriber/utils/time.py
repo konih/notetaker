@@ -7,18 +7,19 @@ def utc_now() -> datetime:
     return datetime.now(tz=UTC)
 
 
-def _ensure_aware(dt: datetime) -> datetime:
+def ensure_aware(dt: datetime) -> datetime:
     """Treat a naive datetime as UTC.
 
     Legacy DB rows written before the tz-aware migration may be naive (see roadmap A11);
-    display helpers must not crash on them and assume they were UTC.
+    callers must not crash on them and assume they were UTC. The storage read boundary
+    (`repositories._dt_from_str`) coerces here so nothing downstream sees a naive value.
     """
     return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
 
 
 def to_local(dt: datetime, tz: tzinfo | None = None) -> datetime:
     """Convert ``dt`` to local time (or an explicit ``tz`` for deterministic tests)."""
-    return _ensure_aware(dt).astimezone(tz)
+    return ensure_aware(dt).astimezone(tz)
 
 
 def format_clock(dt: datetime, tz: tzinfo | None = None) -> str:
@@ -37,7 +38,7 @@ def elapsed_seconds(start: datetime, now: datetime) -> float:
     Guards against the ``aware - naive`` ``TypeError`` that would otherwise crash callers
     (e.g. the per-second elapsed timer) if a legacy naive timestamp slips through.
     """
-    return (_ensure_aware(now) - _ensure_aware(start)).total_seconds()
+    return (ensure_aware(now) - ensure_aware(start)).total_seconds()
 
 
 def format_duration(seconds: float) -> str:
@@ -56,7 +57,7 @@ def format_relative(dt: datetime, now: datetime) -> str:
     ``now`` is an explicit parameter (not read internally) so callers control the clock
     and tests stay deterministic. Future/skewed timestamps clamp to ``"just now"``.
     """
-    secs = (_ensure_aware(now) - _ensure_aware(dt)).total_seconds()
+    secs = (ensure_aware(now) - ensure_aware(dt)).total_seconds()
     if secs < 60:
         return "just now"
     if secs < 3600:

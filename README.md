@@ -125,7 +125,9 @@ uv run live-transcriber tui
 a standard terminal without clipping. Every other action stays one keystroke away and is
 listed in the **command palette** (**`Ctrl+P`**): **`t`** edit meeting, **`s`** settings,
 **`a`** audio sources, **`m`** sessions, **`c`** ack errors, **`Ctrl+D`** speaker ID, and
-**`Ctrl+1/2/3`** to switch the Live/Meetings/Logs tabs. In the Sessions view, **`r`**
+**`Ctrl+1/2/3`** to switch the Live/Meetings/Logs tabs. Press **`?`** any time to open the
+**keyboard-shortcut overlay** — a full, always-current list of the global and Meetings-tab
+shortcuts (it reads the live keymap, so it can't drift). In the Sessions view, **`r`**
 refreshes and **`e`** renames. The status sidebar shows the **log file path** after settings load.
 
 List available sources:

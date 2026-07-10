@@ -45,6 +45,9 @@ FOOTER_ACTIONS: tuple[FooterAction, ...] = (
     FooterAction("ctrl+1", "focus_live_tab", "Live tab", core=False),
     FooterAction("ctrl+2", "focus_meetings_tab", "Meetings tab", core=False),
     FooterAction("ctrl+3", "focus_logs_tab", "Logs tab", core=False),
+    # `?` opens the full keymap overlay (U16). Overflow, but the well-known
+    # convention means users reach for it; it is also listed in the palette.
+    FooterAction("question_mark", "help", "Help", core=False),
 )
 
 
