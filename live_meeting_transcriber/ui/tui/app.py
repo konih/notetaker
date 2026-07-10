@@ -41,6 +41,7 @@ from live_meeting_transcriber.application.container import (
     ProviderSelectionError,
     build_container,
 )
+from live_meeting_transcriber.application.dual_path import dual_path_downgrade_reason
 from live_meeting_transcriber.config.settings import (
     Settings,
     load_settings,
@@ -810,6 +811,13 @@ class TranscriberApp(App[None]):
         """
         for message in audio_prerequisite_warnings(self.container.devices.list_sources):
             self.store.dispatch(act.WarningRaised(message=message, at=utc_now()))
+        dual_path_reason = dual_path_downgrade_reason(
+            audio_stereo_mode=self.container.settings.audio_stereo_mode,
+            audio_channels=self.container.settings.audio_channels,
+            transcriber=self.container.transcriber,
+        )
+        if dual_path_reason is not None:
+            self.store.dispatch(act.WarningRaised(message=dual_path_reason, at=utc_now()))
 
     def _tick_elapsed(self) -> None:
         state = self.store.get_state()

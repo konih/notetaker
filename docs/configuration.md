@@ -54,6 +54,8 @@ Only existing files are loaded. See [`install-desktop.md`](install-desktop.md) f
 - `AUDIO_CHUNK_SECONDS`: default `10`
 - `AUDIO_SAMPLE_RATE`: default `16000`
 - `AUDIO_CHANNELS`: default `1`
+- `AUDIO_STEREO_MODE`: default `mixdown`. With `AUDIO_CHANNELS=2`, `mixdown` blends mic + system into one mono track for live ASR; `dual_path` transcribes mic (L) and system (R) **separately** to get channel-based speaker keys during capture.
+  - `dual_path` requires **both** `AUDIO_CHANNELS=2` **and** `TRANSCRIPTION_PROVIDER=faster_whisper` (the OpenAI provider has no per-channel path). If either is missing, `dual_path` is silently inert and audio is mixed to mono — `live-transcriber record` and the TUI now print a one-line warning at startup when this happens.
 - `AUDIO_INCLUDE_MICROPHONE`: default `true` — mix **default monitor** (system/meeting playback) with **default microphone** (your voice) via ffmpeg `amix`
 - `AUDIO_MICROPHONE_SOURCE`: optional explicit PulseAudio source name for the mic leg (see `live-transcriber devices`, marked with `^`)
 - `AUDIO_MACOS_SYSTEM_CAPTURE`: macOS only, default `auto`. Controls how system/output audio is captured:

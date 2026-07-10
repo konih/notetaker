@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from click.testing import Result
 from live_meeting_transcriber.cli.main import app
 from live_meeting_transcriber.config.settings import Settings
 from typer.testing import CliRunner
@@ -16,7 +17,7 @@ from typer.testing import CliRunner
 from tests.e2e.cli_helpers import build_e2e_container, patch_cli, patch_fake_recorder
 
 
-def _run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, **settings_kwargs: object) -> object:
+def _run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, **settings_kwargs: object) -> Result:
     db = tmp_path / "e2e.sqlite3"
     settings = Settings(
         openai_api_key="test-key",

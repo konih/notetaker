@@ -16,6 +16,7 @@ from live_meeting_transcriber.application.container import (
     ProviderSelectionError,
     build_container,
 )
+from live_meeting_transcriber.application.dual_path import dual_path_downgrade_reason
 from live_meeting_transcriber.application.finalize_service import (
     finalize_session_sync,
     find_unfinalized_sessions,
@@ -216,6 +217,15 @@ def record(
         summarizer=c.summarizer,
         session_speakers=c.session_speakers,
     )
+    dual_path_reason = dual_path_downgrade_reason(
+        audio_stereo_mode=c.settings.audio_stereo_mode,
+        audio_channels=c.settings.audio_channels,
+        transcriber=c.transcriber,
+    )
+    if dual_path_reason is not None:
+        typer.echo(f"Warning: {dual_path_reason}", err=True)
+        log.warning("dual_path_downgrade", message=dual_path_reason)
+
     session = svc.create_session(title=title)
     log.info("session_started", session_id=str(session.id), title=title)
 
