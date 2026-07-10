@@ -11,6 +11,7 @@ from live_meeting_transcriber.ui.state.model import (
     UiErrorState,
 )
 from live_meeting_transcriber.ui.state.selectors import (
+    select_decayed_level,
     select_display_speaker,
     select_elapsed_label,
     select_header_title,
@@ -160,6 +161,48 @@ def test_select_level_bar() -> None:
     b = select_level_bar(AppState(current_level_meter=0.5), width=4)
     assert "█" in b
     assert "░" in b
+
+
+def test_select_decayed_level_falls_off_between_chunk_updates() -> None:
+    # U13: the meter holds a per-chunk peak; between updates it must decay toward
+    # zero so it doesn't freeze on a stale "loud" reading (silence => bar falls).
+    t0 = utc_now()
+    s = AppState(
+        recording_status=RecordingStatus.recording,
+        current_level_meter=0.8,
+        last_level_at=t0,
+        chunk_seconds=10,
+    )
+    assert select_decayed_level(s, t0) == 0.8  # fresh reading: full peak
+    mid = select_decayed_level(s, t0 + timedelta(seconds=5))
+    assert mid is not None and 0.3 < mid < 0.5  # ~halfway through the window
+    # Past the decay window it floors at zero rather than going negative.
+    assert select_decayed_level(s, t0 + timedelta(seconds=30)) == 0.0
+
+
+def test_select_decayed_level_none_when_idle_or_unset() -> None:
+    # A stopped/idle session must not keep showing a stale peak.
+    now = utc_now()
+    idle = AppState(current_level_meter=0.9, last_level_at=now)
+    assert select_decayed_level(idle, now) is None
+    no_reading = AppState(recording_status=RecordingStatus.recording, current_level_meter=None)
+    assert select_decayed_level(no_reading, now) is None
+
+
+def test_select_level_bar_decays_with_now() -> None:
+    t0 = utc_now()
+    s = AppState(
+        recording_status=RecordingStatus.recording,
+        current_level_meter=1.0,
+        last_level_at=t0,
+        chunk_seconds=10,
+    )
+    fresh = select_level_bar(s, t0, width=10)
+    stale = select_level_bar(s, t0 + timedelta(seconds=8), width=10)
+    assert fresh.count("█") > stale.count("█")  # decayed reading => fewer filled blocks
+    # Passing no clock keeps the legacy (non-decaying) behaviour for callers that
+    # don't have a wall clock handy.
+    assert "█" in select_level_bar(s, width=4)
 
 
 def test_select_header_fallback_uuid_session() -> None:
