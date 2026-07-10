@@ -71,12 +71,12 @@ def _container(tmp_path: Path, settings: Settings) -> Container:
 @pytest.fixture
 def sample_video(tmp_path: Path) -> Path:
     if not ffmpeg_available():
-        pytest.skip("ffmpeg not available")
+        pytest.skip("requires the ffmpeg binary (real video encode/probe)")
     dest = tmp_path / "sample_presentation.mp4"
     return generate_sample_video(dest, slide_seconds=15.0)
 
 
-@pytest.mark.skipif(not ffmpeg_available(), reason="ffmpeg not available")
+@pytest.mark.skipif(not ffmpeg_available(), reason="requires the ffmpeg binary (real video encode/probe)")
 def test_video_import_service_e2e(
     monkeypatch: pytest.MonkeyPatch, sample_video: Path, tmp_path: Path
 ) -> None:
@@ -114,7 +114,7 @@ def test_video_import_service_e2e(
     assert full_wav.is_file()
 
 
-@pytest.mark.skipif(not ffmpeg_available(), reason="ffmpeg not available")
+@pytest.mark.skipif(not ffmpeg_available(), reason="requires the ffmpeg binary (real video encode/probe)")
 def test_cli_transcribe_video_smoke_e2e(
     monkeypatch: pytest.MonkeyPatch, sample_video: Path, tmp_path: Path
 ) -> None:
@@ -145,7 +145,7 @@ def test_cli_transcribe_video_smoke_e2e(
     assert sessions[0].title == "CLI E2E Slides"
 
 
-@pytest.mark.skipif(not ffmpeg_available(), reason="ffmpeg not available")
+@pytest.mark.skipif(not ffmpeg_available(), reason="requires the ffmpeg binary (real video encode/probe)")
 def test_slide_detection_finds_three_slides_on_sample(sample_video: Path) -> None:
     from live_meeting_transcriber.audio.media_import import probe_media_duration_seconds
     from live_meeting_transcriber.video.slide_detection import detect_slide_candidates
