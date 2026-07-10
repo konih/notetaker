@@ -79,7 +79,7 @@ uv run live-transcriber transcribe-video \
   --min-interval 0 --threshold 0.05 --sample-interval 1
 ```
 
-**E2e / CI:** video e2e modules generate a fresh synthetic MP4 per run (see [E2E tests](#e2e-tests-testse2e)). Integration tests import the English presentation **URL** (`DZL-ExKPjnc`) when `RUN_INTEGRATION_TESTS=1`.
+**E2e / CI:** video e2e modules generate a fresh synthetic MP4 per run (see [E2E tests](#e2e-tests-testse2e)). The integration test mocks the download seam and imports the committed `presentation_en_15s_360p.mp4` fixture (deterministic, no network); it runs in CI's `integration` job.
 
 **Override English source:** set `FIXTURE_PRESENTATION_EN_URL` before `task fixtures:fetch`, or `SAMPLE_VIDEO_URL` for `task fixtures:download-sample` (cache only).
 

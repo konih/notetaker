@@ -87,7 +87,7 @@ Beyond the terminal UI, the application layer is designed so:
 
 **Offline finalize (recommended):** `live-transcriber finalize` runs WhisperX ASR + pyannote on `full_session.wav`, then **`merge_service`** assigns each transcript interval the diarization `speaker_key` with the **largest time overlap**; if none, `unknown` (shown as **Unknown Speaker** in exports unless aliased).
 
-**Legacy adapters:** `DiarizationProvider.diarize_chunk` still exists for optional per-chunk pyannote (`application/diarization_batch.py`); there is no `live-transcriber diarize` CLI.
+**Legacy adapters:** `DiarizationProvider.diarize_chunk` still exists on the pyannote/noop adapters as an extension point, but no application code wires it — the unused `diarization_batch` reprocessor was removed (A7), and there is no `live-transcriber diarize` CLI.
 
 - **Persistence**: raw intervals live in `diarization_segments`; display names per session in `session_speaker_names` (`SpeakerAliasRepository` / CLI `speaker-alias`).
 - **Pyannote** is an **optional** extra (`whisperx` / `diarization`); needs `HF_TOKEN` and accepted Hub model licenses for finalize.

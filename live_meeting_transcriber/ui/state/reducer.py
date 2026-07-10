@@ -332,7 +332,9 @@ def reduce(state: AppState, action: act.Action) -> AppState:
 
     if isinstance(action, act.AudioLevelUpdated):
         return _touch(
-            state.model_copy(update={"current_level_meter": action.level}),
+            state.model_copy(
+                update={"current_level_meter": action.level, "last_level_at": action.at}
+            ),
             action.at,
         )
 

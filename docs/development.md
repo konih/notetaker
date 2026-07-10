@@ -42,15 +42,15 @@ task tui
 
 ### Test markers
 
-- **Default:** `uv run pytest` runs unit + e2e smoke tests; skips `@pytest.mark.integration`.
-- **Integration:** marked in `pyproject.toml` as `integration: integration tests (skipped unless RUN_INTEGRATION_TESTS=1)`. Enable with:
+- **Default:** `uv run pytest` runs unit + e2e + the (ffmpeg-gated) integration lane; `task check` and `task test:unit` use `-m "not integration"` to stay ffmpeg-free.
+- **Integration:** deterministic — network boundaries are mocked and fixtures committed, so there is **no** env gate; the tests need **ffmpeg** and are skipped if it's absent. Run with:
 
 ```bash
-RUN_INTEGRATION_TESTS=1 task test:integration
+task test:integration    # installs ffmpeg prereqs, then `pytest -m integration`
 ```
 
 - **E2e smoke:** `tests/e2e/` — CLI contract tests with mocked audio/STT and temp SQLite; no live Teams/mic. Video modules (`transcribe-video`, slides, cleanup) use ffmpeg on a per-run synthetic MP4. Run: `task test:e2e` or `uv run pytest tests/e2e -q`. Fixture mapping: [`docs/test-fixtures.md`](test-fixtures.md#e2e-tests-testse2e).
-- **Video integration:** `tests/integration/test_video_import_download.py` imports an English presentation YouTube URL when `RUN_INTEGRATION_TESTS=1`. Prepare committed clips with `task fixtures:fetch`.
+- **Video integration:** `tests/integration/test_video_import_download.py` mocks the download seam and imports a **committed fixture** presentation (`tests/fixtures/video/`), exercising the real slide/ASR/persistence pipeline with no network.
 - **Sample media:** meeting WAVs and presentation MP4s — see [`docs/test-fixtures.md`](test-fixtures.md).
 
 ### Test pyramid policy
@@ -65,7 +65,7 @@ enforces the machine-checkable parts so the shape can't silently rot.
 | Layer | Location | Contract | Must assert |
 | --- | --- | --- | --- |
 | **Unit** | `tests/unit/`, `tests/architecture/` | Deterministic, fast, no network/GPU/model download. Depend on ports, not providers. Exercise branch logic depth. | Return values, state transitions, error paths |
-| **Integration** | `tests/integration/` (`@pytest.mark.integration`) | Adapter seams against filesystem/process/network **fakes** — no live internet. Opt-in via `RUN_INTEGRATION_TESTS=1`. | Seam behaviour (files written, processes invoked, rows persisted) |
+| **Integration** | `tests/integration/` (`@pytest.mark.integration`) | Adapter seams against filesystem/process/network **fakes** — no live internet. Deterministic; ffmpeg-gated (skipped if absent), no env gate. | Seam behaviour (files written, processes invoked, rows persisted) |
 | **E2E** | `tests/e2e/` | CLI → application container → SQLite with mocked audio/STT + temp DB. Small in number, high in value. | **Data-state outcomes** (DB rows, WAV/files written or removed, `ended_at` set) — *not* exit codes alone |
 
 **E2E depth rule:** a critical-workflow e2e (`record`, `finalize`, `cleanup`, video import)

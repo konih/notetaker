@@ -11,6 +11,7 @@ from live_meeting_transcriber.ui.state.model import (
     UiErrorState,
 )
 from live_meeting_transcriber.ui.state.selectors import (
+    select_decayed_level,
     select_display_speaker,
     select_elapsed_label,
     select_header_title,
@@ -160,6 +161,50 @@ def test_select_level_bar() -> None:
     b = select_level_bar(AppState(current_level_meter=0.5), width=4)
     assert "█" in b
     assert "░" in b
+
+
+def test_select_decayed_level_holds_one_interval_then_falls_off() -> None:
+    # U13: peak-hold with delayed decay. The per-chunk peak is held for one chunk
+    # interval so continuous speech does NOT pulse full->empty between updates; it only
+    # decays once a chunk is late (real silence / stalled capture / stopped session).
+    t0 = utc_now()
+    s = AppState(
+        recording_status=RecordingStatus.recording,
+        current_level_meter=0.8,
+        last_level_at=t0,
+        chunk_seconds=10,
+    )
+    assert select_decayed_level(s, t0) == 0.8  # fresh reading: full peak
+    assert select_decayed_level(s, t0 + timedelta(seconds=8)) == 0.8  # held: no mid-chunk pulse
+    mid = select_decayed_level(s, t0 + timedelta(seconds=15))  # a chunk is late -> decaying
+    assert mid is not None and 0.3 < mid < 0.5
+    # Two intervals stale: floored at zero rather than a frozen peak.
+    assert select_decayed_level(s, t0 + timedelta(seconds=25)) == 0.0
+
+
+def test_select_decayed_level_none_when_idle_or_unset() -> None:
+    # A stopped/idle session must not keep showing a stale peak.
+    now = utc_now()
+    idle = AppState(current_level_meter=0.9, last_level_at=now)
+    assert select_decayed_level(idle, now) is None
+    no_reading = AppState(recording_status=RecordingStatus.recording, current_level_meter=None)
+    assert select_decayed_level(no_reading, now) is None
+
+
+def test_select_level_bar_decays_with_now() -> None:
+    t0 = utc_now()
+    s = AppState(
+        recording_status=RecordingStatus.recording,
+        current_level_meter=1.0,
+        last_level_at=t0,
+        chunk_seconds=10,
+    )
+    fresh = select_level_bar(s, t0, width=10)
+    stale = select_level_bar(s, t0 + timedelta(seconds=18), width=10)  # past hold, decaying
+    assert fresh.count("█") > stale.count("█")  # decayed reading => fewer filled blocks
+    # Passing no clock keeps the legacy (non-decaying) behaviour for callers that
+    # don't have a wall clock handy.
+    assert "█" in select_level_bar(s, width=4)
 
 
 def test_select_header_fallback_uuid_session() -> None:

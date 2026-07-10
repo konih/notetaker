@@ -34,7 +34,7 @@ uv run ruff format .  # format
 ```
 
 - **Unit tests (default):** `uv run pytest` or `task test:unit` (`-m "not integration"`).
-- **Integration tests:** `RUN_INTEGRATION_TESTS=1 uv run pytest -m integration` or `task test:integration`.
+- **Integration tests:** `uv run pytest -m integration` or `task test:integration` — deterministic (network mocked), needs ffmpeg (skipped if absent), no env gate.
 - **CI parity:** `task check` runs the same gates as GitHub Actions — Ruff (whole-tree `.` scope in both), mypy (CI syncs `--all-extras` to match), and `pytest -m "not integration"` with a coverage floor (`[tool.coverage.report] fail_under`, ratcheting toward 90% per OQ-1). CI's `test` job runs the full `pytest` and enforces the same floor.
 
 ### Python version and optional extras
@@ -171,7 +171,7 @@ End-to-end means exercising the **CLI → application container → SQLite** pat
    - First target: `tests/e2e/test_cli_record_smoke.py`
 
 2. **Integration tests (`@pytest.mark.integration`)**  
-   Skipped unless `RUN_INTEGRATION_TESTS=1` (see `tests/conftest.py`).  
+   Deterministic — network boundaries (e.g. yt-dlp) are mocked and fixtures are committed; need **ffmpeg** (skipped if absent), no env gate. Run in CI's `integration` job.  
    Tiny fixture WAV, optional real faster-whisper or WhisperX; skip heavy steps when `HF_TOKEN` unset. Keep runtime short.  
    Sample meeting audio and presentation videos: [`docs/test-fixtures.md`](docs/test-fixtures.md) (`task fixtures:fetch`).
 
@@ -184,7 +184,7 @@ End-to-end means exercising the **CLI → application container → SQLite** pat
 |--------|---------|
 | Default / PR | `uv run pytest -q` or `task check` |
 | Unit only | `uv run pytest -m "not integration"` |
-| Integration | `RUN_INTEGRATION_TESTS=1 uv run pytest -m integration` |
+| Integration | `uv run pytest -m integration` (needs ffmpeg) |
 | E2e smoke | `uv run pytest tests/e2e -q` |
 
 Add new e2e tests under `tests/e2e/`; prefer mocks over network/GPU. Do not call OpenAI in CI without explicit opt-in.
@@ -207,7 +207,7 @@ Key rules agents must follow:
 
 - **Live recording:** Chunk transcription only; **no** per-chunk pyannote in the recorder. Speaker hints during live capture come from **`AUDIO_STEREO_MODE=dual_path`** + `faster_whisper` (mic vs system channels), not from `DIARIZATION_ENABLED`.
 - **Offline:** `live-transcriber finalize` runs WhisperX + pyannote on `full_session.wav` (needs `whisperx` extra, `HF_TOKEN`).
-- **Legacy:** `application/diarization_batch.py` can reprocess stored chunk WAVs but there is **no** `live-transcriber diarize` CLI command.
+- There is **no** `live-transcriber diarize` CLI command (the unused per-chunk `diarization_batch` reprocessor was removed in A7).
 
 ## Code style (Python)
 

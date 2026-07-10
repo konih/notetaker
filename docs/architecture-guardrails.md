@@ -56,7 +56,6 @@ excluded):
 | `application/recorder.py` | `audio.session_recording/stereo/timeline/wav_*` | **A4** — extract an audio-IO port for WAV/timeline append. |
 | `application/screenshot_export.py`, `session_media.py`, `video_session_storage.py` | `audio.session_recording` | Small: move `session_audio_dir`/path helpers behind a storage-path port or into domain. |
 | `application/session_service.py` | `obsidian.vault_patterns` | Move `is_placeholder_meeting_title` into domain (pure predicate). |
-| `application/diarization_batch.py` | `diarization.merge_service` | Dead per **A7** — resolve there (remove or wire), don't refactor speculatively. |
 
 ### Batch 2 — adapter → application (owner: A-epic)
 
