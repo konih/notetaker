@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+from live_meeting_transcriber.application.dual_path import transcriber_supports_dual_path
 from live_meeting_transcriber.audio.session_recording import (
     append_chunk_to_full_session_wav,
     full_session_wav_path,
@@ -145,7 +146,7 @@ class Recorder:
         use_dual = (
             chunk.channels == 2
             and self.audio_stereo_mode == "dual_path"
-            and callable(getattr(self.transcriber, "transcribe_stereo_chunk", None))
+            and transcriber_supports_dual_path(self.transcriber)
         )
         if chunk.channels == 2 and self.audio_stereo_mode == "dual_path" and not use_dual:
             log.warning(
