@@ -207,7 +207,7 @@ Key rules agents must follow:
 
 - **Live recording:** Chunk transcription only; **no** per-chunk pyannote in the recorder. Speaker hints during live capture come from **`AUDIO_STEREO_MODE=dual_path`** + `faster_whisper` (mic vs system channels), not from `DIARIZATION_ENABLED`.
 - **Offline:** `live-transcriber finalize` runs WhisperX + pyannote on `full_session.wav` (needs `whisperx` extra, `HF_TOKEN`).
-- **Legacy:** `application/diarization_batch.py` can reprocess stored chunk WAVs but there is **no** `live-transcriber diarize` CLI command.
+- There is **no** `live-transcriber diarize` CLI command (the unused per-chunk `diarization_batch` reprocessor was removed in A7).
 
 ## Code style (Python)
 
