@@ -37,7 +37,10 @@ FOOTER_ACTIONS: tuple[FooterAction, ...] = (
     FooterAction("t", "name_speakers", "Name speakers", core=False),
     FooterAction("s", "settings", "Settings", core=False),
     FooterAction("a", "audio_sources", "Audio sources", core=False),
-    FooterAction("m", "sessions", "Sessions", core=False),
+    # `j` (jump to a meeting), not `m`: the Meetings tab binds `m` to its
+    # More-actions menu (U9), which shadowed a global `m` there so the same key
+    # meant two different things depending on the region (U12).
+    FooterAction("j", "sessions", "Sessions", core=False),
     FooterAction("c", "ack_errors", "Ack errors", core=False),
     # ctrl+d, not ctrl+i: ctrl+i is byte-identical to Tab (0x09) on terminals without
     # the kitty keyboard protocol, so a ctrl+i binding never fires (it arrives as Tab).
@@ -59,3 +62,16 @@ def core_footer_actions() -> tuple[FooterAction, ...]:
 def overflow_footer_actions() -> tuple[FooterAction, ...]:
     """Actions hidden from the footer but still key-bound and in the palette."""
     return tuple(a for a in FOOTER_ACTIONS if not a.core)
+
+
+def footer_key(action: str) -> str:
+    """Canonical key for a global action — the single source for inline hints (U12).
+
+    Hint strings rendered elsewhere (e.g. the Meetings tab header) must derive their
+    keys from the catalog through this lookup so they cannot drift from the real
+    bindings.
+    """
+    for a in FOOTER_ACTIONS:
+        if a.action == action:
+            return a.key
+    raise KeyError(f"no footer action named {action!r}")
