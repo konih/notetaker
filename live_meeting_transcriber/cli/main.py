@@ -86,6 +86,10 @@ def _main_callback(ctx: typer.Context) -> None:
         log_file_max_bytes=settings.log_file_max_bytes,
         log_file_backup_count=settings.log_file_backup_count,
     )
+    # ``doctor`` is a self-contained diagnostic that must run even when transcription
+    # providers are not configured yet (e.g. no OPENAI_API_KEY) — skip the container build.
+    if ctx.invoked_subcommand == "doctor":
+        return
     try:
         container = build_container(settings)
     except ProviderSelectionError as e:
@@ -451,6 +455,32 @@ def finalize_pending(
     typer.echo(f"Done: {ok} succeeded, {failed} failed.")
     if failed:
         raise typer.Exit(code=1)
+
+
+@app.command("doctor")
+def doctor() -> None:
+    """Check offline-diarization prerequisites (extras, ffmpeg, HF token, gated model, device).
+
+    Runs each check and prints a pass/fail line with a copy-pasteable fix. Exits 0 when every
+    prerequisite is satisfied, otherwise exits 1 and names the first thing to fix.
+    """
+    from live_meeting_transcriber.diagnostics.diarization_doctor import (
+        all_ok,
+        run_diarization_checks,
+    )
+
+    settings = load_settings()
+    results = run_diarization_checks(settings)
+    for r in results:
+        typer.echo(f"[{'OK  ' if r.ok else 'FAIL'}] {r.name}: {r.detail}")
+        if not r.ok and r.remediation:
+            typer.echo(f"       -> {r.remediation}")
+    if all_ok(results):
+        typer.echo("\nAll diarization prerequisites satisfied.")
+        return
+    first_fail = next(r for r in results if not r.ok)
+    typer.echo(f"\nFix first: {first_fail.name}", err=True)
+    raise typer.Exit(code=1)
 
 
 @app.command("speakers")

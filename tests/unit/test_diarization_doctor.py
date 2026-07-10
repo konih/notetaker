@@ -1,0 +1,112 @@
+"""F9: prerequisite checks for the `doctor` diarization diagnostic.
+
+Each check function is pure and takes its external probe injected, so these tests never
+touch the network, the filesystem, or optional heavy imports.
+"""
+
+from __future__ import annotations
+
+import pytest
+from live_meeting_transcriber.config.settings import Settings
+from live_meeting_transcriber.diagnostics import diarization_doctor as doc
+
+
+def _settings(**overrides: object) -> Settings:
+    return Settings(**overrides)  # type: ignore[arg-type]
+
+
+# --- extras ------------------------------------------------------------------
+def test_extras_ok_when_all_import() -> None:
+    r = doc.check_extras_installed(import_probe=lambda _m: None)
+    assert r.ok
+    assert r.remediation is None
+
+
+def test_extras_fail_lists_missing_and_remediation() -> None:
+    def probe(mod: str) -> None:
+        if mod.startswith("pyannote"):
+            raise ImportError(mod)
+
+    r = doc.check_extras_installed(import_probe=probe)
+    assert not r.ok
+    assert "pyannote" in r.detail
+    assert r.remediation is not None and "uv sync" in r.remediation
+
+
+# --- ffmpeg ------------------------------------------------------------------
+def test_ffmpeg_ok_when_on_path() -> None:
+    r = doc.check_ffmpeg(which=lambda c: f"/usr/bin/{c}")
+    assert r.ok
+
+
+def test_ffmpeg_fail_when_missing() -> None:
+    r = doc.check_ffmpeg(which=lambda _c: None)
+    assert not r.ok
+    assert r.remediation is not None
+
+
+# --- HF token (the two failure modes this session hit) -----------------------
+def test_hf_token_missing_is_distinct_from_invalid() -> None:
+    def whoami(_t: str) -> dict[str, str]:
+        raise AssertionError("whoami must not be called when token is absent")
+
+    r = doc.check_hf_token("", whoami=whoami)
+    assert not r.ok
+    assert "not set" in r.detail.lower()
+
+
+def test_hf_token_invalid_reports_rejected() -> None:
+    def whoami(_t: str) -> dict[str, str]:
+        raise ValueError("Invalid user token")
+
+    r = doc.check_hf_token("hf_bad", whoami=whoami)
+    assert not r.ok
+    # Must be clearly different wording from the "not set" case.
+    assert "not set" not in r.detail.lower()
+    assert "invalid" in r.detail.lower() or "rejected" in r.detail.lower()
+
+
+def test_hf_token_ok_reports_user() -> None:
+    r = doc.check_hf_token("hf_good", whoami=lambda _t: {"name": "koniheimel"})
+    assert r.ok
+    assert "koniheimel" in r.detail
+
+
+# --- gated model access ------------------------------------------------------
+def test_gated_model_ok_when_info_returns() -> None:
+    r = doc.check_gated_model_access("hf_good", model_info=lambda _m, _t: object())
+    assert r.ok
+    # Names the ACTUAL model whisperx pulls, not speaker-diarization-3.1.
+    assert "community-1" in r.name
+
+
+def test_gated_model_fail_links_licence() -> None:
+    def model_info(_m: str, _t: str) -> object:
+        raise RuntimeError("GatedRepoError 401")
+
+    r = doc.check_gated_model_access("hf_good", model_info=model_info)
+    assert not r.ok
+    assert r.remediation is not None and "community-1" in r.remediation
+
+
+def test_gated_model_skipped_without_token() -> None:
+    r = doc.check_gated_model_access(None, model_info=lambda _m, _t: object())
+    assert not r.ok
+
+
+# --- device / compute (informational, reflects the B5 resolver) --------------
+def test_device_reports_cpu_int8_on_apple_silicon(monkeypatch: pytest.MonkeyPatch) -> None:
+    from live_meeting_transcriber.offline import whisperx_pipeline as wp
+
+    monkeypatch.setattr(wp, "_detect_torch_devices", lambda: (False, True))
+    r = doc.check_device(_settings())
+    assert r.ok
+    assert "cpu" in r.detail and "int8" in r.detail
+
+
+# --- summary helper ----------------------------------------------------------
+def test_all_ok_true_only_when_every_result_ok() -> None:
+    ok = doc.CheckResult(name="x", ok=True, detail="")
+    bad = doc.CheckResult(name="y", ok=False, detail="", remediation="fix it")
+    assert doc.all_ok([ok, ok]) is True
+    assert doc.all_ok([ok, bad]) is False

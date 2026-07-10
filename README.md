@@ -58,7 +58,13 @@ Optional **speaker diarization** (pyannote / PyTorch — large download):
 uv sync --extra diarization
 ```
 
-Accept the **pyannote** and model license(s) on Hugging Face, then set `HF_TOKEN` in `.env`.
+Then, for **offline finalize / Speaker ID** to label speakers:
+
+1. Accept the licence for the model finalize actually uses — [`pyannote/speaker-diarization-community-1`](https://hf.co/pyannote/speaker-diarization-community-1) — while logged in on Hugging Face.
+2. Create a **read** token at <https://huggingface.co/settings/tokens> and set `HF_TOKEN` in `.env` (or your shell env).
+3. Run **`live-transcriber doctor`** (or `task diarization:doctor`) to verify everything — it checks the extras, ffmpeg, token auth (missing vs invalid), gated-model access, and the resolved device, printing a fix for the first thing missing.
+
+The first finalize downloads ~1 GB+ of weights (Whisper checkpoint + alignment + pyannote). On **Apple Silicon** the ASR runs on **CPU** automatically (WhisperX's CTranslate2 backend has no Metal/MPS support) — no configuration needed.
 
 Optional **inline slide thumbnails in the TUI** ([textual-image](https://github.com/darrenburns/textual-image)):
 

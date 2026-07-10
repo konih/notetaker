@@ -89,8 +89,8 @@ Only existing files are loaded. See [`install-desktop.md`](install-desktop.md) f
   - **Offline (recommended):** `live-transcriber finalize` — WhisperX ASR + pyannote on `full_session.wav` (needs `uv sync --extra whisperx`, `HF_TOKEN`, Python ≤ 3.13 for torch). Uses `DIARIZATION_MIN_SPEAKERS` / `DIARIZATION_MAX_SPEAKERS` / `DIARIZATION_NUM_SPEAKERS` when diarization runs inside finalize.
   - **Live dual-channel:** `TRANSCRIPTION_PROVIDER=faster_whisper`, `AUDIO_CHANNELS=2`, `AUDIO_STEREO_MODE=dual_path` — transcribes mic (L) and system (R) separately with channel-based speaker keys (no pyannote during capture).
   - **Legacy batch code only:** `application/diarization_batch.py` can reprocess stored chunk WAVs if wired manually; there is **no** `live-transcriber diarize` CLI.
-- `HF_TOKEN`: Hugging Face token (required for pyannote in **finalize**; accept model licenses on the Hub first).
-- `PYANNOTE_MODEL`: default `pyannote/speaker-diarization-3.1` (offline finalize / optional `diarization` extra).
+- `HF_TOKEN`: Hugging Face token (required for pyannote in **finalize**). First **accept the licence for the model finalize actually pulls — [`pyannote/speaker-diarization-community-1`](https://hf.co/pyannote/speaker-diarization-community-1)** — while logged in as the token's account. Run **`live-transcriber doctor`** (or `task diarization:doctor`) to verify the token authenticates and the gated model is accessible before your first finalize.
+- `PYANNOTE_MODEL`: default `pyannote/speaker-diarization-3.1`. **Note:** this only feeds the legacy `diarization` extra / live provider — the **finalize** path uses WhisperX's built-in `speaker-diarization-community-1` and ignores this setting.
 - `DIARIZATION_NUM_SPEAKERS`: optional exact speaker count for pyannote during finalize.
 - `DIARIZATION_MIN_SPEAKERS` / `DIARIZATION_MAX_SPEAKERS`: optional bounds when `DIARIZATION_NUM_SPEAKERS` is unset. `MIN` must be ≤ `MAX`.
 
@@ -108,6 +108,7 @@ Only existing files are loaded. See [`install-desktop.md`](install-desktop.md) f
 
 Speaker CLI:
 
+- `live-transcriber doctor` — check diarization prerequisites (extras, ffmpeg, HF token auth, gated-model licence, resolved device/compute) and print a fix for the first thing missing. Also `task diarization:doctor`.
 - `live-transcriber speakers --session-id <uuid>` — transcript keys, stored diarization keys, aliases.
 - `live-transcriber speaker-alias --session-id <uuid> --speaker speaker_1 --name "Konrad"` (also accepts `SPEAKER_00`-style labels; normalized to `speaker_*` keys).
 
