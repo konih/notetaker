@@ -147,17 +147,24 @@ async def finalize_session_offline(
     from ``asyncio.to_thread`` workers, so only :func:`run_whisperx_finalize` is offloaded.
     """
     from live_meeting_transcriber.offline.whisperx_pipeline import run_whisperx_finalize
+    from live_meeting_transcriber.utils.std_streams import subprocess_safe_std_streams
 
     session_started_at, wav, timeline = _finalize_load_inputs(
         container=container, settings=settings, session_id=session_id
     )
-    segments = await asyncio.to_thread(
-        run_whisperx_finalize,
-        session_id=session_id,
-        audio_wav=wav,
-        timeline=timeline,
-        session_started_at=session_started_at,
-        settings=settings,
-        progress=progress,
-    )
+
+    def _run() -> list[TranscriptSegment]:
+        # A running TUI redirects std streams to fileno()==-1; WhisperX's model load forks a
+        # child and would raise "bad value(s) in fds_to_keep". Give it real (devnull) std fds.
+        with subprocess_safe_std_streams():
+            return run_whisperx_finalize(
+                session_id=session_id,
+                audio_wav=wav,
+                timeline=timeline,
+                session_started_at=session_started_at,
+                settings=settings,
+                progress=progress,
+            )
+
+    segments = await asyncio.to_thread(_run)
     return _finalize_persist_segments(container=container, session_id=session_id, segments=segments)
