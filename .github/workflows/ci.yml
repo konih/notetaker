@@ -103,6 +103,32 @@ jobs:
       - name: E2E pytest
         run: uv run pytest tests/e2e -q
 
+  integration:
+    name: Integration lane (ffmpeg, deterministic)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - run: uv python install 3.12
+
+      - name: Sync dev tools
+        run: uv sync --python 3.12 --extra dev
+
+      - name: Install video prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          bash scripts/install_video_prereqs.sh
+
+      # Integration tests mock external network boundaries (e.g. yt-dlp) and run against
+      # committed fixtures, so they are deterministic — no RUN_INTEGRATION_TESTS gate.
+      - name: Integration pytest
+        run: uv run pytest -m integration -q
+
   arch:
     name: Architecture boundaries (import-linter, non-blocking)
     runs-on: ubuntu-latest

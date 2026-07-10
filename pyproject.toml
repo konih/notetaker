@@ -71,7 +71,7 @@ testpaths = ["tests"]
 addopts = "-q"
 asyncio_mode = "auto"
 markers = [
-  "integration: integration tests (skipped unless RUN_INTEGRATION_TESTS=1)",
+  "integration: deterministic integration tests; need ffmpeg (skipped if absent), no network. Run via `task test:integration` or `pytest -m integration`.",
 ]
 
 [tool.ruff]

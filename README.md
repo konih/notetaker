@@ -224,7 +224,7 @@ CI (GitHub Actions) runs **pytest** (with a coverage floor), **mypy** (`typechec
 ### Testing strategy
 
 - Unit tests mock audio and external APIs (no real OpenAI calls).
-- Integration tests are skipped unless `RUN_INTEGRATION_TESTS=1`.
+- The integration lane (`task test:integration`, CI `integration` job) is deterministic — it mocks network boundaries (e.g. yt-dlp) and runs against committed fixtures; it needs **ffmpeg** and is skipped if that's absent.
 
 ### Known limitations (current)
 

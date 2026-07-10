@@ -51,9 +51,10 @@ tasks:
       - uv run pytest -m "not integration"
 
   test:integration:
-    desc: Run integration tests (requires RUN_INTEGRATION_TESTS=1)
+    desc: Run the deterministic integration lane (needs ffmpeg; no network)
+    deps: [install:video-prereqs]
     cmds:
-      - RUN_INTEGRATION_TESTS=1 uv run pytest -m "integration"
+      - uv run pytest -m "integration" -q
 
   lint:
     desc: Ruff lint
