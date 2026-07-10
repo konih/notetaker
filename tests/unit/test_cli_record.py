@@ -102,7 +102,7 @@ def test_cli_record_uses_mocked_recorder(monkeypatch: pytest.MonkeyPatch, tmp_pa
 
     monkeypatch.setattr("live_meeting_transcriber.cli.main.load_settings", lambda: settings)
     monkeypatch.setattr("live_meeting_transcriber.cli.main.build_container", lambda _s: container)
-    monkeypatch.setattr("live_meeting_transcriber.cli.main.Recorder", _FakeRecorder)
+    monkeypatch.setattr("live_meeting_transcriber.cli.commands.recording.Recorder", _FakeRecorder)
 
     result = CliRunner().invoke(app, ["record", "--title", "Test", "--chunk-seconds", "1"])
     assert result.exit_code == 0
@@ -139,7 +139,9 @@ def test_cli_record_ctrl_c_exits_cleanly(monkeypatch: pytest.MonkeyPatch, tmp_pa
 
     monkeypatch.setattr("live_meeting_transcriber.cli.main.load_settings", lambda: settings)
     monkeypatch.setattr("live_meeting_transcriber.cli.main.build_container", lambda _s: container)
-    monkeypatch.setattr("live_meeting_transcriber.cli.main.Recorder", _FakeRecorderCtrlC)
+    monkeypatch.setattr(
+        "live_meeting_transcriber.cli.commands.recording.Recorder", _FakeRecorderCtrlC
+    )
 
     result = CliRunner().invoke(app, ["record", "--title", "Test"])
     assert result.exit_code == 0

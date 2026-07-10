@@ -109,4 +109,4 @@ def patch_cli(
 
 
 def patch_fake_recorder(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("live_meeting_transcriber.cli.main.Recorder", FakeRecorder)
+    monkeypatch.setattr("live_meeting_transcriber.cli.commands.recording.Recorder", FakeRecorder)
