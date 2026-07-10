@@ -23,7 +23,7 @@ from live_meeting_transcriber.ui.tui.footer_bindings import (
 )
 from textual.app import SystemCommand
 from textual.binding import Binding
-from textual.widgets import Footer
+from textual.widgets import Footer, TabbedContent
 from textual.widgets._footer import FooterKey
 
 # Standard-terminal target width the footer must fit within (stricter than the
@@ -102,6 +102,15 @@ async def test_footer_fits_standard_width_and_shows_only_core() -> None:
         # Footer is a single row.
         assert app.query_one(Footer).size.height == 1
 
+        # AC1 says "common screens" — the Meetings tab must also fit (the focused
+        # browser adds no extra footer bindings, but assert it rather than assume).
+        app.query_one(TabbedContent).active = "tab-meetings"
+        await pilot.pause()
+        meetings_total = sum(k.size.width for k in app.query(FooterKey))
+        assert meetings_total <= STANDARD_WIDTH, (
+            f"meetings footer {meetings_total} > {STANDARD_WIDTH}"
+        )
+
 
 # --- discoverability: overflow actions live in the command palette ----------
 
@@ -118,3 +127,15 @@ async def test_overflow_actions_are_in_the_command_palette() -> None:
         for c in commands:
             assert isinstance(c, SystemCommand)
             assert callable(c.callback)
+
+        # Invoking a palette callback must actually run its action — not silently
+        # no-op. "Settings" pushes the settings modal (the palette awaits the
+        # coroutine the callback returns, exactly as Textual's palette does).
+        settings_cmd = next(c for c in commands if c.title == "Settings")
+        depth_before = len(app.screen_stack)
+        result = settings_cmd.callback()
+        if result is not None:
+            await result
+        await pilot.pause()
+        assert len(app.screen_stack) == depth_before + 1
+        assert type(app.screen).__name__ == "SettingsScreen"
