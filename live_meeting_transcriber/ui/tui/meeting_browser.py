@@ -22,6 +22,7 @@ from live_meeting_transcriber.ui.state import actions as act
 from live_meeting_transcriber.ui.state.model import AppState, RecordingStatus
 from live_meeting_transcriber.ui.state.store import Store
 from live_meeting_transcriber.ui.tui.empty_states import MEETINGS_EMPTY_HINT
+from live_meeting_transcriber.ui.tui.footer_bindings import footer_key
 from live_meeting_transcriber.ui.tui.meeting_modals import (
     ConfirmDeleteMeetingModal,
     EditSegmentModal,
@@ -60,10 +61,14 @@ from live_meeting_transcriber.ui.tui.video_import_modal import (
 )
 from live_meeting_transcriber.utils.time import format_local_datetime, utc_now
 
+# Canonical Summarize key (UX-OQ-3): sourced from the global footer catalog so every
+# inline hint on this tab renders the same key as the footer and the ? overlay (U12).
+_SUMMARIZE_KEY = footer_key("summarize")
+
 
 def _format_summary_for_editor(summary: Summary | None) -> str:
     if summary is None:
-        return "— No summary yet. Press ctrl+g to generate. —"
+        return f"— No summary yet. Press {_SUMMARIZE_KEY} to generate. —"
     parts: list[str] = [summary.summary_markdown.strip()]
     if summary.decisions:
         parts.append("## Decisions\n" + "\n".join(f"- {d.text}" for d in summary.decisions))
@@ -87,7 +92,10 @@ class MeetingBrowser(Vertical):
 
     BINDINGS = [
         Binding("ctrl+s", "save_meeting", "Save meeting", show=True, priority=True),
-        Binding("ctrl+g", "summarize_meeting", "Summarize", show=True, priority=True),
+        # No Meetings-local Summarize binding: the canonical key is the global `k`
+        # (UX-OQ-3), whose action is tab-aware and summarizes the selected meeting
+        # here. The old duplicate `ctrl+g` was purged in U12; the toolbar button
+        # still routes to action_summarize_meeting for mouse users.
         Binding("ctrl+r", "refresh_list", "Refresh", show=True, priority=True),
         # Plain `d` (not the old ctrl+shift+d/shift+delete/ctrl+delete chord, which collapses
         # onto ctrl+d / never fires on standard terminals). Focus stays on the meetings table
@@ -125,7 +133,7 @@ class MeetingBrowser(Vertical):
     def compose(self) -> ComposeResult:
         yield Static(
             "[bold]Meetings[/bold] — select a row · [dim]ctrl+s[/dim] save · "
-            "[dim]ctrl+g[/dim] summarize · [dim]ctrl+e[/dim] edit line · "
+            f"[dim]{_SUMMARIZE_KEY}[/dim] summarize · [dim]ctrl+e[/dim] edit line · "
             "[dim]m[/dim] more actions",
             id="meeting-browser-header",
         )
@@ -140,7 +148,7 @@ class MeetingBrowser(Vertical):
                 yield TabCompletableInput(placeholder="Title", id="meeting-title", disabled=True)
                 yield Static("Notes", classes="dim")
                 yield TextArea(id="meeting-notes", disabled=True, language=None)
-                yield Static("AI summary (ctrl+g to generate)", classes="dim")
+                yield Static(f"AI summary ({_SUMMARIZE_KEY} to generate)", classes="dim")
                 yield TextArea(id="meeting-summary", disabled=True, language=None)
                 yield Static(
                     "Attendees (comma-separated; Tab completes full name when suggested)",
