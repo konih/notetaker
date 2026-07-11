@@ -132,10 +132,12 @@ class MeetingBrowser(Vertical):
         return self._selected_session_id
 
     def compose(self) -> ComposeResult:
+        # U14: the header is orientation only. The screen keeps exactly two action
+        # channels — the U9 toolbar below (explicit surface) and the footer plus the
+        # ? keymap overlay (fallback) — so the header no longer repeats per-action
+        # key hints as a third concurrent affordance layer; it just points at ?.
         yield Static(
-            "[bold]Meetings[/bold] — select a row · [dim]ctrl+s[/dim] save · "
-            f"[dim]{_SUMMARIZE_KEY}[/dim] summarize · [dim]ctrl+e[/dim] edit line · "
-            "[dim]m[/dim] more actions",
+            "[bold]Meetings[/bold] — select a row · [dim]?[/dim] shortcuts",
             id="meeting-browser-header",
         )
         with Horizontal(id="meeting-toolbar"):
