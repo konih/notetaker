@@ -1,0 +1,133 @@
+{
+ "engine": "whisperx/faster-whisper/ctranslate2 cpu int8 batch=8",
+ "model": "large-v3-turbo",
+ "audio_s": 600.0,
+ "t_load_s": 5.69,
+ "t_transcribe_s": 112.83,
+ "t_align_s": null,
+ "xrt_transcribe": 5.32,
+ "peak_rss_mb": 5304.8,
+ "n_segments": 20,
+ "segments": [
+  {
+   "start": 0.031,
+   "end": 24.398,
+   "text": "Like how much money people have to spend on things like that. Or just like basic product positioning. The 25 euro remote control might be a big hit in London. Might not be such a big hit in Greece. Who knows? Something like that. Marketing. Good marketing thoughts. Oh gosh, I should be writing all this down.",
+   "words": null
+  },
+  {
+   "start": 55.432,
+   "end": 80.963,
+   "text": "Right away I'm making some kind of assumptions about what information we're given here, thinking, okay, trendy probably means something other than just basic, something other than just standard. So I'm wondering right away, selling 25 euros, is this going to be like the premium product? Yeah, yeah, like how much does a remote control cost?",
+   "words": null
+  },
+  {
+   "start": 81.672,
+   "end": 110.292,
+   "text": "Well, \u20ac25, I mean, that's about like \u00a318 or something, isn't it? Or no, is it as much as that? \u00a316, \u00a317, \u00a318? Yeah, I'd say so, yeah. I don't know, I've never bought a remote control, so I don't know how good a remote control that would get you. But yeah, I suppose it has to look kind of cool and gimmicky. Right, we can't.",
+   "words": null
+  },
+  {
+   "start": 111.524,
+   "end": 137.427,
+   "text": "Let me just scoot on ahead here. Okay. Does anybody have anything to add to the tree? Like how much money people have to spend on things? Or just like basic product positioning. The 25 euro remote control might be a big hit in London. Might not be such a big hit in Greece. Who knows? Something like that. Yeah.",
+   "words": null
+  },
+  {
+   "start": 138.997,
+   "end": 144.397,
+   "text": "Marketing? Good marketing thoughts? Oh gosh, I should be writing all this down.",
+   "words": null
+  },
+  {
+   "start": 175.447,
+   "end": 200.962,
+   "text": "Right away I'm making some kind of assumptions about what information we're given here, thinking, okay, trendy probably means something other than just basic, something other than just standard. So I'm wondering right away, is selling 25 euros, is this going to be like the premium product? Yeah, yeah, like how much does a remote control cost?",
+   "words": null
+  },
+  {
+   "start": 201.67,
+   "end": 230.29,
+   "text": "Well, \u20ac25, I mean, that's about like \u00a318 or something, isn't it? Or no, is it as much as that? \u00a316, \u00a317, \u00a318? Yeah, I'd say so, yeah. I don't know, I've never bought a remote control, so I don't know how good a remote control that would get you. But yeah, I suppose it has to look kind of cool and gimmicky. Right, we can't.",
+   "words": null
+  },
+  {
+   "start": 231.522,
+   "end": 257.425,
+   "text": "Let me just scoot on ahead here. Okay. Does anybody have anything to add to? Like how much money people have to spend on things? Or just like basic product positioning. The 25 euro remote control might be a big hit in London. Might not be such a big hit in Greece. Who knows? Something like that.",
+   "words": null
+  },
+  {
+   "start": 259.012,
+   "end": 264.395,
+   "text": "Marketing, good marketing thoughts. Oh gosh, I should be writing all this down.",
+   "words": null
+  },
+  {
+   "start": 295.445,
+   "end": 320.96,
+   "text": "Right away I'm making some kind of assumptions about what information we're given here, thinking, okay, trendy probably means something other than just basic, something other than just standard. So I'm wondering right away, is selling 25 euros, is this going to be like the premium product? Yeah, yeah, like how much does a remote control cost?",
+   "words": null
+  },
+  {
+   "start": 321.668,
+   "end": 350.288,
+   "text": "Well, 25 euro, I mean, that's about like 18 pounds or something, isn't it? Or no, is it as much as that? 16, 17, 18 pounds? Yeah, I'd say so, yeah. I don't know, I've never bought a remote control, so I don't know how good a remote control that would get you. But yeah, I suppose it has to look kind of cool and gimmicky. Right, we can't.",
+   "words": null
+  },
+  {
+   "start": 351.52,
+   "end": 377.423,
+   "text": "Let me just scoot on ahead here. Okay. Does anybody have anything to add to? Like how much money people have to spend on things? Or just like basic product positioning. The 25 euro remote control might be a big hit in London. Might not be such a big hit in Greece. Who knows? Something like that.",
+   "words": null
+  },
+  {
+   "start": 379.01,
+   "end": 384.393,
+   "text": "Marketing, good marketing thoughts. Oh gosh, I should be writing all this down.",
+   "words": null
+  },
+  {
+   "start": 415.443,
+   "end": 440.958,
+   "text": "Right away I'm making some kind of assumptions about what information we're given here, thinking, okay, trendy probably means something other than just basic, something other than just standard. So I'm wondering right away, is selling 25 euros, is this going to be like the premium product? Yeah, yeah, like how much does a remote control cost?",
+   "words": null
+  },
+  {
+   "start": 441.667,
+   "end": 470.303,
+   "text": "Well, 25 euro, I mean, that's about like 18 pounds or something, isn't it? Or no, is it as much as that? 16, 17, 18 pounds. Yeah, I'd say so, yeah. I don't know, I've never bought a remote control, so I don't know how good a remote control that would get you. But yeah, I suppose it has to look kind of cool and gimmicky. Right, we can't.",
+   "words": null
+  },
+  {
+   "start": 471.518,
+   "end": 497.422,
+   "text": "Let me just scoot on ahead here. Okay. Well, does anybody have anything to add to? Like how much money people have to spend on things? Or just like basic product positioning. The 25 euro remote control might be a big hit in London. Might not be such a big hit in Greece. Who knows? Something like that. Yeah.",
+   "words": null
+  },
+  {
+   "start": 499.008,
+   "end": 504.391,
+   "text": "Marketing? Good marketing thoughts? Oh gosh, I should be writing all this down.",
+   "words": null
+  },
+  {
+   "start": 535.441,
+   "end": 560.956,
+   "text": "Right away I'm making some kind of assumptions about what information we're given here, thinking, okay, trendy probably means something other than just basic, something other than just standard. So I'm wondering right away, is selling 25 euros, is this going to be like the premium product? Yeah, yeah, like how much does a remote control cost?",
+   "words": null
+  },
+  {
+   "start": 561.665,
+   "end": 590.302,
+   "text": "Well, 25 euro, I mean, that's about like 18 pounds or something, isn't it? Or no, is it as much as that? 16, 17, 18 pounds. Yeah, I'd say so, yeah. I don't know, I've never bought a remote control, so I don't know how good a remote control that would get you. But yeah, I suppose it has to look kind of cool and gimmicky. Right, we can't.",
+   "words": null
+  },
+  {
+   "start": 591.517,
+   "end": 599.971,
+   "text": "Let me just scoot on ahead here. Okay. Does anybody have anything to add to that?",
+   "words": null
+  }
+ ]
+}

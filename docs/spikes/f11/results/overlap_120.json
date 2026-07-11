@@ -1,0 +1,64 @@
+{
+ "n_words_whisperx": 195,
+ "n_words_mlx": 420,
+ "n_matched": 171,
+ "n_assigned": 171,
+ "speaker_agreement_pct": 97.7,
+ "start_delta_s_p50": 0.096,
+ "start_delta_s_p90": 0.491,
+ "start_delta_s_max": 4.128,
+ "sample_disagreements": [
+  {
+   "word": "that.",
+   "wx": [
+    2.952,
+    3.052,
+    "SPEAKER_01"
+   ],
+   "mlx": [
+    3.12,
+    3.12,
+    null
+   ]
+  },
+  {
+   "word": "or",
+   "wx": [
+    3.072,
+    3.112,
+    "SPEAKER_01"
+   ],
+   "mlx": [
+    3.12,
+    3.12,
+    null
+   ]
+  },
+  {
+   "word": "i",
+   "wx": [
+    82.593,
+    82.653,
+    "SPEAKER_01"
+   ],
+   "mlx": [
+    82.66,
+    82.66,
+    null
+   ]
+  },
+  {
+   "word": "this?",
+   "wx": [
+    117.634,
+    117.734,
+    "SPEAKER_01"
+   ],
+   "mlx": [
+    117.46,
+    117.46,
+    null
+   ]
+  }
+ ]
+}

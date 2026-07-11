@@ -1,0 +1,6542 @@
+{
+ "engine": "mlx-whisper (Metal GPU)",
+ "model": "mlx-community/whisper-large-v3-turbo",
+ "audio_s_last_segment_end": 598.68,
+ "t_cold_s": 20.34,
+ "t_warm_s": 15.81,
+ "xrt_warm_vs_last_end": 37.86,
+ "peak_rss_mb": 1835.7,
+ "n_segments": 205,
+ "segments": [
+  {
+   "start": 0.0,
+   "end": 3.12,
+   "text": "like how much money people have to spend on things like that.",
+   "words": [
+    {
+     "word": " like",
+     "start": 0.0,
+     "end": 0.62
+    },
+    {
+     "word": " how",
+     "start": 0.62,
+     "end": 1.2
+    },
+    {
+     "word": " much",
+     "start": 1.2,
+     "end": 1.5
+    },
+    {
+     "word": " money",
+     "start": 1.5,
+     "end": 1.86
+    },
+    {
+     "word": " people",
+     "start": 1.86,
+     "end": 2.12
+    },
+    {
+     "word": " have",
+     "start": 2.12,
+     "end": 2.28
+    },
+    {
+     "word": " to",
+     "start": 2.28,
+     "end": 2.36
+    },
+    {
+     "word": " spend",
+     "start": 2.36,
+     "end": 2.6
+    },
+    {
+     "word": " on",
+     "start": 2.6,
+     "end": 2.78
+    },
+    {
+     "word": " things",
+     "start": 2.78,
+     "end": 2.9
+    },
+    {
+     "word": " like",
+     "start": 2.9,
+     "end": 3.12
+    },
+    {
+     "word": " that.",
+     "start": 3.12,
+     "end": 3.12
+    }
+   ]
+  },
+  {
+   "start": 3.12,
+   "end": 5.6,
+   "text": "Or just like basic product positioning.",
+   "words": [
+    {
+     "word": " Or",
+     "start": 3.12,
+     "end": 3.12
+    },
+    {
+     "word": " just",
+     "start": 3.12,
+     "end": 3.26
+    },
+    {
+     "word": " like",
+     "start": 3.26,
+     "end": 3.44
+    },
+    {
+     "word": " basic",
+     "start": 3.44,
+     "end": 4.38
+    },
+    {
+     "word": " product",
+     "start": 4.38,
+     "end": 4.74
+    },
+    {
+     "word": " positioning.",
+     "start": 4.74,
+     "end": 5.6
+    }
+   ]
+  },
+  {
+   "start": 5.98,
+   "end": 10.56,
+   "text": "The 25 euro remote control might be a big hit in London,",
+   "words": [
+    {
+     "word": " The",
+     "start": 5.98,
+     "end": 6.42
+    },
+    {
+     "word": " 25",
+     "start": 6.42,
+     "end": 6.9
+    },
+    {
+     "word": " euro",
+     "start": 6.9,
+     "end": 7.34
+    },
+    {
+     "word": " remote",
+     "start": 7.34,
+     "end": 8.28
+    },
+    {
+     "word": " control",
+     "start": 8.28,
+     "end": 8.66
+    },
+    {
+     "word": " might",
+     "start": 8.66,
+     "end": 8.88
+    },
+    {
+     "word": " be",
+     "start": 8.88,
+     "end": 9.02
+    },
+    {
+     "word": " a",
+     "start": 9.02,
+     "end": 9.12
+    },
+    {
+     "word": " big",
+     "start": 9.12,
+     "end": 9.3
+    },
+    {
+     "word": " hit",
+     "start": 9.3,
+     "end": 9.62
+    },
+    {
+     "word": " in",
+     "start": 9.62,
+     "end": 10.04
+    },
+    {
+     "word": " London,",
+     "start": 10.04,
+     "end": 10.56
+    }
+   ]
+  },
+  {
+   "start": 10.56,
+   "end": 14.9,
+   "text": "might not be such a big hit in Greece.",
+   "words": [
+    {
+     "word": " might",
+     "start": 10.56,
+     "end": 11.32
+    },
+    {
+     "word": " not",
+     "start": 11.32,
+     "end": 11.5
+    },
+    {
+     "word": " be",
+     "start": 11.5,
+     "end": 11.68
+    },
+    {
+     "word": " such",
+     "start": 11.68,
+     "end": 11.94
+    },
+    {
+     "word": " a",
+     "start": 11.94,
+     "end": 12.06
+    },
+    {
+     "word": " big",
+     "start": 12.06,
+     "end": 12.26
+    },
+    {
+     "word": " hit",
+     "start": 12.26,
+     "end": 12.7
+    },
+    {
+     "word": " in",
+     "start": 12.7,
+     "end": 13.28
+    },
+    {
+     "word": " Greece.",
+     "start": 13.28,
+     "end": 14.9
+    }
+   ]
+  },
+  {
+   "start": 15.24,
+   "end": 15.56,
+   "text": "Who knows?",
+   "words": [
+    {
+     "word": " Who",
+     "start": 15.24,
+     "end": 15.3
+    },
+    {
+     "word": " knows?",
+     "start": 15.3,
+     "end": 15.56
+    }
+   ]
+  },
+  {
+   "start": 15.7,
+   "end": 16.52,
+   "text": "I see you too.",
+   "words": [
+    {
+     "word": " I",
+     "start": 15.7,
+     "end": 15.92
+    },
+    {
+     "word": " see",
+     "start": 15.92,
+     "end": 16.22
+    },
+    {
+     "word": " you",
+     "start": 16.22,
+     "end": 16.36
+    },
+    {
+     "word": " too.",
+     "start": 16.36,
+     "end": 16.52
+    }
+   ]
+  },
+  {
+   "start": 16.76,
+   "end": 17.08,
+   "text": "Yeah.",
+   "words": [
+    {
+     "word": " Yeah.",
+     "start": 16.76,
+     "end": 17.08
+    }
+   ]
+  },
+  {
+   "start": 18.840000000000003,
+   "end": 19.36,
+   "text": "Marketing.",
+   "words": [
+    {
+     "word": " Marketing.",
+     "start": 18.840000000000003,
+     "end": 19.36
+    }
+   ]
+  },
+  {
+   "start": 19.68,
+   "end": 20.86,
+   "text": "Good marketing thoughts.",
+   "words": [
+    {
+     "word": " Good",
+     "start": 19.68,
+     "end": 20.2
+    },
+    {
+     "word": " marketing",
+     "start": 20.2,
+     "end": 20.52
+    },
+    {
+     "word": " thoughts.",
+     "start": 20.52,
+     "end": 20.86
+    }
+   ]
+  },
+  {
+   "start": 21.06,
+   "end": 22.58,
+   "text": "Oh gosh, I should be writing all this down.",
+   "words": [
+    {
+     "word": " Oh",
+     "start": 21.06,
+     "end": 21.18
+    },
+    {
+     "word": " gosh,",
+     "start": 21.18,
+     "end": 21.42
+    },
+    {
+     "word": " I",
+     "start": 21.5,
+     "end": 21.58
+    },
+    {
+     "word": " should",
+     "start": 21.58,
+     "end": 21.7
+    },
+    {
+     "word": " be",
+     "start": 21.7,
+     "end": 21.8
+    },
+    {
+     "word": " writing",
+     "start": 21.8,
+     "end": 22.0
+    },
+    {
+     "word": " all",
+     "start": 22.0,
+     "end": 22.18
+    },
+    {
+     "word": " this",
+     "start": 22.18,
+     "end": 22.32
+    },
+    {
+     "word": " down.",
+     "start": 22.32,
+     "end": 22.58
+    }
+   ]
+  },
+  {
+   "start": 39.160000000000004,
+   "end": 41.96,
+   "text": "Thank you.",
+   "words": [
+    {
+     "word": " Thank",
+     "start": 39.160000000000004,
+     "end": 40.56
+    },
+    {
+     "word": " you.",
+     "start": 40.56,
+     "end": 41.96
+    }
+   ]
+  },
+  {
+   "start": 60.0,
+   "end": 65.16,
+   "text": "I'm in here thinking, okay, trendy probably means something other than just basic.",
+   "words": [
+    {
+     "word": " I'm",
+     "start": 60.0,
+     "end": 60.08
+    },
+    {
+     "word": " in",
+     "start": 60.08,
+     "end": 60.08
+    },
+    {
+     "word": " here",
+     "start": 60.08,
+     "end": 60.28
+    },
+    {
+     "word": " thinking,",
+     "start": 60.28,
+     "end": 60.98
+    },
+    {
+     "word": " okay,",
+     "start": 62.08,
+     "end": 62.26
+    },
+    {
+     "word": " trendy",
+     "start": 62.42,
+     "end": 62.58
+    },
+    {
+     "word": " probably",
+     "start": 62.58,
+     "end": 62.98
+    },
+    {
+     "word": " means",
+     "start": 62.98,
+     "end": 63.3
+    },
+    {
+     "word": " something",
+     "start": 63.3,
+     "end": 63.64
+    },
+    {
+     "word": " other",
+     "start": 63.64,
+     "end": 64.36
+    },
+    {
+     "word": " than",
+     "start": 64.36,
+     "end": 64.54
+    },
+    {
+     "word": " just",
+     "start": 64.54,
+     "end": 64.72
+    },
+    {
+     "word": " basic.",
+     "start": 64.72,
+     "end": 65.16
+    }
+   ]
+  },
+  {
+   "start": 65.42,
+   "end": 65.58,
+   "text": "Yeah.",
+   "words": [
+    {
+     "word": " Yeah.",
+     "start": 65.42,
+     "end": 65.58
+    }
+   ]
+  },
+  {
+   "start": 65.78,
+   "end": 67.8,
+   "text": "Something other than just standard.",
+   "words": [
+    {
+     "word": " Something",
+     "start": 65.78,
+     "end": 65.86
+    },
+    {
+     "word": " other",
+     "start": 65.86,
+     "end": 66.08
+    },
+    {
+     "word": " than",
+     "start": 66.08,
+     "end": 66.28
+    },
+    {
+     "word": " just",
+     "start": 66.28,
+     "end": 66.58
+    },
+    {
+     "word": " standard.",
+     "start": 66.58,
+     "end": 67.8
+    }
+   ]
+  },
+  {
+   "start": 70.04,
+   "end": 73.42,
+   "text": "So I'm wondering right away, is selling 25 euros,",
+   "words": [
+    {
+     "word": " So",
+     "start": 70.04,
+     "end": 70.48
+    },
+    {
+     "word": " I'm",
+     "start": 70.48,
+     "end": 70.8
+    },
+    {
+     "word": " wondering",
+     "start": 70.8,
+     "end": 71.62
+    },
+    {
+     "word": " right",
+     "start": 71.62,
+     "end": 71.86
+    },
+    {
+     "word": " away,",
+     "start": 71.86,
+     "end": 72.1
+    },
+    {
+     "word": " is",
+     "start": 72.28,
+     "end": 72.38
+    },
+    {
+     "word": " selling",
+     "start": 72.38,
+     "end": 72.66
+    },
+    {
+     "word": " 25",
+     "start": 72.66,
+     "end": 73.16
+    },
+    {
+     "word": " euros,",
+     "start": 73.16,
+     "end": 73.42
+    }
+   ]
+  },
+  {
+   "start": 73.54,
+   "end": 76.26,
+   "text": "is this going to be like the premium product?",
+   "words": [
+    {
+     "word": " is",
+     "start": 73.54,
+     "end": 73.62
+    },
+    {
+     "word": " this",
+     "start": 73.62,
+     "end": 73.76
+    },
+    {
+     "word": " going",
+     "start": 73.76,
+     "end": 75.04
+    },
+    {
+     "word": " to",
+     "start": 75.04,
+     "end": 75.1
+    },
+    {
+     "word": " be",
+     "start": 75.1,
+     "end": 75.2
+    },
+    {
+     "word": " like",
+     "start": 75.2,
+     "end": 75.34
+    },
+    {
+     "word": " the",
+     "start": 75.34,
+     "end": 75.48
+    },
+    {
+     "word": " premium",
+     "start": 75.48,
+     "end": 75.78
+    },
+    {
+     "word": " product?",
+     "start": 75.78,
+     "end": 76.26
+    }
+   ]
+  },
+  {
+   "start": 76.96000000000001,
+   "end": 77.62,
+   "text": "Yeah, yeah.",
+   "words": [
+    {
+     "word": " Yeah,",
+     "start": 76.96000000000001,
+     "end": 77.4
+    },
+    {
+     "word": " yeah.",
+     "start": 77.52,
+     "end": 77.62
+    }
+   ]
+  },
+  {
+   "start": 77.68,
+   "end": 80.26,
+   "text": "Like how much does a remote control cost?",
+   "words": [
+    {
+     "word": " Like",
+     "start": 77.68,
+     "end": 77.82
+    },
+    {
+     "word": " how",
+     "start": 77.82,
+     "end": 77.98
+    },
+    {
+     "word": " much",
+     "start": 77.98,
+     "end": 78.24
+    },
+    {
+     "word": " does",
+     "start": 78.24,
+     "end": 78.54
+    },
+    {
+     "word": " a",
+     "start": 78.54,
+     "end": 79.16
+    },
+    {
+     "word": " remote",
+     "start": 79.16,
+     "end": 79.36
+    },
+    {
+     "word": " control",
+     "start": 79.36,
+     "end": 79.68
+    },
+    {
+     "word": " cost?",
+     "start": 79.68,
+     "end": 80.26
+    }
+   ]
+  },
+  {
+   "start": 81.38,
+   "end": 87.48,
+   "text": "Well, 25 euro, I mean, that's about like 18 pounds or something, isn't it?",
+   "words": [
+    {
+     "word": " Well,",
+     "start": 81.38,
+     "end": 81.82
+    },
+    {
+     "word": " 25",
+     "start": 81.94,
+     "end": 82.22
+    },
+    {
+     "word": " euro,",
+     "start": 82.22,
+     "end": 82.5
+    },
+    {
+     "word": " I",
+     "start": 82.66,
+     "end": 82.66
+    },
+    {
+     "word": " mean,",
+     "start": 82.66,
+     "end": 82.78
+    },
+    {
+     "word": " that's",
+     "start": 82.86,
+     "end": 83.24
+    },
+    {
+     "word": " about",
+     "start": 83.24,
+     "end": 85.3
+    },
+    {
+     "word": " like",
+     "start": 85.3,
+     "end": 85.54
+    },
+    {
+     "word": " 18",
+     "start": 85.54,
+     "end": 86.3
+    },
+    {
+     "word": " pounds",
+     "start": 86.3,
+     "end": 86.62
+    },
+    {
+     "word": " or",
+     "start": 86.62,
+     "end": 86.78
+    },
+    {
+     "word": " something,",
+     "start": 86.78,
+     "end": 87.04
+    },
+    {
+     "word": " isn't",
+     "start": 87.16,
+     "end": 87.26
+    },
+    {
+     "word": " it?",
+     "start": 87.26,
+     "end": 87.48
+    }
+   ]
+  },
+  {
+   "start": 87.7,
+   "end": 89.1,
+   "text": "Or no, is it as much as that?",
+   "words": [
+    {
+     "word": " Or",
+     "start": 87.7,
+     "end": 87.94
+    },
+    {
+     "word": " no,",
+     "start": 87.94,
+     "end": 88.06
+    },
+    {
+     "word": " is",
+     "start": 88.16,
+     "end": 88.3
+    },
+    {
+     "word": " it",
+     "start": 88.3,
+     "end": 88.38
+    },
+    {
+     "word": " as",
+     "start": 88.38,
+     "end": 88.5
+    },
+    {
+     "word": " much",
+     "start": 88.5,
+     "end": 88.7
+    },
+    {
+     "word": " as",
+     "start": 88.7,
+     "end": 88.86
+    },
+    {
+     "word": " that?",
+     "start": 88.86,
+     "end": 89.1
+    }
+   ]
+  },
+  {
+   "start": 89.7,
+   "end": 91.12,
+   "text": "16, 17, 18 pounds.",
+   "words": [
+    {
+     "word": " 16,",
+     "start": 89.7,
+     "end": 90.06
+    },
+    {
+     "word": " 17,",
+     "start": 90.2,
+     "end": 90.4
+    },
+    {
+     "word": " 18",
+     "start": 90.5,
+     "end": 90.68
+    },
+    {
+     "word": " pounds.",
+     "start": 90.68,
+     "end": 91.12
+    }
+   ]
+  },
+  {
+   "start": 91.24,
+   "end": 91.76,
+   "text": "Yeah, I'd say so.",
+   "words": [
+    {
+     "word": " Yeah,",
+     "start": 91.24,
+     "end": 91.32
+    },
+    {
+     "word": " I'd",
+     "start": 91.4,
+     "end": 91.48
+    },
+    {
+     "word": " say",
+     "start": 91.48,
+     "end": 91.58
+    },
+    {
+     "word": " so.",
+     "start": 91.58,
+     "end": 91.76
+    }
+   ]
+  },
+  {
+   "start": 93.54,
+   "end": 94.12,
+   "text": "I don't know.",
+   "words": [
+    {
+     "word": " I",
+     "start": 93.54,
+     "end": 93.9
+    },
+    {
+     "word": " don't",
+     "start": 93.9,
+     "end": 94.0
+    },
+    {
+     "word": " know.",
+     "start": 94.0,
+     "end": 94.12
+    }
+   ]
+  },
+  {
+   "start": 94.16,
+   "end": 98.96,
+   "text": "I've never bought a remote control, so I don't know how good a remote control that would get you.",
+   "words": [
+    {
+     "word": " I've",
+     "start": 94.16,
+     "end": 94.3
+    },
+    {
+     "word": " never",
+     "start": 94.3,
+     "end": 94.46
+    },
+    {
+     "word": " bought",
+     "start": 94.46,
+     "end": 94.68
+    },
+    {
+     "word": " a",
+     "start": 94.68,
+     "end": 94.8
+    },
+    {
+     "word": " remote",
+     "start": 94.8,
+     "end": 95.02
+    },
+    {
+     "word": " control,",
+     "start": 95.02,
+     "end": 95.42
+    },
+    {
+     "word": " so",
+     "start": 95.44,
+     "end": 95.68
+    },
+    {
+     "word": " I",
+     "start": 95.68,
+     "end": 95.78
+    },
+    {
+     "word": " don't",
+     "start": 95.78,
+     "end": 95.94
+    },
+    {
+     "word": " know",
+     "start": 95.94,
+     "end": 96.14
+    },
+    {
+     "word": " how",
+     "start": 96.14,
+     "end": 96.94
+    },
+    {
+     "word": " good",
+     "start": 96.94,
+     "end": 97.66
+    },
+    {
+     "word": " a",
+     "start": 97.66,
+     "end": 97.76
+    },
+    {
+     "word": " remote",
+     "start": 97.76,
+     "end": 97.94
+    },
+    {
+     "word": " control",
+     "start": 97.94,
+     "end": 98.26
+    },
+    {
+     "word": " that",
+     "start": 98.26,
+     "end": 98.44
+    },
+    {
+     "word": " would",
+     "start": 98.44,
+     "end": 98.56
+    },
+    {
+     "word": " get",
+     "start": 98.56,
+     "end": 98.74
+    },
+    {
+     "word": " you.",
+     "start": 98.74,
+     "end": 98.96
+    }
+   ]
+  },
+  {
+   "start": 101.53999999999999,
+   "end": 104.88,
+   "text": "But yeah, I suppose it has to look kind of cool and gimmicky.",
+   "words": [
+    {
+     "word": " But",
+     "start": 101.53999999999999,
+     "end": 102.1
+    },
+    {
+     "word": " yeah,",
+     "start": 102.1,
+     "end": 102.22
+    },
+    {
+     "word": " I",
+     "start": 102.32,
+     "end": 102.34
+    },
+    {
+     "word": " suppose",
+     "start": 102.34,
+     "end": 102.46
+    },
+    {
+     "word": " it",
+     "start": 102.46,
+     "end": 102.62
+    },
+    {
+     "word": " has",
+     "start": 102.62,
+     "end": 102.76
+    },
+    {
+     "word": " to",
+     "start": 102.76,
+     "end": 102.9
+    },
+    {
+     "word": " look",
+     "start": 102.9,
+     "end": 103.2
+    },
+    {
+     "word": " kind",
+     "start": 103.2,
+     "end": 103.64
+    },
+    {
+     "word": " of",
+     "start": 103.64,
+     "end": 103.8
+    },
+    {
+     "word": " cool",
+     "start": 103.8,
+     "end": 104.06
+    },
+    {
+     "word": " and",
+     "start": 104.06,
+     "end": 104.4
+    },
+    {
+     "word": " gimmicky.",
+     "start": 104.4,
+     "end": 104.88
+    }
+   ]
+  },
+  {
+   "start": 108.24,
+   "end": 108.8,
+   "text": "Right.",
+   "words": [
+    {
+     "word": " Right.",
+     "start": 108.24,
+     "end": 108.8
+    }
+   ]
+  },
+  {
+   "start": 109.48,
+   "end": 109.94,
+   "text": "Okay.",
+   "words": [
+    {
+     "word": " Okay.",
+     "start": 109.48,
+     "end": 109.94
+    }
+   ]
+  },
+  {
+   "start": 111.12,
+   "end": 112.84,
+   "text": "Let me just scoot on ahead here.",
+   "words": [
+    {
+     "word": " Let",
+     "start": 111.12,
+     "end": 111.58
+    },
+    {
+     "word": " me",
+     "start": 111.58,
+     "end": 111.64
+    },
+    {
+     "word": " just",
+     "start": 111.64,
+     "end": 111.86
+    },
+    {
+     "word": " scoot",
+     "start": 111.86,
+     "end": 112.12
+    },
+    {
+     "word": " on",
+     "start": 112.12,
+     "end": 112.3
+    },
+    {
+     "word": " ahead",
+     "start": 112.3,
+     "end": 112.56
+    },
+    {
+     "word": " here.",
+     "start": 112.56,
+     "end": 112.84
+    }
+   ]
+  },
+  {
+   "start": 113.72,
+   "end": 114.02,
+   "text": "Okay.",
+   "words": [
+    {
+     "word": " Okay.",
+     "start": 113.72,
+     "end": 114.02
+    }
+   ]
+  },
+  {
+   "start": 115.34,
+   "end": 120.18,
+   "text": "Does anybody have anything to add to the tree?",
+   "words": [
+    {
+     "word": " Does",
+     "start": 115.34,
+     "end": 115.86
+    },
+    {
+     "word": " anybody",
+     "start": 115.86,
+     "end": 116.38
+    },
+    {
+     "word": " have",
+     "start": 116.38,
+     "end": 116.62
+    },
+    {
+     "word": " anything",
+     "start": 116.62,
+     "end": 116.88
+    },
+    {
+     "word": " to",
+     "start": 116.88,
+     "end": 117.08
+    },
+    {
+     "word": " add",
+     "start": 117.08,
+     "end": 117.28
+    },
+    {
+     "word": " to",
+     "start": 117.28,
+     "end": 117.62
+    },
+    {
+     "word": " the",
+     "start": 117.62,
+     "end": 120.02
+    },
+    {
+     "word": " tree?",
+     "start": 120.02,
+     "end": 120.18
+    }
+   ]
+  },
+  {
+   "start": 120.5,
+   "end": 122.94,
+   "text": "Like how much money people have to spend on things?",
+   "words": [
+    {
+     "word": " Like",
+     "start": 120.5,
+     "end": 120.7
+    },
+    {
+     "word": " how",
+     "start": 120.7,
+     "end": 121.22
+    },
+    {
+     "word": " much",
+     "start": 121.22,
+     "end": 121.52
+    },
+    {
+     "word": " money",
+     "start": 121.52,
+     "end": 121.86
+    },
+    {
+     "word": " people",
+     "start": 121.86,
+     "end": 122.1
+    },
+    {
+     "word": " have",
+     "start": 122.1,
+     "end": 122.26
+    },
+    {
+     "word": " to",
+     "start": 122.26,
+     "end": 122.36
+    },
+    {
+     "word": " spend",
+     "start": 122.36,
+     "end": 122.6
+    },
+    {
+     "word": " on",
+     "start": 122.6,
+     "end": 122.8
+    },
+    {
+     "word": " things?",
+     "start": 122.8,
+     "end": 122.94
+    }
+   ]
+  },
+  {
+   "start": 123.06,
+   "end": 125.6,
+   "text": "Or just like basic product positioning.",
+   "words": [
+    {
+     "word": " Or",
+     "start": 123.06,
+     "end": 123.08
+    },
+    {
+     "word": " just",
+     "start": 123.08,
+     "end": 123.24
+    },
+    {
+     "word": " like",
+     "start": 123.24,
+     "end": 123.42
+    },
+    {
+     "word": " basic",
+     "start": 123.42,
+     "end": 124.38
+    },
+    {
+     "word": " product",
+     "start": 124.38,
+     "end": 124.74
+    },
+    {
+     "word": " positioning.",
+     "start": 124.74,
+     "end": 125.6
+    }
+   ]
+  },
+  {
+   "start": 125.98,
+   "end": 130.56,
+   "text": "The 25 euro remote control might be a big hit in London.",
+   "words": [
+    {
+     "word": " The",
+     "start": 125.98,
+     "end": 126.44
+    },
+    {
+     "word": " 25",
+     "start": 126.44,
+     "end": 126.92
+    },
+    {
+     "word": " euro",
+     "start": 126.92,
+     "end": 127.34
+    },
+    {
+     "word": " remote",
+     "start": 127.34,
+     "end": 128.3
+    },
+    {
+     "word": " control",
+     "start": 128.3,
+     "end": 128.66
+    },
+    {
+     "word": " might",
+     "start": 128.66,
+     "end": 128.88
+    },
+    {
+     "word": " be",
+     "start": 128.88,
+     "end": 129.02
+    },
+    {
+     "word": " a",
+     "start": 129.02,
+     "end": 129.12
+    },
+    {
+     "word": " big",
+     "start": 129.12,
+     "end": 129.3
+    },
+    {
+     "word": " hit",
+     "start": 129.3,
+     "end": 129.62
+    },
+    {
+     "word": " in",
+     "start": 129.62,
+     "end": 130.06
+    },
+    {
+     "word": " London.",
+     "start": 130.06,
+     "end": 130.56
+    }
+   ]
+  },
+  {
+   "start": 130.8,
+   "end": 134.9,
+   "text": "Might not be such a big hit in Greece.",
+   "words": [
+    {
+     "word": " Might",
+     "start": 130.8,
+     "end": 131.32
+    },
+    {
+     "word": " not",
+     "start": 131.32,
+     "end": 131.5
+    },
+    {
+     "word": " be",
+     "start": 131.5,
+     "end": 131.68
+    },
+    {
+     "word": " such",
+     "start": 131.68,
+     "end": 131.96
+    },
+    {
+     "word": " a",
+     "start": 131.96,
+     "end": 132.08
+    },
+    {
+     "word": " big",
+     "start": 132.08,
+     "end": 132.28
+    },
+    {
+     "word": " hit",
+     "start": 132.28,
+     "end": 132.68
+    },
+    {
+     "word": " in",
+     "start": 132.68,
+     "end": 133.28
+    },
+    {
+     "word": " Greece.",
+     "start": 133.28,
+     "end": 134.9
+    }
+   ]
+  },
+  {
+   "start": 135.24,
+   "end": 135.56,
+   "text": "Who knows?",
+   "words": [
+    {
+     "word": " Who",
+     "start": 135.24,
+     "end": 135.3
+    },
+    {
+     "word": " knows?",
+     "start": 135.3,
+     "end": 135.56
+    }
+   ]
+  },
+  {
+   "start": 138.82000000000002,
+   "end": 139.3,
+   "text": "Marketing.",
+   "words": [
+    {
+     "word": " Marketing.",
+     "start": 138.82000000000002,
+     "end": 139.3
+    }
+   ]
+  },
+  {
+   "start": 139.72,
+   "end": 140.88,
+   "text": "Good marketing thoughts.",
+   "words": [
+    {
+     "word": " Good",
+     "start": 139.72,
+     "end": 140.2
+    },
+    {
+     "word": " marketing",
+     "start": 140.2,
+     "end": 140.52
+    },
+    {
+     "word": " thoughts.",
+     "start": 140.52,
+     "end": 140.88
+    }
+   ]
+  },
+  {
+   "start": 141.1,
+   "end": 141.44,
+   "text": "Oh, gosh.",
+   "words": [
+    {
+     "word": " Oh,",
+     "start": 141.1,
+     "end": 141.18
+    },
+    {
+     "word": " gosh.",
+     "start": 141.18,
+     "end": 141.44
+    }
+   ]
+  },
+  {
+   "start": 141.5,
+   "end": 142.58,
+   "text": "I should be writing all this down.",
+   "words": [
+    {
+     "word": " I",
+     "start": 141.5,
+     "end": 141.58
+    },
+    {
+     "word": " should",
+     "start": 141.58,
+     "end": 141.7
+    },
+    {
+     "word": " be",
+     "start": 141.7,
+     "end": 141.8
+    },
+    {
+     "word": " writing",
+     "start": 141.8,
+     "end": 142.0
+    },
+    {
+     "word": " all",
+     "start": 142.0,
+     "end": 142.18
+    },
+    {
+     "word": " this",
+     "start": 142.18,
+     "end": 142.34
+    },
+    {
+     "word": " down.",
+     "start": 142.34,
+     "end": 142.58
+    }
+   ]
+  },
+  {
+   "start": 143.3,
+   "end": 143.68,
+   "text": "Um.",
+   "words": [
+    {
+     "word": " Um.",
+     "start": 143.3,
+     "end": 143.68
+    }
+   ]
+  },
+  {
+   "start": 145.42,
+   "end": 145.98,
+   "text": "Okay.",
+   "words": [
+    {
+     "word": " Okay.",
+     "start": 145.42,
+     "end": 145.98
+    }
+   ]
+  },
+  {
+   "start": 148.44,
+   "end": 149.0,
+   "text": "Okay.",
+   "words": [
+    {
+     "word": " Okay.",
+     "start": 148.44,
+     "end": 149.0
+    }
+   ]
+  },
+  {
+   "start": 155.84,
+   "end": 156.4,
+   "text": "Okay.",
+   "words": [
+    {
+     "word": " Okay.",
+     "start": 155.84,
+     "end": 156.4
+    }
+   ]
+  },
+  {
+   "start": 161.34,
+   "end": 161.9,
+   "text": "Okay.",
+   "words": [
+    {
+     "word": " Okay.",
+     "start": 161.34,
+     "end": 161.9
+    }
+   ]
+  },
+  {
+   "start": 162.4,
+   "end": 162.4,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.4,
+   "end": 162.4,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.4,
+   "end": 162.4,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.4,
+   "end": 162.4,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.4,
+   "end": 162.4,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.4,
+   "end": 162.4,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.4,
+   "end": 162.4,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.4,
+   "end": 162.4,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.4,
+   "end": 162.4,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.4,
+   "end": 162.4,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.4,
+   "end": 162.4,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.4,
+   "end": 162.4,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.4,
+   "end": 162.4,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.4,
+   "end": 162.4,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.4,
+   "end": 162.4,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.4,
+   "end": 162.4,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.4,
+   "end": 162.4,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.4,
+   "end": 162.4,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.4,
+   "end": 162.4,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.42,
+   "end": 162.44,
+   "text": "Okay.",
+   "words": [
+    {
+     "word": " Okay.",
+     "start": 162.42,
+     "end": 162.44
+    }
+   ]
+  },
+  {
+   "start": 162.46,
+   "end": 162.48,
+   "text": "Okay.",
+   "words": [
+    {
+     "word": " Okay.",
+     "start": 162.46,
+     "end": 162.48
+    }
+   ]
+  },
+  {
+   "start": 162.5,
+   "end": 162.5,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.5,
+   "end": 162.5,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.5,
+   "end": 162.5,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.5,
+   "end": 162.5,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.5,
+   "end": 162.5,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.5,
+   "end": 162.5,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.5,
+   "end": 162.5,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.5,
+   "end": 162.5,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.5,
+   "end": 162.5,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.5,
+   "end": 162.5,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.5,
+   "end": 162.54,
+   "text": "Okay.",
+   "words": [
+    {
+     "word": " Okay.",
+     "start": 162.5,
+     "end": 162.54
+    }
+   ]
+  },
+  {
+   "start": 162.54,
+   "end": 162.54,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.54,
+   "end": 162.54,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.54,
+   "end": 162.54,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.54,
+   "end": 162.6,
+   "text": "Okay.",
+   "words": [
+    {
+     "word": " Okay.",
+     "start": 162.54,
+     "end": 162.6
+    }
+   ]
+  },
+  {
+   "start": 162.6,
+   "end": 162.6,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.6,
+   "end": 162.6,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.6,
+   "end": 162.6,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.6,
+   "end": 162.6,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.6,
+   "end": 162.6,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.6,
+   "end": 162.6,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.6,
+   "end": 162.6,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.6,
+   "end": 162.6,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.6,
+   "end": 162.6,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.6,
+   "end": 162.6,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 162.6,
+   "end": 162.6,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 164.26,
+   "end": 164.82,
+   "text": "Hey.",
+   "words": [
+    {
+     "word": " Hey.",
+     "start": 164.26,
+     "end": 164.82
+    }
+   ]
+  },
+  {
+   "start": 164.82,
+   "end": 164.82,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 164.82,
+   "end": 164.82,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 164.82,
+   "end": 164.82,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 174.98,
+   "end": 180.28,
+   "text": "Right away I'm making some kind of assumptions about what information we're given here,",
+   "words": [
+    {
+     "word": " Right",
+     "start": 174.98,
+     "end": 175.6
+    },
+    {
+     "word": " away",
+     "start": 175.6,
+     "end": 175.78
+    },
+    {
+     "word": " I'm",
+     "start": 175.78,
+     "end": 175.96
+    },
+    {
+     "word": " making",
+     "start": 175.96,
+     "end": 176.2
+    },
+    {
+     "word": " some",
+     "start": 176.2,
+     "end": 176.5
+    },
+    {
+     "word": " kind",
+     "start": 176.5,
+     "end": 176.76
+    },
+    {
+     "word": " of",
+     "start": 176.76,
+     "end": 176.98
+    },
+    {
+     "word": " assumptions",
+     "start": 176.98,
+     "end": 177.56
+    },
+    {
+     "word": " about",
+     "start": 177.56,
+     "end": 177.96
+    },
+    {
+     "word": " what",
+     "start": 177.96,
+     "end": 178.36
+    },
+    {
+     "word": " information",
+     "start": 178.36,
+     "end": 179.42
+    },
+    {
+     "word": " we're",
+     "start": 179.42,
+     "end": 179.8
+    },
+    {
+     "word": " given",
+     "start": 179.8,
+     "end": 180.02
+    },
+    {
+     "word": " here,",
+     "start": 180.02,
+     "end": 180.28
+    }
+   ]
+  },
+  {
+   "start": 180.68,
+   "end": 185.14,
+   "text": "thinking, okay, trendy probably means something other than just basic,",
+   "words": [
+    {
+     "word": " thinking,",
+     "start": 180.68,
+     "end": 181.02
+    },
+    {
+     "word": " okay,",
+     "start": 181.3,
+     "end": 182.26
+    },
+    {
+     "word": " trendy",
+     "start": 182.4,
+     "end": 182.62
+    },
+    {
+     "word": " probably",
+     "start": 182.62,
+     "end": 182.98
+    },
+    {
+     "word": " means",
+     "start": 182.98,
+     "end": 183.3
+    },
+    {
+     "word": " something",
+     "start": 183.3,
+     "end": 183.64
+    },
+    {
+     "word": " other",
+     "start": 183.64,
+     "end": 184.36
+    },
+    {
+     "word": " than",
+     "start": 184.36,
+     "end": 184.54
+    },
+    {
+     "word": " just",
+     "start": 184.54,
+     "end": 184.72
+    },
+    {
+     "word": " basic,",
+     "start": 184.72,
+     "end": 185.14
+    }
+   ]
+  },
+  {
+   "start": 185.46,
+   "end": 187.82,
+   "text": "something other than just standard.",
+   "words": [
+    {
+     "word": " something",
+     "start": 185.46,
+     "end": 185.86
+    },
+    {
+     "word": " other",
+     "start": 185.86,
+     "end": 186.08
+    },
+    {
+     "word": " than",
+     "start": 186.08,
+     "end": 186.28
+    },
+    {
+     "word": " just",
+     "start": 186.28,
+     "end": 186.58
+    },
+    {
+     "word": " standard.",
+     "start": 186.58,
+     "end": 187.82
+    }
+   ]
+  },
+  {
+   "start": 190.06,
+   "end": 196.3,
+   "text": "So I'm wondering right away, is selling 25 euros, is this going to be the premium product?",
+   "words": [
+    {
+     "word": " So",
+     "start": 190.06,
+     "end": 190.46
+    },
+    {
+     "word": " I'm",
+     "start": 190.46,
+     "end": 190.8
+    },
+    {
+     "word": " wondering",
+     "start": 190.8,
+     "end": 191.62
+    },
+    {
+     "word": " right",
+     "start": 191.62,
+     "end": 191.86
+    },
+    {
+     "word": " away,",
+     "start": 191.86,
+     "end": 192.1
+    },
+    {
+     "word": " is",
+     "start": 192.3,
+     "end": 192.38
+    },
+    {
+     "word": " selling",
+     "start": 192.38,
+     "end": 192.66
+    },
+    {
+     "word": " 25",
+     "start": 192.66,
+     "end": 193.14
+    },
+    {
+     "word": " euros,",
+     "start": 193.14,
+     "end": 193.44
+    },
+    {
+     "word": " is",
+     "start": 193.54,
+     "end": 193.62
+    },
+    {
+     "word": " this",
+     "start": 193.62,
+     "end": 194.9
+    },
+    {
+     "word": " going",
+     "start": 194.9,
+     "end": 195.04
+    },
+    {
+     "word": " to",
+     "start": 195.04,
+     "end": 195.1
+    },
+    {
+     "word": " be",
+     "start": 195.1,
+     "end": 195.2
+    },
+    {
+     "word": " the",
+     "start": 195.2,
+     "end": 195.46
+    },
+    {
+     "word": " premium",
+     "start": 195.46,
+     "end": 195.78
+    },
+    {
+     "word": " product?",
+     "start": 195.78,
+     "end": 196.3
+    }
+   ]
+  },
+  {
+   "start": 197.2,
+   "end": 200.26,
+   "text": "Yeah, how much does a remote control cost?",
+   "words": [
+    {
+     "word": " Yeah,",
+     "start": 197.2,
+     "end": 197.4
+    },
+    {
+     "word": " how",
+     "start": 197.52,
+     "end": 197.82
+    },
+    {
+     "word": " much",
+     "start": 197.82,
+     "end": 198.24
+    },
+    {
+     "word": " does",
+     "start": 198.24,
+     "end": 198.52
+    },
+    {
+     "word": " a",
+     "start": 198.52,
+     "end": 199.18
+    },
+    {
+     "word": " remote",
+     "start": 199.18,
+     "end": 199.38
+    },
+    {
+     "word": " control",
+     "start": 199.38,
+     "end": 199.68
+    },
+    {
+     "word": " cost?",
+     "start": 199.68,
+     "end": 200.26
+    }
+   ]
+  },
+  {
+   "start": 201.42,
+   "end": 207.5,
+   "text": "Well, 25 euro, I mean, that's about like 18 pounds or something, isn't it?",
+   "words": [
+    {
+     "word": " Well,",
+     "start": 201.42,
+     "end": 201.82
+    },
+    {
+     "word": " 25",
+     "start": 201.94,
+     "end": 202.16
+    },
+    {
+     "word": " euro,",
+     "start": 202.16,
+     "end": 202.52
+    },
+    {
+     "word": " I",
+     "start": 202.66,
+     "end": 202.66
+    },
+    {
+     "word": " mean,",
+     "start": 202.66,
+     "end": 202.78
+    },
+    {
+     "word": " that's",
+     "start": 202.86,
+     "end": 203.22
+    },
+    {
+     "word": " about",
+     "start": 203.22,
+     "end": 205.32
+    },
+    {
+     "word": " like",
+     "start": 205.32,
+     "end": 205.54
+    },
+    {
+     "word": " 18",
+     "start": 205.54,
+     "end": 206.28
+    },
+    {
+     "word": " pounds",
+     "start": 206.28,
+     "end": 206.64
+    },
+    {
+     "word": " or",
+     "start": 206.64,
+     "end": 206.78
+    },
+    {
+     "word": " something,",
+     "start": 206.78,
+     "end": 207.04
+    },
+    {
+     "word": " isn't",
+     "start": 207.16,
+     "end": 207.3
+    },
+    {
+     "word": " it?",
+     "start": 207.3,
+     "end": 207.5
+    }
+   ]
+  },
+  {
+   "start": 207.72,
+   "end": 211.1,
+   "text": "Or no, is it as much as that? 16, 17, 18 pounds?",
+   "words": [
+    {
+     "word": " Or",
+     "start": 207.72,
+     "end": 207.94
+    },
+    {
+     "word": " no,",
+     "start": 207.94,
+     "end": 208.06
+    },
+    {
+     "word": " is",
+     "start": 208.16,
+     "end": 208.3
+    },
+    {
+     "word": " it",
+     "start": 208.3,
+     "end": 208.38
+    },
+    {
+     "word": " as",
+     "start": 208.38,
+     "end": 208.5
+    },
+    {
+     "word": " much",
+     "start": 208.5,
+     "end": 208.7
+    },
+    {
+     "word": " as",
+     "start": 208.7,
+     "end": 208.86
+    },
+    {
+     "word": " that?",
+     "start": 208.86,
+     "end": 209.12
+    },
+    {
+     "word": " 16,",
+     "start": 209.64,
+     "end": 210.04
+    },
+    {
+     "word": " 17,",
+     "start": 210.2,
+     "end": 210.4
+    },
+    {
+     "word": " 18",
+     "start": 210.5,
+     "end": 210.68
+    },
+    {
+     "word": " pounds?",
+     "start": 210.68,
+     "end": 211.1
+    }
+   ]
+  },
+  {
+   "start": 211.24,
+   "end": 211.96,
+   "text": "Yeah, I'd say so, yeah.",
+   "words": [
+    {
+     "word": " Yeah,",
+     "start": 211.24,
+     "end": 211.32
+    },
+    {
+     "word": " I'd",
+     "start": 211.4,
+     "end": 211.48
+    },
+    {
+     "word": " say",
+     "start": 211.48,
+     "end": 211.58
+    },
+    {
+     "word": " so,",
+     "start": 211.58,
+     "end": 211.76
+    },
+    {
+     "word": " yeah.",
+     "start": 211.88,
+     "end": 211.96
+    }
+   ]
+  },
+  {
+   "start": 213.5,
+   "end": 218.98,
+   "text": "I don't know, I've never bought a remote control, so I don't know how good a remote control that would get you.",
+   "words": [
+    {
+     "word": " I",
+     "start": 213.5,
+     "end": 213.9
+    },
+    {
+     "word": " don't",
+     "start": 213.9,
+     "end": 214.0
+    },
+    {
+     "word": " know,",
+     "start": 214.0,
+     "end": 214.12
+    },
+    {
+     "word": " I've",
+     "start": 214.2,
+     "end": 214.3
+    },
+    {
+     "word": " never",
+     "start": 214.3,
+     "end": 214.46
+    },
+    {
+     "word": " bought",
+     "start": 214.46,
+     "end": 214.66
+    },
+    {
+     "word": " a",
+     "start": 214.66,
+     "end": 214.8
+    },
+    {
+     "word": " remote",
+     "start": 214.8,
+     "end": 215.0
+    },
+    {
+     "word": " control,",
+     "start": 215.0,
+     "end": 215.42
+    },
+    {
+     "word": " so",
+     "start": 215.52,
+     "end": 215.68
+    },
+    {
+     "word": " I",
+     "start": 215.68,
+     "end": 215.78
+    },
+    {
+     "word": " don't",
+     "start": 215.78,
+     "end": 215.94
+    },
+    {
+     "word": " know",
+     "start": 215.94,
+     "end": 216.14
+    },
+    {
+     "word": " how",
+     "start": 216.14,
+     "end": 216.94
+    },
+    {
+     "word": " good",
+     "start": 216.94,
+     "end": 217.66
+    },
+    {
+     "word": " a",
+     "start": 217.66,
+     "end": 217.76
+    },
+    {
+     "word": " remote",
+     "start": 217.76,
+     "end": 217.94
+    },
+    {
+     "word": " control",
+     "start": 217.94,
+     "end": 218.26
+    },
+    {
+     "word": " that",
+     "start": 218.26,
+     "end": 218.44
+    },
+    {
+     "word": " would",
+     "start": 218.44,
+     "end": 218.56
+    },
+    {
+     "word": " get",
+     "start": 218.56,
+     "end": 218.74
+    },
+    {
+     "word": " you.",
+     "start": 218.74,
+     "end": 218.98
+    }
+   ]
+  },
+  {
+   "start": 221.7,
+   "end": 224.86,
+   "text": "But yeah, I suppose it has to look kind of cool and gimmicky.",
+   "words": [
+    {
+     "word": " But",
+     "start": 221.7,
+     "end": 222.1
+    },
+    {
+     "word": " yeah,",
+     "start": 222.1,
+     "end": 222.22
+    },
+    {
+     "word": " I",
+     "start": 222.32,
+     "end": 222.36
+    },
+    {
+     "word": " suppose",
+     "start": 222.36,
+     "end": 222.46
+    },
+    {
+     "word": " it",
+     "start": 222.46,
+     "end": 222.62
+    },
+    {
+     "word": " has",
+     "start": 222.62,
+     "end": 222.76
+    },
+    {
+     "word": " to",
+     "start": 222.76,
+     "end": 222.9
+    },
+    {
+     "word": " look",
+     "start": 222.9,
+     "end": 223.2
+    },
+    {
+     "word": " kind",
+     "start": 223.2,
+     "end": 223.64
+    },
+    {
+     "word": " of",
+     "start": 223.64,
+     "end": 223.8
+    },
+    {
+     "word": " cool",
+     "start": 223.8,
+     "end": 224.06
+    },
+    {
+     "word": " and",
+     "start": 224.06,
+     "end": 224.38
+    },
+    {
+     "word": " gimmicky.",
+     "start": 224.38,
+     "end": 224.86
+    }
+   ]
+  },
+  {
+   "start": 228.4,
+   "end": 229.96,
+   "text": "Right, okay.",
+   "words": [
+    {
+     "word": " Right,",
+     "start": 228.4,
+     "end": 228.8
+    },
+    {
+     "word": " okay.",
+     "start": 229.62,
+     "end": 229.96
+    }
+   ]
+  },
+  {
+   "start": 231.18,
+   "end": 232.84,
+   "text": "Let me just scoot on ahead here.",
+   "words": [
+    {
+     "word": " Let",
+     "start": 231.18,
+     "end": 231.58
+    },
+    {
+     "word": " me",
+     "start": 231.58,
+     "end": 231.64
+    },
+    {
+     "word": " just",
+     "start": 231.64,
+     "end": 231.86
+    },
+    {
+     "word": " scoot",
+     "start": 231.86,
+     "end": 232.12
+    },
+    {
+     "word": " on",
+     "start": 232.12,
+     "end": 232.3
+    },
+    {
+     "word": " ahead",
+     "start": 232.3,
+     "end": 232.56
+    },
+    {
+     "word": " here.",
+     "start": 232.56,
+     "end": 232.84
+    }
+   ]
+  },
+  {
+   "start": 233.74,
+   "end": 234.04,
+   "text": "Okay.",
+   "words": [
+    {
+     "word": " Okay.",
+     "start": 233.74,
+     "end": 234.04
+    }
+   ]
+  },
+  {
+   "start": 235.4,
+   "end": 240.18,
+   "text": "Does anybody have anything to add to the tree?",
+   "words": [
+    {
+     "word": " Does",
+     "start": 235.4,
+     "end": 235.9
+    },
+    {
+     "word": " anybody",
+     "start": 235.9,
+     "end": 236.4
+    },
+    {
+     "word": " have",
+     "start": 236.4,
+     "end": 236.62
+    },
+    {
+     "word": " anything",
+     "start": 236.62,
+     "end": 236.88
+    },
+    {
+     "word": " to",
+     "start": 236.88,
+     "end": 237.08
+    },
+    {
+     "word": " add",
+     "start": 237.08,
+     "end": 237.28
+    },
+    {
+     "word": " to",
+     "start": 237.28,
+     "end": 237.62
+    },
+    {
+     "word": " the",
+     "start": 237.62,
+     "end": 240.02
+    },
+    {
+     "word": " tree?",
+     "start": 240.02,
+     "end": 240.18
+    }
+   ]
+  },
+  {
+   "start": 240.5,
+   "end": 242.98,
+   "text": "Like how much money people have to spend on things?",
+   "words": [
+    {
+     "word": " Like",
+     "start": 240.5,
+     "end": 240.7
+    },
+    {
+     "word": " how",
+     "start": 240.7,
+     "end": 241.22
+    },
+    {
+     "word": " much",
+     "start": 241.22,
+     "end": 241.52
+    },
+    {
+     "word": " money",
+     "start": 241.52,
+     "end": 241.88
+    },
+    {
+     "word": " people",
+     "start": 241.88,
+     "end": 242.1
+    },
+    {
+     "word": " have",
+     "start": 242.1,
+     "end": 242.28
+    },
+    {
+     "word": " to",
+     "start": 242.28,
+     "end": 242.36
+    },
+    {
+     "word": " spend",
+     "start": 242.36,
+     "end": 242.6
+    },
+    {
+     "word": " on",
+     "start": 242.6,
+     "end": 242.8
+    },
+    {
+     "word": " things?",
+     "start": 242.8,
+     "end": 242.98
+    }
+   ]
+  },
+  {
+   "start": 243.06,
+   "end": 245.6,
+   "text": "Or just like basic product positioning.",
+   "words": [
+    {
+     "word": " Or",
+     "start": 243.06,
+     "end": 243.06
+    },
+    {
+     "word": " just",
+     "start": 243.06,
+     "end": 243.26
+    },
+    {
+     "word": " like",
+     "start": 243.26,
+     "end": 243.44
+    },
+    {
+     "word": " basic",
+     "start": 243.44,
+     "end": 244.38
+    },
+    {
+     "word": " product",
+     "start": 244.38,
+     "end": 244.74
+    },
+    {
+     "word": " positioning.",
+     "start": 244.74,
+     "end": 245.6
+    }
+   ]
+  },
+  {
+   "start": 245.94,
+   "end": 250.56,
+   "text": "The 25 euro remote control might be a big hit in London,",
+   "words": [
+    {
+     "word": " The",
+     "start": 245.94,
+     "end": 246.42
+    },
+    {
+     "word": " 25",
+     "start": 246.42,
+     "end": 246.92
+    },
+    {
+     "word": " euro",
+     "start": 246.92,
+     "end": 247.34
+    },
+    {
+     "word": " remote",
+     "start": 247.34,
+     "end": 248.3
+    },
+    {
+     "word": " control",
+     "start": 248.3,
+     "end": 248.66
+    },
+    {
+     "word": " might",
+     "start": 248.66,
+     "end": 248.88
+    },
+    {
+     "word": " be",
+     "start": 248.88,
+     "end": 249.02
+    },
+    {
+     "word": " a",
+     "start": 249.02,
+     "end": 249.12
+    },
+    {
+     "word": " big",
+     "start": 249.12,
+     "end": 249.32
+    },
+    {
+     "word": " hit",
+     "start": 249.32,
+     "end": 249.62
+    },
+    {
+     "word": " in",
+     "start": 249.62,
+     "end": 250.06
+    },
+    {
+     "word": " London,",
+     "start": 250.06,
+     "end": 250.56
+    }
+   ]
+  },
+  {
+   "start": 250.56,
+   "end": 255.58,
+   "text": "might not be such a big hit in Greece, who knows?",
+   "words": [
+    {
+     "word": " might",
+     "start": 250.56,
+     "end": 251.32
+    },
+    {
+     "word": " not",
+     "start": 251.32,
+     "end": 251.5
+    },
+    {
+     "word": " be",
+     "start": 251.5,
+     "end": 251.68
+    },
+    {
+     "word": " such",
+     "start": 251.68,
+     "end": 251.96
+    },
+    {
+     "word": " a",
+     "start": 251.96,
+     "end": 252.08
+    },
+    {
+     "word": " big",
+     "start": 252.08,
+     "end": 252.28
+    },
+    {
+     "word": " hit",
+     "start": 252.28,
+     "end": 252.68
+    },
+    {
+     "word": " in",
+     "start": 252.68,
+     "end": 253.3
+    },
+    {
+     "word": " Greece,",
+     "start": 253.3,
+     "end": 254.88
+    },
+    {
+     "word": " who",
+     "start": 255.1,
+     "end": 255.3
+    },
+    {
+     "word": " knows?",
+     "start": 255.3,
+     "end": 255.58
+    }
+   ]
+  },
+  {
+   "start": 255.7,
+   "end": 257.1,
+   "text": "I see what you're doing, yeah.",
+   "words": [
+    {
+     "word": " I",
+     "start": 255.7,
+     "end": 255.92
+    },
+    {
+     "word": " see",
+     "start": 255.92,
+     "end": 256.22
+    },
+    {
+     "word": " what",
+     "start": 256.22,
+     "end": 256.28
+    },
+    {
+     "word": " you're",
+     "start": 256.28,
+     "end": 256.58
+    },
+    {
+     "word": " doing,",
+     "start": 256.58,
+     "end": 256.58
+    },
+    {
+     "word": " yeah.",
+     "start": 256.92,
+     "end": 257.1
+    }
+   ]
+  },
+  {
+   "start": 259.2,
+   "end": 260.88,
+   "text": "Marketing, good marketing thoughts.",
+   "words": [
+    {
+     "word": " Marketing,",
+     "start": 259.2,
+     "end": 259.7
+    },
+    {
+     "word": " good",
+     "start": 259.7,
+     "end": 260.2
+    },
+    {
+     "word": " marketing",
+     "start": 260.2,
+     "end": 260.54
+    },
+    {
+     "word": " thoughts.",
+     "start": 260.54,
+     "end": 260.88
+    }
+   ]
+  },
+  {
+   "start": 261.08,
+   "end": 262.58,
+   "text": "Oh gosh, I should be writing all this down.",
+   "words": [
+    {
+     "word": " Oh",
+     "start": 261.08,
+     "end": 261.18
+    },
+    {
+     "word": " gosh,",
+     "start": 261.18,
+     "end": 261.4
+    },
+    {
+     "word": " I",
+     "start": 261.5,
+     "end": 261.58
+    },
+    {
+     "word": " should",
+     "start": 261.58,
+     "end": 261.7
+    },
+    {
+     "word": " be",
+     "start": 261.7,
+     "end": 261.8
+    },
+    {
+     "word": " writing",
+     "start": 261.8,
+     "end": 262.0
+    },
+    {
+     "word": " all",
+     "start": 262.0,
+     "end": 262.18
+    },
+    {
+     "word": " this",
+     "start": 262.18,
+     "end": 262.32
+    },
+    {
+     "word": " down.",
+     "start": 262.32,
+     "end": 262.58
+    }
+   ]
+  },
+  {
+   "start": 264.64000000000004,
+   "end": 264.92,
+   "text": "Okay.",
+   "words": [
+    {
+     "word": " Okay.",
+     "start": 264.64000000000004,
+     "end": 264.92
+    }
+   ]
+  },
+  {
+   "start": 268.66,
+   "end": 268.94,
+   "text": "Okay.",
+   "words": [
+    {
+     "word": " Okay.",
+     "start": 268.66,
+     "end": 268.94
+    }
+   ]
+  },
+  {
+   "start": 275.26000000000005,
+   "end": 275.54,
+   "text": "Okay.",
+   "words": [
+    {
+     "word": " Okay.",
+     "start": 275.26000000000005,
+     "end": 275.54
+    }
+   ]
+  },
+  {
+   "start": 280.96000000000004,
+   "end": 281.24,
+   "text": "Okay.",
+   "words": [
+    {
+     "word": " Okay.",
+     "start": 280.96000000000004,
+     "end": 281.24
+    }
+   ]
+  },
+  {
+   "start": 281.3,
+   "end": 281.3,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.3,
+   "end": 281.3,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.3,
+   "end": 281.3,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.3,
+   "end": 281.3,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.3,
+   "end": 281.3,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.3,
+   "end": 281.3,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.3,
+   "end": 281.3,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.3,
+   "end": 281.3,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.3,
+   "end": 281.3,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.3,
+   "end": 281.3,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.3,
+   "end": 281.3,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.3,
+   "end": 281.3,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.3,
+   "end": 281.3,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.3,
+   "end": 281.3,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.3,
+   "end": 281.3,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.3,
+   "end": 281.3,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.3,
+   "end": 281.3,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.3,
+   "end": 281.3,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.3,
+   "end": 281.3,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.3,
+   "end": 281.3,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.3,
+   "end": 281.3,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.32,
+   "end": 281.32,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.32,
+   "end": 281.32,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.32,
+   "end": 281.32,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.32,
+   "end": 281.32,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.32,
+   "end": 281.32,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.32,
+   "end": 281.32,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.32,
+   "end": 281.32,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.32,
+   "end": 281.32,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.32,
+   "end": 281.32,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.32,
+   "end": 281.32,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.32,
+   "end": 281.32,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.32,
+   "end": 281.34,
+   "text": "Okay.",
+   "words": [
+    {
+     "word": " Okay.",
+     "start": 281.32,
+     "end": 281.34
+    }
+   ]
+  },
+  {
+   "start": 281.34,
+   "end": 281.34,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.34,
+   "end": 281.34,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.34,
+   "end": 281.34,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.34,
+   "end": 281.34,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.34,
+   "end": 281.34,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 281.34,
+   "end": 281.34,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 264.6,
+   "end": 264.6,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 264.6,
+   "end": 264.6,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 264.6,
+   "end": 264.6,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 264.6,
+   "end": 264.6,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 264.6,
+   "end": 264.6,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 264.6,
+   "end": 264.6,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 264.6,
+   "end": 264.6,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 264.6,
+   "end": 264.6,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 264.6,
+   "end": 264.6,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 264.6,
+   "end": 264.6,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 264.6,
+   "end": 264.6,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 264.6,
+   "end": 264.6,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 264.6,
+   "end": 264.6,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 264.6,
+   "end": 264.6,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 264.6,
+   "end": 264.6,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 264.6,
+   "end": 264.6,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 294.9,
+   "end": 300.26,
+   "text": "right away i'm making some kind of assumptions about what what information we're given here",
+   "words": [
+    {
+     "word": " right",
+     "start": 294.9,
+     "end": 295.58
+    },
+    {
+     "word": " away",
+     "start": 295.58,
+     "end": 295.76
+    },
+    {
+     "word": " i'm",
+     "start": 295.76,
+     "end": 295.96
+    },
+    {
+     "word": " making",
+     "start": 295.96,
+     "end": 296.2
+    },
+    {
+     "word": " some",
+     "start": 296.2,
+     "end": 296.5
+    },
+    {
+     "word": " kind",
+     "start": 296.5,
+     "end": 296.78
+    },
+    {
+     "word": " of",
+     "start": 296.78,
+     "end": 297.0
+    },
+    {
+     "word": " assumptions",
+     "start": 297.0,
+     "end": 297.56
+    },
+    {
+     "word": " about",
+     "start": 297.56,
+     "end": 297.96
+    },
+    {
+     "word": " what",
+     "start": 297.96,
+     "end": 298.36
+    },
+    {
+     "word": " what",
+     "start": 298.36,
+     "end": 299.1
+    },
+    {
+     "word": " information",
+     "start": 299.1,
+     "end": 299.58
+    },
+    {
+     "word": " we're",
+     "start": 299.58,
+     "end": 299.82
+    },
+    {
+     "word": " given",
+     "start": 299.82,
+     "end": 300.02
+    },
+    {
+     "word": " here",
+     "start": 300.02,
+     "end": 300.26
+    }
+   ]
+  },
+  {
+   "start": 300.26,
+   "end": 306.28,
+   "text": "thinking okay trendy probably means something other than just basic yeah something other than",
+   "words": [
+    {
+     "word": " thinking",
+     "start": 300.26,
+     "end": 301.0
+    },
+    {
+     "word": " okay",
+     "start": 301.0,
+     "end": 302.26
+    },
+    {
+     "word": " trendy",
+     "start": 302.26,
+     "end": 302.64
+    },
+    {
+     "word": " probably",
+     "start": 302.64,
+     "end": 303.0
+    },
+    {
+     "word": " means",
+     "start": 303.0,
+     "end": 303.3
+    },
+    {
+     "word": " something",
+     "start": 303.3,
+     "end": 303.66
+    },
+    {
+     "word": " other",
+     "start": 303.66,
+     "end": 304.36
+    },
+    {
+     "word": " than",
+     "start": 304.36,
+     "end": 304.54
+    },
+    {
+     "word": " just",
+     "start": 304.54,
+     "end": 304.72
+    },
+    {
+     "word": " basic",
+     "start": 304.72,
+     "end": 305.16
+    },
+    {
+     "word": " yeah",
+     "start": 305.16,
+     "end": 305.56
+    },
+    {
+     "word": " something",
+     "start": 305.56,
+     "end": 305.9
+    },
+    {
+     "word": " other",
+     "start": 305.9,
+     "end": 306.1
+    },
+    {
+     "word": " than",
+     "start": 306.1,
+     "end": 306.28
+    }
+   ]
+  },
+  {
+   "start": 306.28,
+   "end": 314.92,
+   "text": "just standard um so i'm wondering right away is selling 25 years is that sort of that is this",
+   "words": [
+    {
+     "word": " just",
+     "start": 306.28,
+     "end": 306.54
+    },
+    {
+     "word": " standard",
+     "start": 306.54,
+     "end": 307.82
+    },
+    {
+     "word": " um",
+     "start": 307.82,
+     "end": 308.9
+    },
+    {
+     "word": " so",
+     "start": 308.9,
+     "end": 310.48
+    },
+    {
+     "word": " i'm",
+     "start": 310.48,
+     "end": 310.82
+    },
+    {
+     "word": " wondering",
+     "start": 310.82,
+     "end": 311.62
+    },
+    {
+     "word": " right",
+     "start": 311.62,
+     "end": 311.86
+    },
+    {
+     "word": " away",
+     "start": 311.86,
+     "end": 312.08
+    },
+    {
+     "word": " is",
+     "start": 312.08,
+     "end": 312.4
+    },
+    {
+     "word": " selling",
+     "start": 312.4,
+     "end": 312.66
+    },
+    {
+     "word": " 25",
+     "start": 312.66,
+     "end": 313.12
+    },
+    {
+     "word": " years",
+     "start": 313.12,
+     "end": 313.42
+    },
+    {
+     "word": " is",
+     "start": 313.42,
+     "end": 313.62
+    },
+    {
+     "word": " that",
+     "start": 313.62,
+     "end": 313.72
+    },
+    {
+     "word": " sort",
+     "start": 313.72,
+     "end": 313.96
+    },
+    {
+     "word": " of",
+     "start": 313.96,
+     "end": 314.04
+    },
+    {
+     "word": " that",
+     "start": 314.04,
+     "end": 314.24
+    },
+    {
+     "word": " is",
+     "start": 314.24,
+     "end": 314.78
+    },
+    {
+     "word": " this",
+     "start": 314.78,
+     "end": 314.92
+    }
+   ]
+  },
+  {
+   "start": 314.92,
+   "end": 320.28,
+   "text": "going to be like the premium product yeah yeah like how much does you know a remote control cost",
+   "words": [
+    {
+     "word": " going",
+     "start": 314.92,
+     "end": 315.04
+    },
+    {
+     "word": " to",
+     "start": 315.04,
+     "end": 315.1
+    },
+    {
+     "word": " be",
+     "start": 315.1,
+     "end": 315.18
+    },
+    {
+     "word": " like",
+     "start": 315.18,
+     "end": 315.34
+    },
+    {
+     "word": " the",
+     "start": 315.34,
+     "end": 315.48
+    },
+    {
+     "word": " premium",
+     "start": 315.48,
+     "end": 315.78
+    },
+    {
+     "word": " product",
+     "start": 315.78,
+     "end": 316.24
+    },
+    {
+     "word": " yeah",
+     "start": 316.24,
+     "end": 317.38
+    },
+    {
+     "word": " yeah",
+     "start": 317.38,
+     "end": 317.6
+    },
+    {
+     "word": " like",
+     "start": 317.6,
+     "end": 317.82
+    },
+    {
+     "word": " how",
+     "start": 317.82,
+     "end": 317.98
+    },
+    {
+     "word": " much",
+     "start": 317.98,
+     "end": 318.24
+    },
+    {
+     "word": " does",
+     "start": 318.24,
+     "end": 318.54
+    },
+    {
+     "word": " you",
+     "start": 318.54,
+     "end": 318.94
+    },
+    {
+     "word": " know",
+     "start": 318.94,
+     "end": 319.04
+    },
+    {
+     "word": " a",
+     "start": 319.04,
+     "end": 319.2
+    },
+    {
+     "word": " remote",
+     "start": 319.2,
+     "end": 319.38
+    },
+    {
+     "word": " control",
+     "start": 319.38,
+     "end": 319.7
+    },
+    {
+     "word": " cost",
+     "start": 319.7,
+     "end": 320.28
+    }
+   ]
+  },
+  {
+   "start": 321.3,
+   "end": 328.7,
+   "text": "well 25 euro i mean that's um that's about like 18 pounds or something isn't it or no is it as much",
+   "words": [
+    {
+     "word": " well",
+     "start": 321.3,
+     "end": 321.8
+    },
+    {
+     "word": " 25",
+     "start": 321.8,
+     "end": 322.2
+    },
+    {
+     "word": " euro",
+     "start": 322.2,
+     "end": 322.5
+    },
+    {
+     "word": " i",
+     "start": 322.5,
+     "end": 322.66
+    },
+    {
+     "word": " mean",
+     "start": 322.66,
+     "end": 322.78
+    },
+    {
+     "word": " that's",
+     "start": 322.78,
+     "end": 323.18
+    },
+    {
+     "word": " um",
+     "start": 323.18,
+     "end": 323.54
+    },
+    {
+     "word": " that's",
+     "start": 323.54,
+     "end": 325.12
+    },
+    {
+     "word": " about",
+     "start": 325.12,
+     "end": 325.3
+    },
+    {
+     "word": " like",
+     "start": 325.3,
+     "end": 325.54
+    },
+    {
+     "word": " 18",
+     "start": 325.54,
+     "end": 326.28
+    },
+    {
+     "word": " pounds",
+     "start": 326.28,
+     "end": 326.64
+    },
+    {
+     "word": " or",
+     "start": 326.64,
+     "end": 326.78
+    },
+    {
+     "word": " something",
+     "start": 326.78,
+     "end": 327.04
+    },
+    {
+     "word": " isn't",
+     "start": 327.04,
+     "end": 327.26
+    },
+    {
+     "word": " it",
+     "start": 327.26,
+     "end": 327.52
+    },
+    {
+     "word": " or",
+     "start": 327.52,
+     "end": 327.94
+    },
+    {
+     "word": " no",
+     "start": 327.94,
+     "end": 328.06
+    },
+    {
+     "word": " is",
+     "start": 328.06,
+     "end": 328.3
+    },
+    {
+     "word": " it",
+     "start": 328.3,
+     "end": 328.38
+    },
+    {
+     "word": " as",
+     "start": 328.38,
+     "end": 328.5
+    },
+    {
+     "word": " much",
+     "start": 328.5,
+     "end": 328.7
+    }
+   ]
+  },
+  {
+   "start": 328.7,
+   "end": 336.16,
+   "text": "as that 16 17 18 pounds yeah um i don't know i've never bought a remote control so i don't know",
+   "words": [
+    {
+     "word": " as",
+     "start": 328.7,
+     "end": 328.84
+    },
+    {
+     "word": " that",
+     "start": 328.84,
+     "end": 329.12
+    },
+    {
+     "word": " 16",
+     "start": 329.12,
+     "end": 330.02
+    },
+    {
+     "word": " 17",
+     "start": 330.02,
+     "end": 330.38
+    },
+    {
+     "word": " 18",
+     "start": 330.38,
+     "end": 330.66
+    },
+    {
+     "word": " pounds",
+     "start": 330.66,
+     "end": 331.16
+    },
+    {
+     "word": " yeah",
+     "start": 331.16,
+     "end": 331.32
+    },
+    {
+     "word": " um",
+     "start": 331.32,
+     "end": 332.38
+    },
+    {
+     "word": " i",
+     "start": 332.38,
+     "end": 333.9
+    },
+    {
+     "word": " don't",
+     "start": 333.9,
+     "end": 334.06
+    },
+    {
+     "word": " know",
+     "start": 334.06,
+     "end": 334.12
+    },
+    {
+     "word": " i've",
+     "start": 334.12,
+     "end": 334.3
+    },
+    {
+     "word": " never",
+     "start": 334.3,
+     "end": 334.46
+    },
+    {
+     "word": " bought",
+     "start": 334.46,
+     "end": 334.68
+    },
+    {
+     "word": " a",
+     "start": 334.68,
+     "end": 334.82
+    },
+    {
+     "word": " remote",
+     "start": 334.82,
+     "end": 335.0
+    },
+    {
+     "word": " control",
+     "start": 335.0,
+     "end": 335.42
+    },
+    {
+     "word": " so",
+     "start": 335.42,
+     "end": 335.68
+    },
+    {
+     "word": " i",
+     "start": 335.68,
+     "end": 335.78
+    },
+    {
+     "word": " don't",
+     "start": 335.78,
+     "end": 336.16
+    },
+    {
+     "word": " know",
+     "start": 336.16,
+     "end": 336.16
+    }
+   ]
+  },
+  {
+   "start": 336.16,
+   "end": 344.08,
+   "text": "no how how good a remote control that would get you um but yeah i suppose it has to look kind of cool",
+   "words": [
+    {
+     "word": " no",
+     "start": 336.16,
+     "end": 336.42
+    },
+    {
+     "word": " how",
+     "start": 336.42,
+     "end": 336.94
+    },
+    {
+     "word": " how",
+     "start": 336.94,
+     "end": 337.46
+    },
+    {
+     "word": " good",
+     "start": 337.46,
+     "end": 337.68
+    },
+    {
+     "word": " a",
+     "start": 337.68,
+     "end": 337.76
+    },
+    {
+     "word": " remote",
+     "start": 337.76,
+     "end": 337.94
+    },
+    {
+     "word": " control",
+     "start": 337.94,
+     "end": 338.26
+    },
+    {
+     "word": " that",
+     "start": 338.26,
+     "end": 338.44
+    },
+    {
+     "word": " would",
+     "start": 338.44,
+     "end": 338.56
+    },
+    {
+     "word": " get",
+     "start": 338.56,
+     "end": 338.74
+    },
+    {
+     "word": " you",
+     "start": 338.74,
+     "end": 338.98
+    },
+    {
+     "word": " um",
+     "start": 338.98,
+     "end": 339.92
+    },
+    {
+     "word": " but",
+     "start": 339.92,
+     "end": 342.1
+    },
+    {
+     "word": " yeah",
+     "start": 342.1,
+     "end": 342.24
+    },
+    {
+     "word": " i",
+     "start": 342.24,
+     "end": 342.36
+    },
+    {
+     "word": " suppose",
+     "start": 342.36,
+     "end": 342.46
+    },
+    {
+     "word": " it",
+     "start": 342.46,
+     "end": 342.62
+    },
+    {
+     "word": " has",
+     "start": 342.62,
+     "end": 342.76
+    },
+    {
+     "word": " to",
+     "start": 342.76,
+     "end": 342.9
+    },
+    {
+     "word": " look",
+     "start": 342.9,
+     "end": 343.18
+    },
+    {
+     "word": " kind",
+     "start": 343.18,
+     "end": 343.66
+    },
+    {
+     "word": " of",
+     "start": 343.66,
+     "end": 343.8
+    },
+    {
+     "word": " cool",
+     "start": 343.8,
+     "end": 344.08
+    }
+   ]
+  },
+  {
+   "start": 344.08,
+   "end": 357.6,
+   "text": "gimmicky um right okay let me just scoot on ahead here okay um well does anybody have anything to add to",
+   "words": [
+    {
+     "word": " gimmicky",
+     "start": 344.08,
+     "end": 344.92
+    },
+    {
+     "word": " um",
+     "start": 344.92,
+     "end": 347.04
+    },
+    {
+     "word": " right",
+     "start": 347.04,
+     "end": 348.84
+    },
+    {
+     "word": " okay",
+     "start": 348.84,
+     "end": 349.96
+    },
+    {
+     "word": " let",
+     "start": 349.96,
+     "end": 351.58
+    },
+    {
+     "word": " me",
+     "start": 351.58,
+     "end": 351.64
+    },
+    {
+     "word": " just",
+     "start": 351.64,
+     "end": 351.86
+    },
+    {
+     "word": " scoot",
+     "start": 351.86,
+     "end": 352.14
+    },
+    {
+     "word": " on",
+     "start": 352.14,
+     "end": 352.3
+    },
+    {
+     "word": " ahead",
+     "start": 352.3,
+     "end": 352.56
+    },
+    {
+     "word": " here",
+     "start": 352.56,
+     "end": 352.86
+    },
+    {
+     "word": " okay",
+     "start": 352.86,
+     "end": 354.04
+    },
+    {
+     "word": " um",
+     "start": 354.04,
+     "end": 355.14
+    },
+    {
+     "word": " well",
+     "start": 355.14,
+     "end": 355.44
+    },
+    {
+     "word": " does",
+     "start": 355.44,
+     "end": 356.14
+    },
+    {
+     "word": " anybody",
+     "start": 356.14,
+     "end": 356.38
+    },
+    {
+     "word": " have",
+     "start": 356.38,
+     "end": 356.62
+    },
+    {
+     "word": " anything",
+     "start": 356.62,
+     "end": 356.9
+    },
+    {
+     "word": " to",
+     "start": 356.9,
+     "end": 357.08
+    },
+    {
+     "word": " add",
+     "start": 357.08,
+     "end": 357.26
+    },
+    {
+     "word": " to",
+     "start": 357.26,
+     "end": 357.6
+    }
+   ]
+  },
+  {
+   "start": 358.32,
+   "end": 364.74,
+   "text": "uh to tree like how much money people have to spend on things or just like basic product",
+   "words": [
+    {
+     "word": " uh",
+     "start": 358.32,
+     "end": 358.74
+    },
+    {
+     "word": " to",
+     "start": 358.74,
+     "end": 359.98
+    },
+    {
+     "word": " tree",
+     "start": 359.98,
+     "end": 360.18
+    },
+    {
+     "word": " like",
+     "start": 360.18,
+     "end": 360.66
+    },
+    {
+     "word": " how",
+     "start": 360.66,
+     "end": 361.22
+    },
+    {
+     "word": " much",
+     "start": 361.22,
+     "end": 361.5
+    },
+    {
+     "word": " money",
+     "start": 361.5,
+     "end": 361.86
+    },
+    {
+     "word": " people",
+     "start": 361.86,
+     "end": 362.12
+    },
+    {
+     "word": " have",
+     "start": 362.12,
+     "end": 362.28
+    },
+    {
+     "word": " to",
+     "start": 362.28,
+     "end": 362.38
+    },
+    {
+     "word": " spend",
+     "start": 362.38,
+     "end": 362.6
+    },
+    {
+     "word": " on",
+     "start": 362.6,
+     "end": 362.78
+    },
+    {
+     "word": " things",
+     "start": 362.78,
+     "end": 362.9
+    },
+    {
+     "word": " or",
+     "start": 362.9,
+     "end": 363.06
+    },
+    {
+     "word": " just",
+     "start": 363.06,
+     "end": 363.24
+    },
+    {
+     "word": " like",
+     "start": 363.24,
+     "end": 363.44
+    },
+    {
+     "word": " basic",
+     "start": 363.44,
+     "end": 364.38
+    },
+    {
+     "word": " product",
+     "start": 364.38,
+     "end": 364.74
+    }
+   ]
+  },
+  {
+   "start": 364.74,
+   "end": 373.24,
+   "text": "positioning the 25 euro remote control might be a big hit in london might not be such a big hit in",
+   "words": [
+    {
+     "word": " positioning",
+     "start": 364.74,
+     "end": 365.6
+    },
+    {
+     "word": " the",
+     "start": 365.6,
+     "end": 366.44
+    },
+    {
+     "word": " 25",
+     "start": 366.44,
+     "end": 366.86
+    },
+    {
+     "word": " euro",
+     "start": 366.86,
+     "end": 367.36
+    },
+    {
+     "word": " remote",
+     "start": 367.36,
+     "end": 368.28
+    },
+    {
+     "word": " control",
+     "start": 368.28,
+     "end": 368.66
+    },
+    {
+     "word": " might",
+     "start": 368.66,
+     "end": 368.88
+    },
+    {
+     "word": " be",
+     "start": 368.88,
+     "end": 369.02
+    },
+    {
+     "word": " a",
+     "start": 369.02,
+     "end": 369.12
+    },
+    {
+     "word": " big",
+     "start": 369.12,
+     "end": 369.32
+    },
+    {
+     "word": " hit",
+     "start": 369.32,
+     "end": 369.62
+    },
+    {
+     "word": " in",
+     "start": 369.62,
+     "end": 370.06
+    },
+    {
+     "word": " london",
+     "start": 370.06,
+     "end": 370.66
+    },
+    {
+     "word": " might",
+     "start": 370.66,
+     "end": 371.32
+    },
+    {
+     "word": " not",
+     "start": 371.32,
+     "end": 371.5
+    },
+    {
+     "word": " be",
+     "start": 371.5,
+     "end": 371.68
+    },
+    {
+     "word": " such",
+     "start": 371.68,
+     "end": 371.94
+    },
+    {
+     "word": " a",
+     "start": 371.94,
+     "end": 372.08
+    },
+    {
+     "word": " big",
+     "start": 372.08,
+     "end": 372.26
+    },
+    {
+     "word": " hit",
+     "start": 372.26,
+     "end": 372.66
+    },
+    {
+     "word": " in",
+     "start": 372.66,
+     "end": 373.24
+    }
+   ]
+  },
+  {
+   "start": 374.36,
+   "end": 383.78,
+   "text": "greece who knows yeah marketing good marketing thoughts oh gosh i should be writing all this down um",
+   "words": [
+    {
+     "word": " greece",
+     "start": 374.36,
+     "end": 374.94
+    },
+    {
+     "word": " who",
+     "start": 374.94,
+     "end": 375.3
+    },
+    {
+     "word": " knows",
+     "start": 375.3,
+     "end": 375.58
+    },
+    {
+     "word": " yeah",
+     "start": 375.58,
+     "end": 376.66
+    },
+    {
+     "word": " marketing",
+     "start": 376.66,
+     "end": 379.36
+    },
+    {
+     "word": " good",
+     "start": 379.36,
+     "end": 380.18
+    },
+    {
+     "word": " marketing",
+     "start": 380.18,
+     "end": 380.54
+    },
+    {
+     "word": " thoughts",
+     "start": 380.54,
+     "end": 380.9
+    },
+    {
+     "word": " oh",
+     "start": 380.9,
+     "end": 381.2
+    },
+    {
+     "word": " gosh",
+     "start": 381.2,
+     "end": 381.42
+    },
+    {
+     "word": " i",
+     "start": 381.42,
+     "end": 381.58
+    },
+    {
+     "word": " should",
+     "start": 381.58,
+     "end": 381.7
+    },
+    {
+     "word": " be",
+     "start": 381.7,
+     "end": 381.8
+    },
+    {
+     "word": " writing",
+     "start": 381.8,
+     "end": 382.0
+    },
+    {
+     "word": " all",
+     "start": 382.0,
+     "end": 382.18
+    },
+    {
+     "word": " this",
+     "start": 382.18,
+     "end": 382.34
+    },
+    {
+     "word": " down",
+     "start": 382.34,
+     "end": 382.6
+    },
+    {
+     "word": " um",
+     "start": 382.6,
+     "end": 383.78
+    }
+   ]
+  },
+  {
+   "start": 414.98,
+   "end": 420.26,
+   "text": "right away i'm making some kind of assumptions about what what information we're given here",
+   "words": [
+    {
+     "word": " right",
+     "start": 414.98,
+     "end": 415.6
+    },
+    {
+     "word": " away",
+     "start": 415.6,
+     "end": 415.76
+    },
+    {
+     "word": " i'm",
+     "start": 415.76,
+     "end": 415.96
+    },
+    {
+     "word": " making",
+     "start": 415.96,
+     "end": 416.2
+    },
+    {
+     "word": " some",
+     "start": 416.2,
+     "end": 416.5
+    },
+    {
+     "word": " kind",
+     "start": 416.5,
+     "end": 416.78
+    },
+    {
+     "word": " of",
+     "start": 416.78,
+     "end": 417.0
+    },
+    {
+     "word": " assumptions",
+     "start": 417.0,
+     "end": 417.56
+    },
+    {
+     "word": " about",
+     "start": 417.56,
+     "end": 417.96
+    },
+    {
+     "word": " what",
+     "start": 417.96,
+     "end": 418.36
+    },
+    {
+     "word": " what",
+     "start": 418.36,
+     "end": 419.1
+    },
+    {
+     "word": " information",
+     "start": 419.1,
+     "end": 419.56
+    },
+    {
+     "word": " we're",
+     "start": 419.56,
+     "end": 419.8
+    },
+    {
+     "word": " given",
+     "start": 419.8,
+     "end": 420.02
+    },
+    {
+     "word": " here",
+     "start": 420.02,
+     "end": 420.26
+    }
+   ]
+  },
+  {
+   "start": 420.26,
+   "end": 426.58,
+   "text": "thinking okay trendy probably means something other than just basic yeah something other than just",
+   "words": [
+    {
+     "word": " thinking",
+     "start": 420.26,
+     "end": 421.0
+    },
+    {
+     "word": " okay",
+     "start": 421.0,
+     "end": 422.26
+    },
+    {
+     "word": " trendy",
+     "start": 422.26,
+     "end": 422.64
+    },
+    {
+     "word": " probably",
+     "start": 422.64,
+     "end": 423.0
+    },
+    {
+     "word": " means",
+     "start": 423.0,
+     "end": 423.3
+    },
+    {
+     "word": " something",
+     "start": 423.3,
+     "end": 423.64
+    },
+    {
+     "word": " other",
+     "start": 423.64,
+     "end": 424.36
+    },
+    {
+     "word": " than",
+     "start": 424.36,
+     "end": 424.54
+    },
+    {
+     "word": " just",
+     "start": 424.54,
+     "end": 424.72
+    },
+    {
+     "word": " basic",
+     "start": 424.72,
+     "end": 425.18
+    },
+    {
+     "word": " yeah",
+     "start": 425.18,
+     "end": 425.58
+    },
+    {
+     "word": " something",
+     "start": 425.58,
+     "end": 425.9
+    },
+    {
+     "word": " other",
+     "start": 425.9,
+     "end": 426.1
+    },
+    {
+     "word": " than",
+     "start": 426.1,
+     "end": 426.28
+    },
+    {
+     "word": " just",
+     "start": 426.28,
+     "end": 426.58
+    }
+   ]
+  },
+  {
+   "start": 427.88000000000005,
+   "end": 435.18,
+   "text": "standard um so i'm wondering right away is selling 25 years is that sort of that is this going to be",
+   "words": [
+    {
+     "word": " standard",
+     "start": 427.88000000000005,
+     "end": 428.40000000000003
+    },
+    {
+     "word": " um",
+     "start": 428.40000000000003,
+     "end": 428.92
+    },
+    {
+     "word": " so",
+     "start": 428.92,
+     "end": 430.48
+    },
+    {
+     "word": " i'm",
+     "start": 430.48,
+     "end": 430.82
+    },
+    {
+     "word": " wondering",
+     "start": 430.82,
+     "end": 431.6
+    },
+    {
+     "word": " right",
+     "start": 431.6,
+     "end": 431.86
+    },
+    {
+     "word": " away",
+     "start": 431.86,
+     "end": 432.08
+    },
+    {
+     "word": " is",
+     "start": 432.08,
+     "end": 432.4
+    },
+    {
+     "word": " selling",
+     "start": 432.4,
+     "end": 432.66
+    },
+    {
+     "word": " 25",
+     "start": 432.66,
+     "end": 433.12
+    },
+    {
+     "word": " years",
+     "start": 433.12,
+     "end": 433.42
+    },
+    {
+     "word": " is",
+     "start": 433.42,
+     "end": 433.62
+    },
+    {
+     "word": " that",
+     "start": 433.62,
+     "end": 433.72
+    },
+    {
+     "word": " sort",
+     "start": 433.72,
+     "end": 433.96
+    },
+    {
+     "word": " of",
+     "start": 433.96,
+     "end": 434.04
+    },
+    {
+     "word": " that",
+     "start": 434.04,
+     "end": 434.3
+    },
+    {
+     "word": " is",
+     "start": 434.3,
+     "end": 434.78
+    },
+    {
+     "word": " this",
+     "start": 434.78,
+     "end": 434.92
+    },
+    {
+     "word": " going",
+     "start": 434.92,
+     "end": 435.04
+    },
+    {
+     "word": " to",
+     "start": 435.04,
+     "end": 435.1
+    },
+    {
+     "word": " be",
+     "start": 435.1,
+     "end": 435.18
+    }
+   ]
+  },
+  {
+   "start": 435.18,
+   "end": 440.28,
+   "text": "like the premium product yeah yeah like how much does you know a remote control cost",
+   "words": [
+    {
+     "word": " like",
+     "start": 435.18,
+     "end": 435.34
+    },
+    {
+     "word": " the",
+     "start": 435.34,
+     "end": 435.48
+    },
+    {
+     "word": " premium",
+     "start": 435.48,
+     "end": 435.78
+    },
+    {
+     "word": " product",
+     "start": 435.78,
+     "end": 436.24
+    },
+    {
+     "word": " yeah",
+     "start": 436.24,
+     "end": 437.38
+    },
+    {
+     "word": " yeah",
+     "start": 437.38,
+     "end": 437.6
+    },
+    {
+     "word": " like",
+     "start": 437.6,
+     "end": 437.82
+    },
+    {
+     "word": " how",
+     "start": 437.82,
+     "end": 437.98
+    },
+    {
+     "word": " much",
+     "start": 437.98,
+     "end": 438.24
+    },
+    {
+     "word": " does",
+     "start": 438.24,
+     "end": 438.52
+    },
+    {
+     "word": " you",
+     "start": 438.52,
+     "end": 438.94
+    },
+    {
+     "word": " know",
+     "start": 438.94,
+     "end": 439.04
+    },
+    {
+     "word": " a",
+     "start": 439.04,
+     "end": 439.18
+    },
+    {
+     "word": " remote",
+     "start": 439.18,
+     "end": 439.38
+    },
+    {
+     "word": " control",
+     "start": 439.38,
+     "end": 439.7
+    },
+    {
+     "word": " cost",
+     "start": 439.7,
+     "end": 440.28
+    }
+   ]
+  },
+  {
+   "start": 440.28,
+   "end": 448.86,
+   "text": "uh-huh well 25 euro i mean that's um that's about like 18 pounds or something isn't it or no is it as much as",
+   "words": [
+    {
+     "word": " uh",
+     "start": 440.28,
+     "end": 440.62
+    },
+    {
+     "word": "-huh",
+     "start": 440.62,
+     "end": 440.78
+    },
+    {
+     "word": " well",
+     "start": 440.78,
+     "end": 441.82
+    },
+    {
+     "word": " 25",
+     "start": 441.82,
+     "end": 442.18
+    },
+    {
+     "word": " euro",
+     "start": 442.18,
+     "end": 442.5
+    },
+    {
+     "word": " i",
+     "start": 442.5,
+     "end": 442.66
+    },
+    {
+     "word": " mean",
+     "start": 442.66,
+     "end": 442.78
+    },
+    {
+     "word": " that's",
+     "start": 442.78,
+     "end": 443.22
+    },
+    {
+     "word": " um",
+     "start": 443.22,
+     "end": 443.56
+    },
+    {
+     "word": " that's",
+     "start": 443.56,
+     "end": 445.12
+    },
+    {
+     "word": " about",
+     "start": 445.12,
+     "end": 445.3
+    },
+    {
+     "word": " like",
+     "start": 445.3,
+     "end": 445.54
+    },
+    {
+     "word": " 18",
+     "start": 445.54,
+     "end": 446.28
+    },
+    {
+     "word": " pounds",
+     "start": 446.28,
+     "end": 446.66
+    },
+    {
+     "word": " or",
+     "start": 446.66,
+     "end": 446.78
+    },
+    {
+     "word": " something",
+     "start": 446.78,
+     "end": 447.04
+    },
+    {
+     "word": " isn't",
+     "start": 447.04,
+     "end": 447.3
+    },
+    {
+     "word": " it",
+     "start": 447.3,
+     "end": 447.52
+    },
+    {
+     "word": " or",
+     "start": 447.52,
+     "end": 447.94
+    },
+    {
+     "word": " no",
+     "start": 447.94,
+     "end": 448.06
+    },
+    {
+     "word": " is",
+     "start": 448.06,
+     "end": 448.3
+    },
+    {
+     "word": " it",
+     "start": 448.3,
+     "end": 448.38
+    },
+    {
+     "word": " as",
+     "start": 448.38,
+     "end": 448.5
+    },
+    {
+     "word": " much",
+     "start": 448.5,
+     "end": 448.7
+    },
+    {
+     "word": " as",
+     "start": 448.7,
+     "end": 448.86
+    }
+   ]
+  },
+  {
+   "start": 448.86,
+   "end": 455.94,
+   "text": "that 16 17 18 pounds yeah i'd say so yeah um i don't know i've never bought a remote control so i don't",
+   "words": [
+    {
+     "word": " that",
+     "start": 448.86,
+     "end": 449.12
+    },
+    {
+     "word": " 16",
+     "start": 449.12,
+     "end": 450.04
+    },
+    {
+     "word": " 17",
+     "start": 450.04,
+     "end": 450.38
+    },
+    {
+     "word": " 18",
+     "start": 450.38,
+     "end": 450.68
+    },
+    {
+     "word": " pounds",
+     "start": 450.68,
+     "end": 451.16
+    },
+    {
+     "word": " yeah",
+     "start": 451.16,
+     "end": 451.32
+    },
+    {
+     "word": " i'd",
+     "start": 451.32,
+     "end": 451.48
+    },
+    {
+     "word": " say",
+     "start": 451.48,
+     "end": 451.58
+    },
+    {
+     "word": " so",
+     "start": 451.58,
+     "end": 451.78
+    },
+    {
+     "word": " yeah",
+     "start": 451.78,
+     "end": 451.96
+    },
+    {
+     "word": " um",
+     "start": 451.96,
+     "end": 452.8
+    },
+    {
+     "word": " i",
+     "start": 452.8,
+     "end": 453.9
+    },
+    {
+     "word": " don't",
+     "start": 453.9,
+     "end": 454.04
+    },
+    {
+     "word": " know",
+     "start": 454.04,
+     "end": 454.12
+    },
+    {
+     "word": " i've",
+     "start": 454.12,
+     "end": 454.3
+    },
+    {
+     "word": " never",
+     "start": 454.3,
+     "end": 454.46
+    },
+    {
+     "word": " bought",
+     "start": 454.46,
+     "end": 454.68
+    },
+    {
+     "word": " a",
+     "start": 454.68,
+     "end": 454.82
+    },
+    {
+     "word": " remote",
+     "start": 454.82,
+     "end": 455.0
+    },
+    {
+     "word": " control",
+     "start": 455.0,
+     "end": 455.42
+    },
+    {
+     "word": " so",
+     "start": 455.42,
+     "end": 455.68
+    },
+    {
+     "word": " i",
+     "start": 455.68,
+     "end": 455.78
+    },
+    {
+     "word": " don't",
+     "start": 455.78,
+     "end": 455.94
+    }
+   ]
+  },
+  {
+   "start": 455.94,
+   "end": 464.9,
+   "text": "know how good a remote control that would get you um but yeah i suppose it has to look kind of cool and gimmicky",
+   "words": [
+    {
+     "word": " know",
+     "start": 455.94,
+     "end": 456.1
+    },
+    {
+     "word": " how",
+     "start": 456.1,
+     "end": 456.92
+    },
+    {
+     "word": " good",
+     "start": 456.92,
+     "end": 457.68
+    },
+    {
+     "word": " a",
+     "start": 457.68,
+     "end": 457.76
+    },
+    {
+     "word": " remote",
+     "start": 457.76,
+     "end": 457.92
+    },
+    {
+     "word": " control",
+     "start": 457.92,
+     "end": 458.26
+    },
+    {
+     "word": " that",
+     "start": 458.26,
+     "end": 458.44
+    },
+    {
+     "word": " would",
+     "start": 458.44,
+     "end": 458.56
+    },
+    {
+     "word": " get",
+     "start": 458.56,
+     "end": 458.74
+    },
+    {
+     "word": " you",
+     "start": 458.74,
+     "end": 458.98
+    },
+    {
+     "word": " um",
+     "start": 458.98,
+     "end": 459.9
+    },
+    {
+     "word": " but",
+     "start": 459.9,
+     "end": 462.12
+    },
+    {
+     "word": " yeah",
+     "start": 462.12,
+     "end": 462.24
+    },
+    {
+     "word": " i",
+     "start": 462.24,
+     "end": 462.36
+    },
+    {
+     "word": " suppose",
+     "start": 462.36,
+     "end": 462.46
+    },
+    {
+     "word": " it",
+     "start": 462.46,
+     "end": 462.62
+    },
+    {
+     "word": " has",
+     "start": 462.62,
+     "end": 462.76
+    },
+    {
+     "word": " to",
+     "start": 462.76,
+     "end": 462.9
+    },
+    {
+     "word": " look",
+     "start": 462.9,
+     "end": 463.18
+    },
+    {
+     "word": " kind",
+     "start": 463.18,
+     "end": 463.66
+    },
+    {
+     "word": " of",
+     "start": 463.66,
+     "end": 463.8
+    },
+    {
+     "word": " cool",
+     "start": 463.8,
+     "end": 464.1
+    },
+    {
+     "word": " and",
+     "start": 464.1,
+     "end": 464.54
+    },
+    {
+     "word": " gimmicky",
+     "start": 464.54,
+     "end": 464.9
+    }
+   ]
+  },
+  {
+   "start": 467.71999999999997,
+   "end": 477.6,
+   "text": "um right okay let me just scoot on ahead here okay um well does anybody have anything to add to",
+   "words": [
+    {
+     "word": " um",
+     "start": 467.71999999999997,
+     "end": 468.26
+    },
+    {
+     "word": " right",
+     "start": 468.26,
+     "end": 468.8
+    },
+    {
+     "word": " okay",
+     "start": 468.8,
+     "end": 469.92
+    },
+    {
+     "word": " let",
+     "start": 469.92,
+     "end": 471.56
+    },
+    {
+     "word": " me",
+     "start": 471.56,
+     "end": 471.64
+    },
+    {
+     "word": " just",
+     "start": 471.64,
+     "end": 471.86
+    },
+    {
+     "word": " scoot",
+     "start": 471.86,
+     "end": 472.14
+    },
+    {
+     "word": " on",
+     "start": 472.14,
+     "end": 472.3
+    },
+    {
+     "word": " ahead",
+     "start": 472.3,
+     "end": 472.56
+    },
+    {
+     "word": " here",
+     "start": 472.56,
+     "end": 472.84
+    },
+    {
+     "word": " okay",
+     "start": 472.84,
+     "end": 474.02
+    },
+    {
+     "word": " um",
+     "start": 474.02,
+     "end": 475.14
+    },
+    {
+     "word": " well",
+     "start": 475.14,
+     "end": 475.44
+    },
+    {
+     "word": " does",
+     "start": 475.44,
+     "end": 476.14
+    },
+    {
+     "word": " anybody",
+     "start": 476.14,
+     "end": 476.4
+    },
+    {
+     "word": " have",
+     "start": 476.4,
+     "end": 476.62
+    },
+    {
+     "word": " anything",
+     "start": 476.62,
+     "end": 476.9
+    },
+    {
+     "word": " to",
+     "start": 476.9,
+     "end": 477.08
+    },
+    {
+     "word": " add",
+     "start": 477.08,
+     "end": 477.26
+    },
+    {
+     "word": " to",
+     "start": 477.26,
+     "end": 477.6
+    }
+   ]
+  },
+  {
+   "start": 477.6,
+   "end": 484.74,
+   "text": "uh uh to tree like how much money people have to spend on things or just like basic product",
+   "words": [
+    {
+     "word": " uh",
+     "start": 477.6,
+     "end": 478.58
+    },
+    {
+     "word": " uh",
+     "start": 478.58,
+     "end": 479.98
+    },
+    {
+     "word": " to",
+     "start": 479.98,
+     "end": 479.98
+    },
+    {
+     "word": " tree",
+     "start": 479.98,
+     "end": 480.2
+    },
+    {
+     "word": " like",
+     "start": 480.2,
+     "end": 480.66
+    },
+    {
+     "word": " how",
+     "start": 480.66,
+     "end": 481.22
+    },
+    {
+     "word": " much",
+     "start": 481.22,
+     "end": 481.5
+    },
+    {
+     "word": " money",
+     "start": 481.5,
+     "end": 481.86
+    },
+    {
+     "word": " people",
+     "start": 481.86,
+     "end": 482.12
+    },
+    {
+     "word": " have",
+     "start": 482.12,
+     "end": 482.28
+    },
+    {
+     "word": " to",
+     "start": 482.28,
+     "end": 482.36
+    },
+    {
+     "word": " spend",
+     "start": 482.36,
+     "end": 482.6
+    },
+    {
+     "word": " on",
+     "start": 482.6,
+     "end": 482.8
+    },
+    {
+     "word": " things",
+     "start": 482.8,
+     "end": 482.9
+    },
+    {
+     "word": " or",
+     "start": 482.9,
+     "end": 483.06
+    },
+    {
+     "word": " just",
+     "start": 483.06,
+     "end": 483.26
+    },
+    {
+     "word": " like",
+     "start": 483.26,
+     "end": 483.42
+    },
+    {
+     "word": " basic",
+     "start": 483.42,
+     "end": 484.36
+    },
+    {
+     "word": " product",
+     "start": 484.36,
+     "end": 484.74
+    }
+   ]
+  },
+  {
+   "start": 484.74,
+   "end": 493.3,
+   "text": "positioning the 25 euro remote control might be a big hit in london might not be such a big hit in",
+   "words": [
+    {
+     "word": " positioning",
+     "start": 484.74,
+     "end": 485.58
+    },
+    {
+     "word": " the",
+     "start": 485.58,
+     "end": 486.44
+    },
+    {
+     "word": " 25",
+     "start": 486.44,
+     "end": 486.88
+    },
+    {
+     "word": " euro",
+     "start": 486.88,
+     "end": 487.36
+    },
+    {
+     "word": " remote",
+     "start": 487.36,
+     "end": 488.3
+    },
+    {
+     "word": " control",
+     "start": 488.3,
+     "end": 488.64
+    },
+    {
+     "word": " might",
+     "start": 488.64,
+     "end": 488.88
+    },
+    {
+     "word": " be",
+     "start": 488.88,
+     "end": 489.02
+    },
+    {
+     "word": " a",
+     "start": 489.02,
+     "end": 489.12
+    },
+    {
+     "word": " big",
+     "start": 489.12,
+     "end": 489.3
+    },
+    {
+     "word": " hit",
+     "start": 489.3,
+     "end": 489.62
+    },
+    {
+     "word": " in",
+     "start": 489.62,
+     "end": 490.06
+    },
+    {
+     "word": " london",
+     "start": 490.06,
+     "end": 490.68
+    },
+    {
+     "word": " might",
+     "start": 490.68,
+     "end": 491.34
+    },
+    {
+     "word": " not",
+     "start": 491.34,
+     "end": 491.5
+    },
+    {
+     "word": " be",
+     "start": 491.5,
+     "end": 491.7
+    },
+    {
+     "word": " such",
+     "start": 491.7,
+     "end": 491.96
+    },
+    {
+     "word": " a",
+     "start": 491.96,
+     "end": 492.1
+    },
+    {
+     "word": " big",
+     "start": 492.1,
+     "end": 492.28
+    },
+    {
+     "word": " hit",
+     "start": 492.28,
+     "end": 492.7
+    },
+    {
+     "word": " in",
+     "start": 492.7,
+     "end": 493.3
+    }
+   ]
+  },
+  {
+   "start": 494.38,
+   "end": 503.78,
+   "text": "greece who knows yeah marketing good marketing thoughts oh gosh i should be writing all this down um",
+   "words": [
+    {
+     "word": " greece",
+     "start": 494.38,
+     "end": 494.96
+    },
+    {
+     "word": " who",
+     "start": 494.96,
+     "end": 495.3
+    },
+    {
+     "word": " knows",
+     "start": 495.3,
+     "end": 495.6
+    },
+    {
+     "word": " yeah",
+     "start": 495.6,
+     "end": 496.66
+    },
+    {
+     "word": " marketing",
+     "start": 496.66,
+     "end": 499.36
+    },
+    {
+     "word": " good",
+     "start": 499.36,
+     "end": 500.18
+    },
+    {
+     "word": " marketing",
+     "start": 500.18,
+     "end": 500.54
+    },
+    {
+     "word": " thoughts",
+     "start": 500.54,
+     "end": 500.92
+    },
+    {
+     "word": " oh",
+     "start": 500.92,
+     "end": 501.2
+    },
+    {
+     "word": " gosh",
+     "start": 501.2,
+     "end": 501.44
+    },
+    {
+     "word": " i",
+     "start": 501.44,
+     "end": 501.58
+    },
+    {
+     "word": " should",
+     "start": 501.58,
+     "end": 501.7
+    },
+    {
+     "word": " be",
+     "start": 501.7,
+     "end": 501.82
+    },
+    {
+     "word": " writing",
+     "start": 501.82,
+     "end": 502.0
+    },
+    {
+     "word": " all",
+     "start": 502.0,
+     "end": 502.18
+    },
+    {
+     "word": " this",
+     "start": 502.18,
+     "end": 502.34
+    },
+    {
+     "word": " down",
+     "start": 502.34,
+     "end": 502.6
+    },
+    {
+     "word": " um",
+     "start": 502.6,
+     "end": 503.78
+    }
+   ]
+  },
+  {
+   "start": 534.9200000000001,
+   "end": 540.28,
+   "text": "right away i'm making some kind of assumptions about what what information we're given here",
+   "words": [
+    {
+     "word": " right",
+     "start": 534.9200000000001,
+     "end": 535.58
+    },
+    {
+     "word": " away",
+     "start": 535.58,
+     "end": 535.76
+    },
+    {
+     "word": " i'm",
+     "start": 535.76,
+     "end": 535.96
+    },
+    {
+     "word": " making",
+     "start": 535.96,
+     "end": 536.18
+    },
+    {
+     "word": " some",
+     "start": 536.18,
+     "end": 536.5
+    },
+    {
+     "word": " kind",
+     "start": 536.5,
+     "end": 536.78
+    },
+    {
+     "word": " of",
+     "start": 536.78,
+     "end": 537.0
+    },
+    {
+     "word": " assumptions",
+     "start": 537.0,
+     "end": 537.56
+    },
+    {
+     "word": " about",
+     "start": 537.56,
+     "end": 537.96
+    },
+    {
+     "word": " what",
+     "start": 537.96,
+     "end": 538.36
+    },
+    {
+     "word": " what",
+     "start": 538.36,
+     "end": 539.1
+    },
+    {
+     "word": " information",
+     "start": 539.1,
+     "end": 539.56
+    },
+    {
+     "word": " we're",
+     "start": 539.56,
+     "end": 539.8
+    },
+    {
+     "word": " given",
+     "start": 539.8,
+     "end": 540.02
+    },
+    {
+     "word": " here",
+     "start": 540.02,
+     "end": 540.28
+    }
+   ]
+  },
+  {
+   "start": 540.28,
+   "end": 546.58,
+   "text": "thinking okay trendy probably means something other than just basic yeah something other than just",
+   "words": [
+    {
+     "word": " thinking",
+     "start": 540.28,
+     "end": 541.0
+    },
+    {
+     "word": " okay",
+     "start": 541.0,
+     "end": 542.26
+    },
+    {
+     "word": " trendy",
+     "start": 542.26,
+     "end": 542.64
+    },
+    {
+     "word": " probably",
+     "start": 542.64,
+     "end": 543.0
+    },
+    {
+     "word": " means",
+     "start": 543.0,
+     "end": 543.3
+    },
+    {
+     "word": " something",
+     "start": 543.3,
+     "end": 543.66
+    },
+    {
+     "word": " other",
+     "start": 543.66,
+     "end": 544.36
+    },
+    {
+     "word": " than",
+     "start": 544.36,
+     "end": 544.54
+    },
+    {
+     "word": " just",
+     "start": 544.54,
+     "end": 544.72
+    },
+    {
+     "word": " basic",
+     "start": 544.72,
+     "end": 545.18
+    },
+    {
+     "word": " yeah",
+     "start": 545.18,
+     "end": 545.56
+    },
+    {
+     "word": " something",
+     "start": 545.56,
+     "end": 545.9
+    },
+    {
+     "word": " other",
+     "start": 545.9,
+     "end": 546.1
+    },
+    {
+     "word": " than",
+     "start": 546.1,
+     "end": 546.28
+    },
+    {
+     "word": " just",
+     "start": 546.28,
+     "end": 546.58
+    }
+   ]
+  },
+  {
+   "start": 547.88,
+   "end": 555.18,
+   "text": "standard um so i'm wondering right away is selling 25 years is that sort of that is this going to be",
+   "words": [
+    {
+     "word": " standard",
+     "start": 547.88,
+     "end": 548.4
+    },
+    {
+     "word": " um",
+     "start": 548.4,
+     "end": 548.92
+    },
+    {
+     "word": " so",
+     "start": 548.92,
+     "end": 550.48
+    },
+    {
+     "word": " i'm",
+     "start": 550.48,
+     "end": 550.82
+    },
+    {
+     "word": " wondering",
+     "start": 550.82,
+     "end": 551.6
+    },
+    {
+     "word": " right",
+     "start": 551.6,
+     "end": 551.86
+    },
+    {
+     "word": " away",
+     "start": 551.86,
+     "end": 552.08
+    },
+    {
+     "word": " is",
+     "start": 552.08,
+     "end": 552.4
+    },
+    {
+     "word": " selling",
+     "start": 552.4,
+     "end": 552.66
+    },
+    {
+     "word": " 25",
+     "start": 552.66,
+     "end": 553.12
+    },
+    {
+     "word": " years",
+     "start": 553.12,
+     "end": 553.42
+    },
+    {
+     "word": " is",
+     "start": 553.42,
+     "end": 553.62
+    },
+    {
+     "word": " that",
+     "start": 553.62,
+     "end": 553.72
+    },
+    {
+     "word": " sort",
+     "start": 553.72,
+     "end": 553.96
+    },
+    {
+     "word": " of",
+     "start": 553.96,
+     "end": 554.04
+    },
+    {
+     "word": " that",
+     "start": 554.04,
+     "end": 554.3
+    },
+    {
+     "word": " is",
+     "start": 554.3,
+     "end": 554.78
+    },
+    {
+     "word": " this",
+     "start": 554.78,
+     "end": 554.92
+    },
+    {
+     "word": " going",
+     "start": 554.92,
+     "end": 555.04
+    },
+    {
+     "word": " to",
+     "start": 555.04,
+     "end": 555.1
+    },
+    {
+     "word": " be",
+     "start": 555.1,
+     "end": 555.18
+    }
+   ]
+  },
+  {
+   "start": 555.18,
+   "end": 562.78,
+   "text": "like the premium product yeah yeah like how much does you know a remote control cost well 25 euro i mean",
+   "words": [
+    {
+     "word": " like",
+     "start": 555.18,
+     "end": 555.34
+    },
+    {
+     "word": " the",
+     "start": 555.34,
+     "end": 555.48
+    },
+    {
+     "word": " premium",
+     "start": 555.48,
+     "end": 555.78
+    },
+    {
+     "word": " product",
+     "start": 555.78,
+     "end": 556.24
+    },
+    {
+     "word": " yeah",
+     "start": 556.24,
+     "end": 557.38
+    },
+    {
+     "word": " yeah",
+     "start": 557.38,
+     "end": 557.6
+    },
+    {
+     "word": " like",
+     "start": 557.6,
+     "end": 557.82
+    },
+    {
+     "word": " how",
+     "start": 557.82,
+     "end": 557.98
+    },
+    {
+     "word": " much",
+     "start": 557.98,
+     "end": 558.24
+    },
+    {
+     "word": " does",
+     "start": 558.24,
+     "end": 558.52
+    },
+    {
+     "word": " you",
+     "start": 558.52,
+     "end": 558.94
+    },
+    {
+     "word": " know",
+     "start": 558.94,
+     "end": 559.04
+    },
+    {
+     "word": " a",
+     "start": 559.04,
+     "end": 559.18
+    },
+    {
+     "word": " remote",
+     "start": 559.18,
+     "end": 559.38
+    },
+    {
+     "word": " control",
+     "start": 559.38,
+     "end": 559.7
+    },
+    {
+     "word": " cost",
+     "start": 559.7,
+     "end": 560.28
+    },
+    {
+     "word": " well",
+     "start": 560.28,
+     "end": 561.8
+    },
+    {
+     "word": " 25",
+     "start": 561.8,
+     "end": 562.2
+    },
+    {
+     "word": " euro",
+     "start": 562.2,
+     "end": 562.5
+    },
+    {
+     "word": " i",
+     "start": 562.5,
+     "end": 562.66
+    },
+    {
+     "word": " mean",
+     "start": 562.66,
+     "end": 562.78
+    }
+   ]
+  },
+  {
+   "start": 562.78,
+   "end": 571.16,
+   "text": "that's um that's about like 18 pounds or something isn't it or no is it as much as that 16 17 18 pounds",
+   "words": [
+    {
+     "word": " that's",
+     "start": 562.78,
+     "end": 563.18
+    },
+    {
+     "word": " um",
+     "start": 563.18,
+     "end": 563.58
+    },
+    {
+     "word": " that's",
+     "start": 563.58,
+     "end": 565.12
+    },
+    {
+     "word": " about",
+     "start": 565.12,
+     "end": 565.3
+    },
+    {
+     "word": " like",
+     "start": 565.3,
+     "end": 565.54
+    },
+    {
+     "word": " 18",
+     "start": 565.54,
+     "end": 566.28
+    },
+    {
+     "word": " pounds",
+     "start": 566.28,
+     "end": 566.66
+    },
+    {
+     "word": " or",
+     "start": 566.66,
+     "end": 566.78
+    },
+    {
+     "word": " something",
+     "start": 566.78,
+     "end": 567.04
+    },
+    {
+     "word": " isn't",
+     "start": 567.04,
+     "end": 567.28
+    },
+    {
+     "word": " it",
+     "start": 567.28,
+     "end": 567.54
+    },
+    {
+     "word": " or",
+     "start": 567.54,
+     "end": 567.94
+    },
+    {
+     "word": " no",
+     "start": 567.94,
+     "end": 568.06
+    },
+    {
+     "word": " is",
+     "start": 568.06,
+     "end": 568.3
+    },
+    {
+     "word": " it",
+     "start": 568.3,
+     "end": 568.38
+    },
+    {
+     "word": " as",
+     "start": 568.38,
+     "end": 568.5
+    },
+    {
+     "word": " much",
+     "start": 568.5,
+     "end": 568.7
+    },
+    {
+     "word": " as",
+     "start": 568.7,
+     "end": 568.86
+    },
+    {
+     "word": " that",
+     "start": 568.86,
+     "end": 569.12
+    },
+    {
+     "word": " 16",
+     "start": 569.12,
+     "end": 570.04
+    },
+    {
+     "word": " 17",
+     "start": 570.04,
+     "end": 570.38
+    },
+    {
+     "word": " 18",
+     "start": 570.38,
+     "end": 570.66
+    },
+    {
+     "word": " pounds",
+     "start": 570.66,
+     "end": 571.16
+    }
+   ]
+  },
+  {
+   "start": 571.16,
+   "end": 577.94,
+   "text": "yeah um i don't know i've never bought a remote control so i don't know no how how good a remote",
+   "words": [
+    {
+     "word": " yeah",
+     "start": 571.16,
+     "end": 571.3
+    },
+    {
+     "word": " um",
+     "start": 571.3,
+     "end": 572.48
+    },
+    {
+     "word": " i",
+     "start": 572.48,
+     "end": 573.9
+    },
+    {
+     "word": " don't",
+     "start": 573.9,
+     "end": 574.04
+    },
+    {
+     "word": " know",
+     "start": 574.04,
+     "end": 574.12
+    },
+    {
+     "word": " i've",
+     "start": 574.12,
+     "end": 574.3
+    },
+    {
+     "word": " never",
+     "start": 574.3,
+     "end": 574.46
+    },
+    {
+     "word": " bought",
+     "start": 574.46,
+     "end": 574.68
+    },
+    {
+     "word": " a",
+     "start": 574.68,
+     "end": 574.8
+    },
+    {
+     "word": " remote",
+     "start": 574.8,
+     "end": 575.0
+    },
+    {
+     "word": " control",
+     "start": 575.0,
+     "end": 575.4
+    },
+    {
+     "word": " so",
+     "start": 575.4,
+     "end": 575.68
+    },
+    {
+     "word": " i",
+     "start": 575.68,
+     "end": 575.78
+    },
+    {
+     "word": " don't",
+     "start": 575.78,
+     "end": 575.94
+    },
+    {
+     "word": " know",
+     "start": 575.94,
+     "end": 576.16
+    },
+    {
+     "word": " no",
+     "start": 576.16,
+     "end": 576.44
+    },
+    {
+     "word": " how",
+     "start": 576.44,
+     "end": 576.96
+    },
+    {
+     "word": " how",
+     "start": 576.96,
+     "end": 577.46
+    },
+    {
+     "word": " good",
+     "start": 577.46,
+     "end": 577.68
+    },
+    {
+     "word": " a",
+     "start": 577.68,
+     "end": 577.76
+    },
+    {
+     "word": " remote",
+     "start": 577.76,
+     "end": 577.94
+    }
+   ]
+  },
+  {
+   "start": 577.94,
+   "end": 589.96,
+   "text": "control that would get you um but yeah i suppose it has to look kind of cool gimmicky um right okay",
+   "words": [
+    {
+     "word": " control",
+     "start": 577.94,
+     "end": 578.26
+    },
+    {
+     "word": " that",
+     "start": 578.26,
+     "end": 578.44
+    },
+    {
+     "word": " would",
+     "start": 578.44,
+     "end": 578.56
+    },
+    {
+     "word": " get",
+     "start": 578.56,
+     "end": 578.74
+    },
+    {
+     "word": " you",
+     "start": 578.74,
+     "end": 578.98
+    },
+    {
+     "word": " um",
+     "start": 578.98,
+     "end": 579.9
+    },
+    {
+     "word": " but",
+     "start": 579.9,
+     "end": 582.1
+    },
+    {
+     "word": " yeah",
+     "start": 582.1,
+     "end": 582.24
+    },
+    {
+     "word": " i",
+     "start": 582.24,
+     "end": 582.36
+    },
+    {
+     "word": " suppose",
+     "start": 582.36,
+     "end": 582.46
+    },
+    {
+     "word": " it",
+     "start": 582.46,
+     "end": 582.62
+    },
+    {
+     "word": " has",
+     "start": 582.62,
+     "end": 582.76
+    },
+    {
+     "word": " to",
+     "start": 582.76,
+     "end": 582.9
+    },
+    {
+     "word": " look",
+     "start": 582.9,
+     "end": 583.18
+    },
+    {
+     "word": " kind",
+     "start": 583.18,
+     "end": 583.66
+    },
+    {
+     "word": " of",
+     "start": 583.66,
+     "end": 583.8
+    },
+    {
+     "word": " cool",
+     "start": 583.8,
+     "end": 584.06
+    },
+    {
+     "word": " gimmicky",
+     "start": 584.06,
+     "end": 584.92
+    },
+    {
+     "word": " um",
+     "start": 584.92,
+     "end": 587.2
+    },
+    {
+     "word": " right",
+     "start": 587.2,
+     "end": 588.82
+    },
+    {
+     "word": " okay",
+     "start": 588.82,
+     "end": 589.96
+    }
+   ]
+  },
+  {
+   "start": 591.1,
+   "end": 598.68,
+   "text": "let me just scoot on ahead here okay um well does anybody have anything to add to uh",
+   "words": [
+    {
+     "word": " let",
+     "start": 591.1,
+     "end": 591.58
+    },
+    {
+     "word": " me",
+     "start": 591.58,
+     "end": 591.64
+    },
+    {
+     "word": " just",
+     "start": 591.64,
+     "end": 591.86
+    },
+    {
+     "word": " scoot",
+     "start": 591.86,
+     "end": 592.14
+    },
+    {
+     "word": " on",
+     "start": 592.14,
+     "end": 592.3
+    },
+    {
+     "word": " ahead",
+     "start": 592.3,
+     "end": 592.56
+    },
+    {
+     "word": " here",
+     "start": 592.56,
+     "end": 592.86
+    },
+    {
+     "word": " okay",
+     "start": 592.86,
+     "end": 594.02
+    },
+    {
+     "word": " um",
+     "start": 594.02,
+     "end": 595.14
+    },
+    {
+     "word": " well",
+     "start": 595.14,
+     "end": 595.44
+    },
+    {
+     "word": " does",
+     "start": 595.44,
+     "end": 596.14
+    },
+    {
+     "word": " anybody",
+     "start": 596.14,
+     "end": 596.38
+    },
+    {
+     "word": " have",
+     "start": 596.38,
+     "end": 596.62
+    },
+    {
+     "word": " anything",
+     "start": 596.62,
+     "end": 596.9
+    },
+    {
+     "word": " to",
+     "start": 596.9,
+     "end": 597.08
+    },
+    {
+     "word": " add",
+     "start": 597.08,
+     "end": 597.28
+    },
+    {
+     "word": " to",
+     "start": 597.28,
+     "end": 597.6
+    },
+    {
+     "word": " uh",
+     "start": 597.6,
+     "end": 598.68
+    }
+   ]
+  }
+ ]
+}
