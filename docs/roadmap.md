@@ -25,7 +25,7 @@ Shipped on `main` (see [`docs/configuration.md`](configuration.md) and [`docs/ar
 
 - speaker diarization polish (live record screen capture, richer TUI speaker UX)
 - better realtime streaming / incremental transcription
-- session search and filtering
+- session search and filtering — shipped: CLI `sessions --search` (F2), Meetings-tab filter with date tokens (U17), fuzzy jump-to-meeting picker (U11)
 - improved summaries (templates, metadata) — partial: structured summary + Obsidian export
 
 ### Phase 3

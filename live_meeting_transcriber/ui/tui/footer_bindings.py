@@ -40,7 +40,7 @@ FOOTER_ACTIONS: tuple[FooterAction, ...] = (
     # `j` (jump to a meeting), not `m`: the Meetings tab binds `m` to its
     # More-actions menu (U9), which shadowed a global `m` there so the same key
     # meant two different things depending on the region (U12).
-    FooterAction("j", "sessions", "Sessions", core=False),
+    FooterAction("j", "sessions", "Jump to meeting", core=False),
     FooterAction("c", "ack_errors", "Ack errors", core=False),
     # ctrl+d, not ctrl+i: ctrl+i is byte-identical to Tab (0x09) on terminals without
     # the kitty keyboard protocol, so a ctrl+i binding never fires (it arrives as Tab).

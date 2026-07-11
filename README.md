@@ -124,11 +124,18 @@ uv run live-transcriber tui
 **`r`** record, **`x`** stop, **`k`** summarize, **`w`** export, **`q`** quit — so it fits
 a standard terminal without clipping. Every other action stays one keystroke away and is
 listed in the **command palette** (**`Ctrl+P`**): **`t`** edit meeting, **`s`** settings,
-**`a`** audio sources, **`j`** sessions, **`c`** ack errors, **`Ctrl+D`** speaker ID, and
+**`a`** audio sources, **`j`** jump to meeting, **`c`** ack errors, **`Ctrl+D`** speaker ID, and
 **`Ctrl+1/2/3`** to switch the Live/Meetings/Logs tabs. Press **`?`** any time to open the
 **keyboard-shortcut overlay** — a full, always-current list of the global and Meetings-tab
-shortcuts (it reads the live keymap, so it can't drift). In the Sessions view, **`r`**
-refreshes and **`e`** renames. The status sidebar shows the **log file path** after settings load.
+shortcuts (it reads the live keymap, so it can't drift). The status sidebar shows the
+**log file path** after settings load.
+
+**Browsing meetings.** The **Meetings tab is the single home** for browsing and managing
+sessions: press **`/`** there to filter the list by free text (title/notes/attendees) and
+date tokens — e.g. `standup after:2026-07-01 before:2026-07-31` (**`Esc`** clears the
+filter). **`j`** opens the **jump-to-meeting picker** from anywhere: type a fuzzy query,
+press **`Enter`**, and the meeting opens in the Meetings tab (**`c`** copies the session
+ID from the picker).
 
 List available sources:
 

@@ -300,23 +300,6 @@ class TuiController:
         elif isinstance(action, act.SessionsRefreshRequested):
             await self._load_sessions_catalog(store)
 
-        elif isinstance(action, act.SessionTitleCommitRequested):
-            title = action.new_title.strip()
-            if not title:
-                store.dispatch(act.ErrorRaised(message="Title must not be empty.", at=utc_now()))
-                return
-            updated = self.container.sessions.update_title(action.session_id, title)
-            if updated is None:
-                store.dispatch(act.ErrorRaised(message="Session not found.", at=utc_now()))
-                return
-            store.dispatch(
-                act.SessionTitleUpdated(
-                    session_id=action.session_id,
-                    title=updated.title,
-                    at=utc_now(),
-                )
-            )
-
         elif isinstance(action, act.SessionDetailsCommitRequested):
             title = action.title.strip()
             if not title:
