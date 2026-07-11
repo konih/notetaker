@@ -61,3 +61,12 @@ cannot be approved from a headless/CI session. To verify capture on a real machi
 
 If `swiftc` is missing, the app raises a clear error; install the CLT or set
 `AUDIO_MACOS_SYSTEM_CAPTURE=avfoundation` and use a BlackHole loopback device instead.
+
+## Code scanning (CodeQL) — Swift intentionally excluded
+
+This lone `.swift` file has no `Package.swift`/`.xcodeproj` build target, so GitHub CodeQL's
+Swift autobuild produces no database and the `/language:swift` analysis errors
+(`unsuccessful execution`). Rather than stand up a Swift build harness just for scanning, the
+repo's CodeQL **default setup** is pinned to `python` + `actions` only (Swift excluded) — see
+story **C5**. If this helper ever grows into a real Swift build target, re-enable Swift scanning
+deliberately (advanced setup with an explicit language matrix + build step).

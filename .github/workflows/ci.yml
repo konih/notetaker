@@ -9,6 +9,12 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Least-privilege token for every job (C4). No job writes to the repo, opens PRs, or
+# publishes packages; the gitleaks `secrets` job only reads history. Clears the 7
+# `actions/missing-workflow-permissions` code-scanning warnings.
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Tests (Python ${{ matrix.python-version }})
