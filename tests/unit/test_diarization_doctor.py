@@ -110,3 +110,26 @@ def test_all_ok_true_only_when_every_result_ok() -> None:
     bad = doc.CheckResult(name="y", ok=False, detail="", remediation="fix it")
     assert doc.all_ok([ok, ok]) is True
     assert doc.all_ok([ok, bad]) is False
+
+
+def test_device_reports_auto_mps_diarization_on_apple_silicon(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # F13: doctor must surface that diarization will auto-run on MPS on Apple Silicon.
+    from live_meeting_transcriber.offline import whisperx_pipeline as wp
+
+    monkeypatch.setattr(wp, "_detect_torch_devices", lambda: (False, True))
+    monkeypatch.setattr(wp, "_platform_probe", lambda: ("Darwin", "arm64"))
+    r = doc.check_device(_settings(whisperx_diarize_device=None))
+    assert r.ok
+    assert "diarization on 'mps'" in r.detail
+
+
+def test_device_reports_explicit_diarize_device(monkeypatch: pytest.MonkeyPatch) -> None:
+    from live_meeting_transcriber.offline import whisperx_pipeline as wp
+
+    monkeypatch.setattr(wp, "_detect_torch_devices", lambda: (False, False))
+    monkeypatch.setattr(wp, "_platform_probe", lambda: ("Linux", "x86_64"))
+    r = doc.check_device(_settings(whisperx_diarize_device="cuda:0"))
+    assert r.ok
+    assert "diarization on 'cuda:0'" in r.detail

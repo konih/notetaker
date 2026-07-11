@@ -118,7 +118,7 @@ Only existing files are loaded. See [`install-desktop.md`](install-desktop.md) f
 - `WHISPERX_BATCH_SIZE`: default `8` (1–64) — lower it (2–4) and/or pick a smaller `WHISPERX_MODEL` if transcription OOMs.
 - `WHISPERX_LANGUAGE`: optional ISO code (e.g. `en`); leave empty for auto-detect.
 - `WHISPERX_SKIP_ALIGNMENT`: default `false` — skip the word-alignment stage (faster, coarser timestamps).
-- `WHISPERX_DIARIZE_DEVICE`: optional; device for the pyannote diarization model. Unset defaults to CPU when alignment uses CUDA/MPS (avoids a second GPU model OOMing); set to `cuda`/`cuda:0` to force GPU diarization if you have the VRAM.
+- `WHISPERX_DIARIZE_DEVICE`: optional; device for the pyannote diarization model. Unset auto-selects: on **Apple Silicon with usable MPS it defaults to `mps`** (verified byte-identical to CPU and ~8-20x faster — see `docs/spikes/2026-07-11-f11-apple-silicon-asr.md`; if MPS errors at runtime, finalize logs a warning and retries once on CPU), and defaults to CPU when alignment uses CUDA (avoids a second GPU model OOMing). An explicit value always wins and never falls back: set `cpu` to opt out of MPS, or `cuda`/`cuda:0` to force GPU diarization if you have the VRAM.
 
 Speaker CLI:
 
