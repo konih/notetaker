@@ -36,7 +36,7 @@ class VideoImportModal(ModalScreen[VideoImportForm | None]):
 
     BINDINGS = [
         Binding("escape", "cancel", "Cancel", show=True, priority=True),
-        Binding("ctrl+enter,ctrl+return", "submit", "Import", show=True, priority=True),
+        Binding("ctrl+s", "submit", "Import", show=True, priority=True),
     ]
 
     def compose(self) -> ComposeResult:
@@ -45,7 +45,7 @@ class VideoImportModal(ModalScreen[VideoImportForm | None]):
             Static(
                 "Local MP4 path or http(s) URL (YouTube etc.; URLs need yt-dlp).\n"
                 "Transcription runs now; use [bold]p[/] slide preview after import.\n"
-                "Ctrl+Enter: import · Esc: cancel — or use buttons below.",
+                "Ctrl+S or Enter: import · Esc: cancel — or use buttons below.",
                 classes="dim",
             ),
             Static("Source path or URL"),
