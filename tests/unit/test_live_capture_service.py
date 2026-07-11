@@ -10,12 +10,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
 import pytest
-
 from live_meeting_transcriber.application.live_capture import LiveScreenCaptureLoop
 from live_meeting_transcriber.domain.application_events import (
     ApplicationEvent,
@@ -53,7 +53,7 @@ class FakeScreen:
         return ok
 
 
-def _sleeper_stopping_after(n_sleeps: int):
+def _sleeper_stopping_after(n_sleeps: int) -> Callable[[float], Awaitable[None]]:
     """An injected sleeper that lets the loop iterate ``n_sleeps`` times, then cancels."""
     count = 0
 
@@ -67,15 +67,18 @@ def _sleeper_stopping_after(n_sleeps: int):
 
 
 def _loop(
-    tmp_path: Path, screen: FakeScreen, *, enabled: bool = True, sleeper=None
+    tmp_path: Path,
+    screen: FakeScreen,
+    *,
+    enabled: bool = True,
+    sleeper: Callable[[float], Awaitable[None]] | None = None,
 ) -> LiveScreenCaptureLoop:
-    kwargs = {} if sleeper is None else {"sleeper": sleeper}
+    if sleeper is None:
+        return LiveScreenCaptureLoop(
+            screen=screen, data_dir=tmp_path, enabled=enabled, interval_seconds=60
+        )
     return LiveScreenCaptureLoop(
-        screen=screen,
-        data_dir=tmp_path,
-        enabled=enabled,
-        interval_seconds=60,
-        **kwargs,
+        screen=screen, data_dir=tmp_path, enabled=enabled, interval_seconds=60, sleeper=sleeper
     )
 
 

@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-from uuid import uuid4
 
 from live_meeting_transcriber.application.screenshot_export import (
     list_session_live_captures,

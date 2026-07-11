@@ -53,6 +53,20 @@ class AudioCapture(Protocol):
     ) -> AudioChunk: ...
 
 
+class ScreenCapture(Protocol):
+    """Capture the current screen to an image file (F6 live meeting context).
+
+    ``availability`` reports whether capture can work here at all (platform,
+    binary present) with a human-readable reason when it cannot; the OS-level
+    Screen Recording permission (macOS TCC) is NOT probeable headlessly, so a
+    ``capture`` that silently yields a wallpaper-only image is still "available".
+    """
+
+    def availability(self) -> tuple[bool, str | None]: ...
+
+    def capture(self, output_path: Path) -> bool: ...
+
+
 @runtime_checkable
 class TranscriptionProvider(Protocol):
     async def transcribe(self, *, chunk: AudioChunk) -> TranscriptSegment: ...
