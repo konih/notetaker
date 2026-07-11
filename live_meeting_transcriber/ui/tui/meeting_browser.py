@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import functools
 from collections.abc import Callable
 from uuid import UUID
 
-from rich.text import Text
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -20,40 +18,13 @@ from textual.widgets import (
     TextArea,
 )
 
-from live_meeting_transcriber.application.cleanup_service import purge_session_artifacts
 from live_meeting_transcriber.application.container import Container
-from live_meeting_transcriber.application.session_media import (
-    collect_session_media,
-    format_session_media_inventory,
-)
-from live_meeting_transcriber.application.session_search import apply_session_query
-from live_meeting_transcriber.application.session_service import SessionService
-from live_meeting_transcriber.application.video_import_service import VideoImportProgress
-from live_meeting_transcriber.domain.models import Summary, TranscriptSegment
-from live_meeting_transcriber.ui.state import actions as act
-from live_meeting_transcriber.ui.state.model import AppState, RecordingStatus
+from live_meeting_transcriber.domain.models import TranscriptSegment
+from live_meeting_transcriber.ui.state.model import AppState
 from live_meeting_transcriber.ui.state.store import Store
-from live_meeting_transcriber.ui.tui.empty_states import MEETINGS_EMPTY_HINT
-from live_meeting_transcriber.ui.tui.footer_bindings import footer_key
-from live_meeting_transcriber.ui.tui.meeting_modals import (
-    ConfirmDeleteMeetingModal,
-    EditSegmentModal,
-    MeetingActionsMenu,
-    SessionMediaModal,
-    SummaryContextModal,
-)
-from live_meeting_transcriber.ui.tui.meeting_session_helpers import (
-    count_preview_candidates,
-    count_saved_slides,
-    format_slide_detail_note,
-    list_preview_candidate_timestamps,
-    meeting_row_cells,
-    session_has_slide_source,
-    session_is_video_import,
-)
+from live_meeting_transcriber.ui.tui import meeting_actions, meeting_detail
 from live_meeting_transcriber.ui.tui.meeting_toolbar import (
     MORE_BUTTON_ID,
-    overflow_toolbar_actions,
     primary_toolbar_actions,
     toolbar_action_by_button_id,
 )
@@ -61,21 +32,13 @@ from live_meeting_transcriber.ui.tui.people_suggesters import (
     CommaSeparatedPeopleSuggester,
     PeoplePrefixSuggester,
 )
-from live_meeting_transcriber.ui.tui.rendering import speaker_color
-from live_meeting_transcriber.ui.tui.slide_preview_screen import SlidePreviewScreen
 from live_meeting_transcriber.ui.tui.tab_complete_input import TabCompletableInput
-from live_meeting_transcriber.ui.tui.transcript_display import format_meeting_transcript_text
-from live_meeting_transcriber.ui.tui.video_import_modal import (
-    VideoImportForm,
-    VideoImportModal,
-    format_video_import_error,
-    run_video_import,
-)
-from live_meeting_transcriber.utils.time import utc_now
 
-# Canonical Summarize key (UX-OQ-3): sourced from the global footer catalog so every
-# inline hint on this tab renders the same key as the footer and the ? overlay (U12).
-_SUMMARIZE_KEY = footer_key("summarize")
+# Canonical Summarize key and the summary-editor placeholder renderer live in
+# meeting_detail (A5); aliased here because compose() renders the key hint and
+# guard tests import the renderer from this module.
+_SUMMARIZE_KEY = meeting_detail.SUMMARIZE_KEY
+_format_summary_for_editor = meeting_detail.format_summary_for_editor
 
 
 class MeetingFilterInput(Input):
@@ -88,19 +51,6 @@ class MeetingFilterInput(Input):
 
     def action_dismiss_filter(self) -> None:
         self.post_message(self.Cleared())
-
-
-def _format_summary_for_editor(summary: Summary | None) -> str:
-    if summary is None:
-        return f"— No summary yet. Press {_SUMMARIZE_KEY} to generate. —"
-    parts: list[str] = [summary.summary_markdown.strip()]
-    if summary.decisions:
-        parts.append("## Decisions\n" + "\n".join(f"- {d.text}" for d in summary.decisions))
-    if summary.action_items:
-        parts.append(
-            "## Action items\n" + "\n".join(f"- [ ] {ai.text}" for ai in summary.action_items)
-        )
-    return "\n\n".join(parts)
 
 
 class MeetingBrowser(Vertical):
@@ -262,57 +212,7 @@ class MeetingBrowser(Vertical):
             self.run_worker(_reload(), exclusive=True)
 
     def refresh_session_list(self, *, preserve_selection: bool = False) -> None:
-        table = self.query_one("#meeting-sessions-table", DataTable)
-        selected = (
-            str(self._selected_session_id)
-            if preserve_selection and self._selected_session_id
-            else None
-        )
-        data_dir = self.container.settings.ensure_data_dir()
-        active_session_id = self.store.get_state().current_session_id
-        now = utc_now()
-        sessions = apply_session_query(self.container.sessions.list(), self._filter_query)
-        table.clear()
-        for s in sessions:
-            is_video = session_is_video_import(data_dir, s.id)
-            glyph, style, title, started = meeting_row_cells(
-                s, is_video=is_video, active_session_id=active_session_id, now=now
-            )
-            table.add_row(
-                Text(glyph, style=style),
-                title,
-                Text(started, style="dim"),
-                key=str(s.id),
-            )
-        visible_ids = [str(s.id) for s in sessions]
-        if selected and selected in visible_ids:
-            table.move_cursor(row=visible_ids.index(selected))
-        elif selected:
-            # The selected meeting was filtered out — keep list and detail in sync
-            # (U17): fall to the first visible row, or clear the detail pane.
-            self._selected_session_id = None
-            if table.row_count > 0:
-                table.move_cursor(row=0)
-            else:
-
-                async def _clear_then_hint() -> None:
-                    await self._clear_detail()
-                    self._update_empty_status()
-
-                self.run_worker(_clear_then_hint(), exclusive=True)
-        self._update_empty_status()
-
-    def _update_empty_status(self) -> None:
-        """Empty-table guidance: first-run hint (U10) or an explicit no-match state (U17)."""
-        if self.query_one("#meeting-sessions-table", DataTable).row_count > 0:
-            return
-        status = self.query_one("#meeting-detail-status", Static)
-        if self._filter_query.strip():
-            status.update(
-                f"No meetings match “{self._filter_query.strip()}” — esc clears the filter."
-            )
-        else:
-            status.update(MEETINGS_EMPTY_HINT)
+        meeting_detail.refresh_session_list(self, preserve_selection=preserve_selection)
 
     def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id != "meeting-filter":
@@ -357,363 +257,41 @@ class MeetingBrowser(Vertical):
         await self._load_detail(self._selected_session_id)
 
     async def _load_detail(self, session_id: UUID) -> None:
-        session = self.container.sessions.get(session_id)
-        if session is None:
-            return
-        status = self.query_one("#meeting-detail-status", Static)
-        data_dir = self.container.settings.ensure_data_dir()
-        is_video = session_is_video_import(data_dir, session_id)
-        has_slide_source = session_has_slide_source(data_dir, session_id)
-        saved_slides = count_saved_slides(data_dir, session_id)
-        preview_count = count_preview_candidates(data_dir, session_id)
-        preview_timestamps = list_preview_candidate_timestamps(data_dir, session_id)
-        kind = "[cyan]Video import[/]" if is_video else "[green]Live recording[/]"
-        slide_note = format_slide_detail_note(
-            saved_slides=saved_slides,
-            preview_count=preview_count,
-            preview_timestamps=preview_timestamps,
-            has_slide_source=has_slide_source,
-        )
-        status.update(f"Editing {kind} [bold]{session.title}[/bold] ({session_id}){slide_note}")
-
-        continue_btn = self.query_one("#meeting-btn-continue-record", Button)
-        continue_btn.disabled = is_video
-        slide_btn = self.query_one("#meeting-btn-slide-preview", Button)
-        slide_btn.disabled = not has_slide_source
-
-        title_inp = self.query_one("#meeting-title", TabCompletableInput)
-        title_inp.disabled = False
-        title_inp.value = session.title
-
-        notes = self.query_one("#meeting-notes", TextArea)
-        notes.disabled = False
-        notes.text = session.notes
-
-        att = self.query_one("#meeting-attendees", TabCompletableInput)
-        att.disabled = False
-        att.value = ", ".join(session.attendees)
-        att.suggester = self._comma_suggester
-
-        summary = self.container.summaries.get_by_session(session_id)
-        sum_ta = self.query_one("#meeting-summary", TextArea)
-        sum_ta.disabled = False
-        sum_ta.text = _format_summary_for_editor(summary)
-        sum_ta.disabled = True
-
-        self._segments = self.container.transcripts.list_by_session(session_id)
-        name_map = self.container.session_speakers.get_map(session_id)
-        self._speaker_keys = sorted({s.speaker for s in self._segments})
-
-        spk_area = self.query_one("#meeting-speaker-area", Vertical)
-        await spk_area.remove_children()
-        rows: list[Horizontal] = []
-        for sk in self._speaker_keys:
-            chip = Text.assemble(
-                ("▍", speaker_color(sk)), (f"{sk} ", f"bold {speaker_color(sk)}"), ("→", "dim")
-            )
-            rows.append(
-                Horizontal(
-                    Static(chip, classes="spk-label"),
-                    TabCompletableInput(
-                        value=name_map.get(sk, ""),
-                        placeholder="Display name",
-                        suggester=self._prefix_suggester,
-                        id=f"spk-{sk}",
-                        classes="spk-inp",
-                    ),
-                    classes="spk-row",
-                )
-            )
-        if rows:
-            await spk_area.mount(*rows)
-
-        transcript = self.query_one("#meeting-transcript", TextArea)
-        transcript.text = format_meeting_transcript_text(self._segments, session, name_map)
-        self._transcript_row_ids = [str(s.id) for s in self._segments]
-
-        st = self.store.get_state()
-        if st.pending_meeting_detail_reload == session_id:
-            self.store.dispatch(act.DetailReloadAcknowledged(at=utc_now()))
+        await meeting_detail.load_detail(self, session_id)
 
     async def _clear_detail(self) -> None:
-        self._selected_session_id = None
-        self._segments = []
-        self._transcript_row_ids = []
-        self._speaker_keys = []
-        self.query_one("#meeting-detail-status", Static).update("No meeting selected.")
-        self.query_one("#meeting-title", TabCompletableInput).value = ""
-        self.query_one("#meeting-title", TabCompletableInput).disabled = True
-        notes = self.query_one("#meeting-notes", TextArea)
-        notes.text = ""
-        notes.disabled = True
-        sum_ta = self.query_one("#meeting-summary", TextArea)
-        sum_ta.text = ""
-        sum_ta.disabled = True
-        att = self.query_one("#meeting-attendees", TabCompletableInput)
-        att.value = ""
-        att.disabled = True
-        spk_area = self.query_one("#meeting-speaker-area", Vertical)
-        await spk_area.remove_children()
-        self.query_one("#meeting-transcript", TextArea).text = ""
-        continue_btn = self.query_one("#meeting-btn-continue-record", Button)
-        continue_btn.disabled = False
-        slide_btn = self.query_one("#meeting-btn-slide-preview", Button)
-        slide_btn.disabled = True
+        await meeting_detail.clear_detail(self)
 
+    # Action bodies live in meeting_actions (A5, ARCH-10). Each action_* method
+    # stays here as a thin delegate so BINDINGS, the toolbar catalog
+    # (dispatch_toolbar_action resolves by name on this widget), and the ? overlay
+    # keep their contracts.
     async def action_import_video(self) -> None:
-        await self.app.push_screen(
-            VideoImportModal(),
-            callback=self._after_video_import_modal,
-        )
-
-    def _after_video_import_modal(self, form: VideoImportForm | None) -> None:
-        if form is None:
-            return
-        self.run_worker(self._run_video_import(form), exclusive=True, group="video-import")
-
-    async def _run_video_import(self, form: VideoImportForm) -> None:
-        status = self.query_one("#meeting-detail-status", Static)
-        status.update("[dim]Importing video…[/]")
-        slide_btn = self.query_one("#meeting-btn-slide-preview", Button)
-        slide_btn.disabled = True
-        self.app.notify(
-            f"Importing video from {form.source[:64]}{'…' if len(form.source) > 64 else ''}…",
-            severity="information",
-        )
-
-        def _on_progress(p: VideoImportProgress) -> None:
-            if p.phase == "slides":
-                status.update("[dim]Importing — detecting slides…[/]")
-                self.app.notify("Detecting slides…", severity="information", timeout=3)
-                return
-            pct = int(100 * p.chunk_index / p.chunk_total) if p.chunk_total else 0
-            status.update(
-                f"[dim]Importing — transcribing chunk {p.chunk_index}/{p.chunk_total} ({pct}%)…[/]"
-            )
-            self.app.notify(
-                f"Transcribing chunk {p.chunk_index}/{p.chunk_total} ({pct}%) — "
-                f"{p.segments_so_far} segment(s) so far",
-                severity="information",
-                timeout=4,
-            )
-
-        try:
-            result = await run_video_import(
-                self.container,
-                source=form.source,
-                title=form.title,
-                on_progress=_on_progress,
-            )
-        except Exception as e:
-            self.app.notify(format_video_import_error(e), severity="error", timeout=8)
-            return
-
-        await self.store.dispatch_with_effects(act.SessionsRefreshRequested(at=utc_now()))
-        self._selected_session_id = result.session_id
-        self.refresh_session_list(preserve_selection=True)
-        table = self.query_one("#meeting-sessions-table", DataTable)
-        for i, s in enumerate(self.container.sessions.list()):
-            if s.id == result.session_id:
-                table.move_cursor(row=i)
-                break
-        await self._load_detail(result.session_id)
-        session = self.container.sessions.get(result.session_id)
-        title = session.title if session is not None else "video"
-        msg = (
-            f"Imported “{title}” — {result.segment_count} segment(s). "
-            "Press [bold]p[/] for slide preview."
-        )
-        if result.transcription is not None:
-            warning = result.transcription.status_message()
-            if warning is not None and result.transcription.segments > 0:
-                self.app.notify(warning, severity="warning", timeout=10)
-        self.app.notify(msg, timeout=6)
+        await meeting_actions.import_video(self)
 
     async def action_save_meeting(self) -> None:
-        if self._selected_session_id is None:
-            self.app.notify("Select a meeting first.", severity="warning")
-            return
-        sid = self._selected_session_id
-        title = self.query_one("#meeting-title", TabCompletableInput).value.strip()
-        notes = self.query_one("#meeting-notes", TextArea).text
-        raw_att = self.query_one("#meeting-attendees", TabCompletableInput).value
-        parts = [p.strip() for p in raw_att.replace("\n", ",").split(",")]
-        attendees = [p for p in parts if p]
-
-        if not title:
-            self.app.notify("Title required.", severity="error")
-            return
-
-        updated = self.container.sessions.update_details(
-            sid, title=title, notes=notes, attendees=attendees
-        )
-        if updated is None:
-            self.app.notify("Save failed.", severity="error")
-            return
-
-        mapping: dict[str, str] = {}
-        for sk in self._speaker_keys:
-            inp = self.query_one(f"#spk-{sk}", TabCompletableInput)
-            mapping[sk] = inp.value.strip()
-        self.container.session_speakers.replace_map(sid, mapping)
-
-        for name in attendees:
-            self.container.people.touch(name)
-        for v in mapping.values():
-            if v:
-                self.container.people.touch(v)
-
-        await self.store.dispatch_with_effects(act.SessionsRefreshRequested(at=utc_now()))
-        self.app.notify("Meeting saved (title, notes, attendees, speakers).")
-        self.refresh_session_list(preserve_selection=True)
+        await meeting_actions.save_meeting(self)
 
     async def action_finalize_selected_speakers(self) -> None:
-        if self._selected_session_id is None:
-            self.app.notify("Select a meeting first.", severity="warning")
-            return
-        sid = self._selected_session_id
-        self.app.notify(
-            "Running speaker ID (WhisperX) — this may take a while…", severity="information"
-        )
-        await self.store.dispatch_with_effects(
-            act.FinalizeSessionRequested(session_id=sid, at=utc_now())
-        )
+        await meeting_actions.finalize_selected_speakers(self)
 
     async def action_summarize_meeting(self) -> None:
-        if self._selected_session_id is None:
-            self.app.notify("Select a meeting first.", severity="warning")
-            return
-        sid = self._selected_session_id
-        await self.app.push_screen(
-            SummaryContextModal(),
-            callback=functools.partial(self._after_summary_context_modal, sid),
-        )
-
-    def _after_summary_context_modal(self, sid: UUID, context: str | None) -> None:
-        if context is None:
-            return
-        user_ctx = context or None
-        self.run_worker(self._run_summarize(sid, user_ctx), exclusive=True)
-
-    async def _run_summarize(self, sid: UUID, user_context: str | None) -> None:
-        self.app.notify("Summarizing… (OpenAI)")
-        svc = SessionService(
-            sessions=self.container.sessions,
-            transcripts=self.container.transcripts,
-            summaries=self.container.summaries,
-            summarizer=self.container.summarizer,
-            session_speakers=self.container.session_speakers,
-        )
-        try:
-            await svc.summarize_session(session_id=sid, user_context=user_context)
-        except Exception as e:
-            self.app.notify(f"Summarize failed: {e}", severity="error")
-            return
-        self.app.notify("Summary saved.")
-        await self.store.dispatch_with_effects(act.SessionsRefreshRequested(at=utc_now()))
-        await self._load_detail(sid)
+        await meeting_actions.summarize_meeting(self)
 
     async def action_show_session_media(self) -> None:
-        if self._selected_session_id is None:
-            self.app.notify("Select a meeting first.", severity="warning")
-            return
-        data_dir = self.container.settings.ensure_data_dir()
-        inventory = collect_session_media(data_dir, self._selected_session_id)
-        body = format_session_media_inventory(inventory)
-        await self.app.push_screen(SessionMediaModal(body=body))
+        await meeting_actions.show_session_media(self)
 
     async def action_slide_preview(self) -> None:
-        if self._selected_session_id is None:
-            self.app.notify("Select a meeting first.", severity="warning")
-            return
-        data_dir = self.container.settings.ensure_data_dir()
-        if not session_has_slide_source(data_dir, self._selected_session_id):
-            self.app.notify(
-                "Slide preview needs a session with source video on disk "
-                "(import with ctrl+v or transcribe-video).",
-                severity="warning",
-            )
-            return
-        await self.app.push_screen(
-            SlidePreviewScreen(
-                container=self.container,
-                session_id=self._selected_session_id,
-            ),
-            callback=self._after_slide_preview,
-        )
-
-    def _after_slide_preview(self, _result: None) -> None:
-        if self._selected_session_id is None:
-            return
-        sid = self._selected_session_id
-        data_dir = self.container.settings.ensure_data_dir()
-        saved = count_saved_slides(data_dir, sid)
-        preview_count = count_preview_candidates(data_dir, sid)
-
-        async def _reload() -> None:
-            await self._load_detail(sid)
-            if preview_count and saved == 0:
-                self.app.notify(
-                    "Preview complete — use [bold]Apply all candidates[/] or mark rows with "
-                    "[bold]y[/] then [bold]Apply kept slides[/] in slide preview.",
-                    severity="information",
-                    timeout=8,
-                )
-            elif saved:
-                self.app.notify(
-                    f"{saved} slide(s) saved — ready to export with [bold]w[/].",
-                    severity="information",
-                    timeout=6,
-                )
-
-        self.run_worker(_reload(), exclusive=True)
+        await meeting_actions.slide_preview(self)
 
     async def action_refresh_list(self) -> None:
-        self.refresh_session_list(preserve_selection=True)
-        if self._selected_session_id is not None:
-            await self._load_detail(self._selected_session_id)
-        self.app.notify("Refreshed.")
+        await meeting_actions.refresh_list(self)
 
     async def action_export_meeting(self) -> None:
-        if self._selected_session_id is None:
-            self.app.notify("Select a meeting first.", severity="warning")
-            return
-        await self.store.dispatch_with_effects(
-            act.ExportMarkdownRequested(at=utc_now(), session_id=self._selected_session_id)
-        )
+        await meeting_actions.export_meeting(self)
 
     async def action_continue_recording(self) -> None:
-        if self._selected_session_id is None:
-            self.app.notify("Select a meeting in the list first.", severity="warning")
-            return
-        st = self.store.get_state()
-        if st.recording_status in (
-            RecordingStatus.starting,
-            RecordingStatus.recording,
-            RecordingStatus.stopping,
-        ):
-            self.app.notify(
-                "Stop the current recording before continuing another meeting.", severity="warning"
-            )
-            return
-        session = self.container.sessions.get(self._selected_session_id)
-        if session is None:
-            self.app.notify("Meeting not found in the database.", severity="error")
-            return
-        await self.store.dispatch_with_effects(
-            act.RecordingStartRequested(
-                title=session.title,
-                audio_source=st.audio_source,
-                at=utc_now(),
-                resume_session_id=session.id,
-            )
-        )
-        self.app.notify(
-            f"Recording into: {session.title}. Switch to the Live tab for the transcript."
-        )
-        focus = getattr(self.app, "action_focus_live_tab", None)
-        if callable(focus):
-            focus()
+        await meeting_actions.continue_recording(self)
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         bid = event.button.id or ""
@@ -731,106 +309,10 @@ class MeetingBrowser(Vertical):
             await method()
 
     async def action_show_more_menu(self) -> None:
-        await self.app.push_screen(
-            MeetingActionsMenu(overflow_toolbar_actions()),
-            callback=self._after_more_menu,
-        )
-
-    def _after_more_menu(self, action_name: str | None) -> None:
-        if action_name is None:
-            return
-        self.run_worker(self.dispatch_toolbar_action(action_name))
+        await meeting_actions.show_more_menu(self)
 
     async def action_delete_meeting(self) -> None:
-        if self._selected_session_id is None:
-            self.app.notify("Select a meeting first.", severity="warning")
-            return
-        sid = self._selected_session_id
-        st = self.store.get_state()
-        if st.current_session_id == sid and st.recording_status in (
-            RecordingStatus.starting,
-            RecordingStatus.recording,
-            RecordingStatus.stopping,
-        ):
-            self.app.notify(
-                "Cannot delete the meeting while recording is in progress.", severity="error"
-            )
-            return
-        title = (
-            self.query_one("#meeting-title", TabCompletableInput).value.strip()
-            or str(sid)[:8] + "…"
-        )
-        await self.app.push_screen(
-            ConfirmDeleteMeetingModal(title=title, session_id=sid),
-            callback=functools.partial(self._after_delete_meeting_confirm, sid),
-        )
-
-    def _after_delete_meeting_confirm(self, sid: UUID, confirmed: bool | None) -> None:
-        if not confirmed:
-            return
-        self.run_worker(self._complete_delete_meeting(sid), exclusive=True)
-
-    async def _complete_delete_meeting(self, sid: UUID) -> None:
-        catalog_before = self.container.sessions.list()
-        try:
-            del_idx = next(i for i, s in enumerate(catalog_before) if s.id == sid)
-        except StopIteration:
-            del_idx = 0
-        removed = self.container.sessions.delete(sid)
-        if removed:
-            purge_session_artifacts(
-                self.container.settings.ensure_data_dir(),
-                sid,
-                dry_run=False,
-            )
-            self.app.notify("Meeting deleted.")
-        else:
-            self.app.notify("Meeting was already removed.", severity="warning")
-
-        remaining = self.container.sessions.list()
-        if remaining:
-            pick = min(del_idx, len(remaining) - 1)
-            self._selected_session_id = remaining[pick].id
-        else:
-            self._selected_session_id = None
-
-        await self.store.dispatch_with_effects(act.SessionsRefreshRequested(at=utc_now()))
-        self.refresh_session_list(preserve_selection=True)
-
-        if self._selected_session_id is not None:
-            table = self.query_one("#meeting-sessions-table", DataTable)
-            for i, s in enumerate(self.container.sessions.list()):
-                if s.id == self._selected_session_id:
-                    table.move_cursor(row=i)
-                    break
-            await self._load_detail(self._selected_session_id)
-        else:
-            await self._clear_detail()
+        await meeting_actions.delete_meeting(self)
 
     async def action_edit_segment(self) -> None:
-        if self._selected_session_id is None or not self._segments:
-            self.app.notify("Select a meeting with transcript lines.", severity="warning")
-            return
-        transcript = self.query_one("#meeting-transcript", TextArea)
-        row = transcript.cursor_location[0]
-        if row < 0 or row >= len(self._transcript_row_ids):
-            self.app.notify("Place the cursor on a transcript line first.", severity="warning")
-            return
-        seg_id = UUID(self._transcript_row_ids[row])
-        seg = next((s for s in self._segments if s.id == seg_id), None)
-        if seg is None:
-            return
-        await self.app.push_screen(
-            EditSegmentModal(container=self.container, segment=seg),
-            callback=self._after_edit_segment_modal,
-        )
-
-    def _after_edit_segment_modal(self, result: bool | None) -> None:
-        if not result or self._selected_session_id is None:
-            return
-        sid = self._selected_session_id
-
-        async def _reload() -> None:
-            await self._load_detail(sid)
-
-        self.run_worker(_reload(), exclusive=True)
+        await meeting_actions.edit_segment(self)
