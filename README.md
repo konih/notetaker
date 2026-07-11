@@ -130,6 +130,15 @@ listed in the **command palette** (**`Ctrl+P`**): **`t`** edit meeting, **`s`** 
 shortcuts (it reads the live keymap, so it can't drift). The status sidebar shows the
 **log file path** after settings load.
 
+**Speaker ID / finalize feedback.** Running Speaker ID (**`Ctrl+D`**) — or the automatic
+finalize after a recording stops — shows up in the **status deck** (the top strip visible
+on every tab): the meeting name, the current pipeline stage (transcribe → align →
+diarize), and how many jobs are queued behind it. The outcome stays in the deck (and in
+the Live-tab notices + Logs tab) until the next job — including an explicit warning when
+speakers could **not** be labelled (missing `HF_TOKEN`). Quitting while a job runs
+**defers exit until the result is saved** (press **`q`** again to discard the result — exit may still take a moment while the compute thread winds down; a dropped
+job is re-queued on next launch).
+
 **Browsing meetings.** The **Meetings tab is the single home** for browsing and managing
 sessions: press **`/`** there to filter the list by free text (title/notes/attendees) and
 date tokens — e.g. `standup after:2026-07-01 before:2026-07-31` (**`Esc`** clears the

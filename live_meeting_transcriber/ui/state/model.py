@@ -121,6 +121,18 @@ class AppState(BaseModel):
     sessions_screen_open: bool = False
     pending_meeting_detail_reload: UUID | None = None
     ui_log_lines: tuple[str, ...] = Field(default_factory=tuple)
+    # --- Offline Speaker ID / finalize job feedback (B7). One job runs at a time
+    # (sequential queue in TuiController); these fields drive the always-visible
+    # status-deck strip so the operator sees start/progress/completion on every
+    # tab, not just the Live sidebar or the hidden Logs tab.
+    finalize_active_session_id: UUID | None = None
+    finalize_active_title: str | None = None
+    finalize_stage: str | None = None
+    finalize_queued_count: int = 0
+    # Last completed/failed job outcome; persists in the deck until the next job
+    # starts (a 3s toast is not enough feedback for a multi-minute job).
+    finalize_last_result: str | None = None
+    finalize_last_result_level: str = "info"
 
 
 def initial_app_state() -> AppState:

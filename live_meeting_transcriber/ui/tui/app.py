@@ -773,6 +773,11 @@ class TranscriberApp(App[None]):
         # into the fields, and the last-persisted snapshot for change detection on auto-save.
         self._details_loaded_for: UUID | None = None
         self._last_saved_details: tuple[str, str, tuple[str, ...]] | None = None
+        # B7: quit is deferred while a Speaker ID / finalize job is in flight so its
+        # result gets persisted; a second quit press force-quits. The last toasted
+        # finalize outcome is tracked so each result raises exactly one toast.
+        self._quit_after_finalize: bool = False
+        self._last_finalize_result_toasted: str | None = None
 
     def get_system_commands(self, screen: Screen[Any]) -> Iterable[SystemCommand]:
         """Keep the overflow actions (hidden from the trimmed footer, U4)
@@ -888,6 +893,7 @@ class TranscriberApp(App[None]):
             return
 
     def _on_state(self, state: AppState) -> None:
+        self._maybe_toast_finalize_result(state)
         try:
             notices = self.query_one("#notices", Static)
             err_panel = self.query_one("#errors", Static)
@@ -1251,8 +1257,49 @@ class TranscriberApp(App[None]):
         )
         return await future
 
+    def _maybe_toast_finalize_result(self, state: AppState) -> None:
+        """Raise one toast per finalize outcome (B7).
+
+        The persistent surfaces are the status deck, the Live-tab notices and the
+        Logs tab; the toast is the attention-grabber that works from any tab or
+        modal. Runs before widget queries so a pushed screen can't swallow it.
+        """
+        result = state.finalize_last_result
+        if not result or result == self._last_finalize_result_toasted:
+            return
+        self._last_finalize_result_toasted = result
+        if state.finalize_last_result_level == "error":
+            self.notify(result, severity="error", timeout=10)
+        elif state.finalize_last_result_level == "warning":
+            self.notify(result, severity="warning", timeout=10)
+        else:
+            self.notify(result, severity="information", timeout=10)
+
     async def action_quit(self) -> None:
+        if self._quit_after_finalize:
+            # Second press: the operator insists — force-quit. The in-flight job's
+            # result is lost, but startup recovery re-queues it next launch.
+            self.exit()
+            return
         await self.store.dispatch_with_effects(act.RecordingStopRequested(at=utc_now()))
+        if self._controller.finalize_busy:
+            # B7: exiting now would cancel the finalize worker between the WhisperX
+            # pass and the DB write — the shutdown still blocks on the compute
+            # thread, so the wait costs nothing extra but keeps the result.
+            self._quit_after_finalize = True
+            msg = (
+                "Speaker ID / finalize is still running — quitting once it saves. "
+                "Press q again to discard the result and quit (the job re-runs on next launch; "
+                "exit may still take a moment while the compute thread winds down)."
+            )
+            self.notify(msg, severity="warning", timeout=12)
+            self.store.dispatch(act.NoticeRaised(message=msg, at=utc_now()))
+            self.run_worker(self._exit_when_finalize_idle(), exclusive=False)
+            return
+        self.exit()
+
+    async def _exit_when_finalize_idle(self) -> None:
+        await self._controller.wait_finalize_idle()
         self.exit()
 
 

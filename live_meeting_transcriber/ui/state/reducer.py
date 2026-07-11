@@ -270,15 +270,94 @@ def reduce(state: AppState, action: act.Action) -> AppState:
         n = (*state.notices, action.message)[-_MAX_NOTICES:]
         return _touch(state.model_copy(update={"notices": n}), action.at)
 
-    if isinstance(action, act.FinalizeSessionSucceeded):
-        msg = (
-            f"Speaker ID / finalize complete ({action.segment_count} segment(s)) "
-            f"for session {action.session_id}."
+    if isinstance(action, act.FinalizeSessionQueued):
+        logs = _append_ui_log(state, "info", f"Speaker ID queued: {action.title}", action.at)
+        return _touch(
+            state.model_copy(
+                update={
+                    "finalize_queued_count": state.finalize_queued_count + 1,
+                    "ui_log_lines": logs,
+                }
+            ),
+            action.at,
         )
+
+    if isinstance(action, act.FinalizeSessionStarted):
+        logs = _append_ui_log(state, "info", f"Speaker ID started: {action.title}", action.at)
+        return _touch(
+            state.model_copy(
+                update={
+                    "finalize_active_session_id": action.session_id,
+                    "finalize_active_title": action.title,
+                    "finalize_stage": "starting…",
+                    "finalize_queued_count": max(0, state.finalize_queued_count - 1),
+                    "finalize_last_result": None,
+                    "finalize_last_result_level": "info",
+                    "ui_log_lines": logs,
+                }
+            ),
+            action.at,
+        )
+
+    if isinstance(action, act.FinalizeProgressUpdated):
+        logs = _append_ui_log(state, "info", f"Finalize: {action.stage}", action.at)
+        return _touch(
+            state.model_copy(update={"finalize_stage": action.stage, "ui_log_lines": logs}),
+            action.at,
+        )
+
+    if isinstance(action, act.FinalizeSessionFailed):
+        fail = UiErrorState(
+            id=str(uuid.uuid4()),
+            message=action.message,
+            at=action.at,
+            acknowledged=False,
+        )
+        merged_fail_errors = (*state.recent_errors, fail)[-_MAX_ERRORS:]
+        logs = _append_ui_log(state, "error", action.message, action.at)
+        return _touch(
+            state.model_copy(
+                update={
+                    "recent_errors": merged_fail_errors,
+                    "ui_log_lines": logs,
+                    "finalize_active_session_id": None,
+                    "finalize_active_title": None,
+                    "finalize_stage": None,
+                    "finalize_last_result": action.message,
+                    "finalize_last_result_level": "error",
+                }
+            ),
+            action.at,
+        )
+
+    if isinstance(action, act.FinalizeSessionSucceeded):
+        title = (
+            state.finalize_active_title
+            if state.finalize_active_session_id == action.session_id and state.finalize_active_title
+            else f"session {action.session_id}"
+        )
+        if action.speakers_labelled:
+            msg = f"Speaker ID done: {title} — {action.segment_count} segment(s)."
+            level = "info"
+        else:
+            # B4 honesty: WhisperX refined the transcript but diarization labelled
+            # nobody — a bare "done" would hide that speakers are still "unknown".
+            msg = (
+                f"Speaker ID finished for {title} ({action.segment_count} segment(s)), "
+                "but speakers were NOT labelled — set HF_TOKEN (pyannote) and re-run."
+            )
+            level = "warning"
         n = (*state.notices, msg)[-_MAX_NOTICES:]
+        logs = _append_ui_log(state, level, msg, action.at)
         finalize_updates: dict[str, object] = {
             "pending_meeting_detail_reload": action.session_id,
             "notices": n,
+            "ui_log_lines": logs,
+            "finalize_active_session_id": None,
+            "finalize_active_title": None,
+            "finalize_stage": None,
+            "finalize_last_result": msg,
+            "finalize_last_result_level": level,
         }
         if action.live_lines is not None:
             finalize_updates["recent_transcript_segments"] = action.live_lines

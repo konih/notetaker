@@ -197,12 +197,54 @@ class FinalizeSessionRequested:
 
 
 @dataclass(frozen=True)
+class FinalizeSessionQueued:
+    """A Speaker ID / finalize job entered the sequential background queue (B7)."""
+
+    session_id: UUID
+    title: str
+    at: datetime
+
+
+@dataclass(frozen=True)
+class FinalizeSessionStarted:
+    """The queued Speaker ID / finalize job is now the one actually running (B7)."""
+
+    session_id: UUID
+    title: str
+    at: datetime
+
+
+@dataclass(frozen=True)
+class FinalizeProgressUpdated:
+    """Coarse pipeline stage for the running finalize job (WhisperX progress hook)."""
+
+    session_id: UUID
+    stage: str
+    at: datetime
+
+
+@dataclass(frozen=True)
 class FinalizeSessionSucceeded:
-    """Finalize replaced the transcript; optionally refresh live transcript panel."""
+    """Finalize replaced the transcript; optionally refresh live transcript panel.
+
+    ``speakers_labelled`` is the B4 honesty flag: ``False`` means WhisperX ran but
+    diarization labelled nobody (e.g. no ``HF_TOKEN``) — the UI must say so instead
+    of reporting a bare success.
+    """
 
     session_id: UUID
     segment_count: int
     live_lines: tuple[TranscriptLineState, ...] | None
+    at: datetime
+    speakers_labelled: bool = True
+
+
+@dataclass(frozen=True)
+class FinalizeSessionFailed:
+    """The Speaker ID / finalize job errored; message is user-facing and persistent (B7)."""
+
+    session_id: UUID
+    message: str
     at: datetime
 
 
@@ -323,7 +365,11 @@ Action = (
     | ExportMarkdownRequested
     | SummarizeSessionRequested
     | FinalizeSessionRequested
+    | FinalizeSessionQueued
+    | FinalizeSessionStarted
+    | FinalizeProgressUpdated
     | FinalizeSessionSucceeded
+    | FinalizeSessionFailed
     | DetailReloadAcknowledged
     | SettingsScreenOpened
     | SettingsScreenClosed

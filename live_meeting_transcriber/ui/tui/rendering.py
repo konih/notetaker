@@ -146,12 +146,48 @@ def transcript_segment_text(
 
 _DECK_SEP = " [dim]│[/] "
 
+_DECK_TITLE_MAX = 24
+
+
+def _deck_truncate(text: str, limit: int = _DECK_TITLE_MAX) -> str:
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def finalize_deck_markup(state: AppState) -> str | None:
+    """Deck segment for the offline Speaker ID / finalize queue (B7).
+
+    While a job runs: job title + current pipeline stage (+ backlog size).
+    After it ends: the outcome *persists* (styled by severity) until the next
+    job starts — a multi-minute background job must not vanish into a 3s toast
+    or the hidden Logs tab. Returns ``None`` when there is nothing to report.
+    """
+    if state.finalize_active_session_id is not None:
+        title = _deck_truncate(state.finalize_active_title or "meeting")
+        stage = state.finalize_stage or "starting…"
+        queued = (
+            f" [dim](+{state.finalize_queued_count} queued)[/]"
+            if state.finalize_queued_count > 0
+            else ""
+        )
+        return f"[{STATE_BUSY}]⚙ Speaker ID[/] {escape(title)}: [dim]{escape(stage)}[/]{queued}"
+    if state.finalize_last_result:
+        if state.finalize_last_result_level == "error":
+            style, glyph = STATE_FAILED, "✖"
+        elif state.finalize_last_result_level == "warning":
+            style, glyph = STATE_BUSY, "⚠"
+        else:
+            style, glyph = STATE_OK, "✓"
+        return f"[{style}]{glyph}[/] [dim]{escape(state.finalize_last_result)}[/]"
+    return None
+
 
 def build_deck_markup(state: AppState, now: datetime, *, pulse_on: bool = True) -> str:
-    """The status deck's main line: pill · title · elapsed · VU · sparkline.
+    """The status deck's main line: pill · title · elapsed · VU · sparkline · finalize.
 
     Idle shows only pill + title (quiet chrome); the live metrics join the
-    line while recording. Pure so the deck widget stays a thin shell.
+    line while recording, and the Speaker ID / finalize job status joins it
+    whenever offline work is running or just finished (B7 — the deck is the
+    one strip visible from every tab). Pure so the deck widget stays a thin shell.
     """
     parts = [state_pill_markup(state.recording_status, pulse_on=pulse_on)]
     title = state.session_title or "no session"
@@ -164,4 +200,7 @@ def build_deck_markup(state: AppState, now: datetime, *, pulse_on: bool = True) 
         pct = f"{level * 100:3.0f}%" if level is not None else "  —"
         parts.append(f"{vu_bar_markup(level)} [dim]{pct}[/]")
         parts.append(sparkline_markup(state.level_history))
+    finalize = finalize_deck_markup(state)
+    if finalize is not None:
+        parts.append(finalize)
     return _DECK_SEP.join(parts)
