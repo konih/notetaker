@@ -6,6 +6,7 @@ from datetime import datetime
 from rich.markup import escape
 
 from live_meeting_transcriber.ui.state import actions as act
+from live_meeting_transcriber.ui.state.finalize_stages import select_finalize_stage_index
 from live_meeting_transcriber.ui.state.model import (
     AppState,
     DiarizationStatus,
@@ -110,6 +111,9 @@ def reduce(state: AppState, action: act.Action) -> AppState:
             "recording_started_at": action.at,
             "consecutive_empty_chunks": 0,
             "low_audio_warning_shown": False,
+            # Fresh per-chunk progress for this recording segment (F8).
+            "chunk_processing": False,
+            "chunks_processed": 0,
             # Fresh sparkline per recording segment (resume included — history shows *now*).
             "level_history": (),
             "diarization_status": DiarizationStatus.active
@@ -148,6 +152,7 @@ def reduce(state: AppState, action: act.Action) -> AppState:
                     "recording_status": RecordingStatus.stopped,
                     "transcription_status": TranscriptionStatus.idle,
                     "microphone_source": None,
+                    "chunk_processing": False,
                     "diarization_status": DiarizationStatus.disabled,
                     "recording_started_at": None,
                 }
@@ -170,6 +175,7 @@ def reduce(state: AppState, action: act.Action) -> AppState:
                     "recording_status": RecordingStatus.failed,
                     "transcription_status": TranscriptionStatus.failed,
                     "microphone_source": None,
+                    "chunk_processing": False,
                     "current_level_meter": None,
                     "diarization_status": DiarizationStatus.failed
                     if state.diarization_status == DiarizationStatus.active
@@ -290,6 +296,7 @@ def reduce(state: AppState, action: act.Action) -> AppState:
                     "finalize_active_session_id": action.session_id,
                     "finalize_active_title": action.title,
                     "finalize_stage": "starting…",
+                    "finalize_stage_index": 0,
                     "finalize_queued_count": max(0, state.finalize_queued_count - 1),
                     "finalize_last_result": None,
                     "finalize_last_result_level": "info",
@@ -302,7 +309,17 @@ def reduce(state: AppState, action: act.Action) -> AppState:
     if isinstance(action, act.FinalizeProgressUpdated):
         logs = _append_ui_log(state, "info", f"Finalize: {action.stage}", action.at)
         return _touch(
-            state.model_copy(update={"finalize_stage": action.stage, "ui_log_lines": logs}),
+            state.model_copy(
+                update={
+                    "finalize_stage": action.stage,
+                    # High-water mark: classification of a late message can only
+                    # advance the bar, never rewind it (wording-drift safety).
+                    "finalize_stage_index": max(
+                        state.finalize_stage_index, select_finalize_stage_index(action.stage)
+                    ),
+                    "ui_log_lines": logs,
+                }
+            ),
             action.at,
         )
 
@@ -323,6 +340,7 @@ def reduce(state: AppState, action: act.Action) -> AppState:
                     "finalize_active_session_id": None,
                     "finalize_active_title": None,
                     "finalize_stage": None,
+                    "finalize_stage_index": 0,
                     "finalize_last_result": action.message,
                     "finalize_last_result_level": "error",
                 }
@@ -356,6 +374,7 @@ def reduce(state: AppState, action: act.Action) -> AppState:
             "finalize_active_session_id": None,
             "finalize_active_title": None,
             "finalize_stage": None,
+            "finalize_stage_index": 0,
             "finalize_last_result": msg,
             "finalize_last_result_level": level,
         }
@@ -431,6 +450,20 @@ def reduce(state: AppState, action: act.Action) -> AppState:
                 update={
                     "audio_source": action.monitor_source,
                     "configured_microphone_source": action.microphone_source,
+                }
+            ),
+            action.at,
+        )
+
+    if isinstance(action, act.ChunkProcessingStarted):
+        return _touch(state.model_copy(update={"chunk_processing": True}), action.at)
+
+    if isinstance(action, act.ChunkProcessingFinished):
+        return _touch(
+            state.model_copy(
+                update={
+                    "chunk_processing": False,
+                    "chunks_processed": state.chunks_processed + 1,
                 }
             ),
             action.at,

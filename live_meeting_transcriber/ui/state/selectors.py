@@ -1,8 +1,18 @@
 from __future__ import annotations
 
+import math
 from datetime import datetime, tzinfo
 
 from live_meeting_transcriber.domain.speaker_display import format_transcript_speaker_label
+
+# Stage ladder lives in its own module so the (import-light) reducer can share it;
+# re-exported here because selectors are the UI's one-stop derive-from-state API.
+from live_meeting_transcriber.ui.state.finalize_stages import (
+    FINALIZE_STAGES as FINALIZE_STAGES,
+)
+from live_meeting_transcriber.ui.state.finalize_stages import (
+    select_finalize_stage_index as select_finalize_stage_index,
+)
 from live_meeting_transcriber.ui.state.model import (
     AppState,
     RecordingStatus,
@@ -44,6 +54,40 @@ def select_decayed_level(state: AppState, now: datetime) -> float | None:
     # Hold at full for one interval; decay over the next; zero once two intervals stale.
     factor = 1.0 if elapsed <= window else max(0.0, 1.0 - (elapsed - window) / window)
     return state.current_level_meter * factor
+
+
+def select_chunk_progress_label(state: AppState) -> str | None:
+    """Compact per-chunk transcription progress for the Live Audio card (F8).
+
+    ``None`` when idle or before the first chunk lands (nothing to report);
+    "#N transcribing…" while chunk N is in the live transcriber, "#N done" between
+    chunks. Numbering is 1-based from the operator's point of view.
+    """
+    if state.recording_status != RecordingStatus.recording:
+        return None
+    if state.chunk_processing:
+        return f"#{state.chunks_processed + 1} transcribing…"
+    if state.chunks_processed > 0:
+        return f"#{state.chunks_processed} done"
+    return None
+
+
+def select_next_chunk_eta_seconds(state: AppState, now: datetime) -> int | None:
+    """Whole seconds until the next audio chunk boundary, or ``None`` when idle (F8).
+
+    Pure: anchored on the last per-chunk level reading (one per captured chunk —
+    the same anchor the U13 decay uses), falling back to the recording start
+    before the first chunk. Clamped at 0 when a chunk is overdue (slow capture /
+    long processing) instead of wrapping — an honest "due now", not a fake restart.
+    """
+    if state.recording_status != RecordingStatus.recording:
+        return None
+    anchor = state.last_level_at or state.recording_started_at
+    if anchor is None:
+        return None
+    window = max(float(state.chunk_seconds), 1.0)
+    remaining = window - elapsed_seconds(anchor, now)
+    return max(0, math.ceil(remaining))
 
 
 def select_level_bar(state: AppState, now: datetime | None = None, width: int = 12) -> str:
@@ -158,9 +202,16 @@ def build_audio_card_lines(state: AppState, now: datetime) -> list[str]:
     mic = state.microphone_source or state.configured_microphone_source
     if mic is None:
         mic = "—" if not state.audio_include_microphone else "default"
+    chunk_progress = select_chunk_progress_label(state)
+    # While recording the static chunk length gives way to live progress — the
+    # countdown already conveys the cadence and the line must not wrap (U8).
+    chunk_parts = [chunk_progress] if chunk_progress else [f"{state.chunk_seconds}s"]
+    next_eta = select_next_chunk_eta_seconds(state, now)
+    if next_eta is not None:
+        chunk_parts.append(f"next {next_eta}s")
     return [
         _kv("Level", f"[{select_level_bar(state, now)}] {peak_pct} [dim](per chunk)[/]"),
-        _kv("Chunk", f"{state.chunk_seconds}s"),
+        _kv("Chunk", " · ".join(chunk_parts)),
         _kv("Source", f"{state.audio_source or 'default monitor'} [dim](a: change)[/]"),
         _kv("Mic", mic),
     ]

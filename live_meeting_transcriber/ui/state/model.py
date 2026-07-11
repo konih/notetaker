@@ -115,6 +115,11 @@ class AppState(BaseModel):
     # Set on RecordingStarted (resets on resume), cleared on stop/failure. None when idle.
     recording_started_at: datetime | None = None
     consecutive_empty_chunks: int = 0
+    # --- Per-chunk transcription progress (F8). True between a chunk entering the
+    # live transcriber and its completion (incl. empty/failed); the counter also
+    # advances on silence-skipped chunks so quiet stretches don't read as a stall.
+    chunk_processing: bool = False
+    chunks_processed: int = 0
     low_audio_warning_shown: bool = False
     last_updated_at: datetime | None = None
     settings_screen_open: bool = False
@@ -128,6 +133,10 @@ class AppState(BaseModel):
     finalize_active_session_id: UUID | None = None
     finalize_active_title: str | None = None
     finalize_stage: str | None = None
+    # Monotonic high-water mark into FINALIZE_STAGES for the running job (F8):
+    # the reducer only ever raises it, so late/unrecognized progress wording
+    # (e.g. the terminal "WhisperX pass complete…") can never run the bar backwards.
+    finalize_stage_index: int = 0
     finalize_queued_count: int = 0
     # Last completed/failed job outcome; persists in the deck until the next job
     # starts (a 3s toast is not enough feedback for a multi-minute job).

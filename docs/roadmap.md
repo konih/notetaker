@@ -11,6 +11,7 @@ Shipped on `main` (see [`docs/configuration.md`](configuration.md) and [`docs/ar
 - **Offline speakers** — `finalize` (WhisperX + pyannote); live `dual_path` stereo hints with faster-whisper
 - **TUI** — session browser, slide preview with parameter tuning
 - **Live meeting details** — set title, context/notes, attendees, and name detected speakers for the *current* live meeting from the Live tab (`t`); notes pre-fill the summary context
+- **Progress UI** — Speaker ID / finalize shows a stage-progress bar (load → transcribe → align → diarize → persist) in the always-visible status deck; the Live tab's Audio card shows per-chunk transcription progress and a next-chunk countdown
 - **Tests / CI** — e2e smoke for video, slides, cleanup; CI installs ffmpeg for e2e job; enforced coverage floor + a documented [test-pyramid policy](development.md#test-pyramid-policy) with a drift-guard that fails CI on pyramid inversion (T5 Phase 1)
 
 ### Phase 1 (current)
