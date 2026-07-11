@@ -21,6 +21,7 @@ import pytest
 from live_meeting_transcriber.application.recorder import Recorder
 from live_meeting_transcriber.domain import application_events as ev
 from live_meeting_transcriber.domain.models import AudioChunk, TranscriptSegment
+from tests.e2e.video_helpers import ffmpeg_available
 
 
 def _write_wav(
@@ -132,7 +133,12 @@ async def test_silent_chunk_is_not_transcribed_but_loud_chunk_is(tmp_path: Path)
     full = tmp_path / "sessions" / str(sid) / "full_session.wav"
     assert full.exists()
     with wave.open(str(full), "rb") as w:
-        assert w.getnframes() >= 16000  # silent chunk (8000) + first loud chunk (8000)
+        # The skipped silent chunk itself was persisted (first chunk: plain copy, no ffmpeg).
+        assert w.getnframes() >= 8000
+        if ffmpeg_available():
+            # Later chunks are appended via ffmpeg concat; only assert the combined
+            # length where the binary exists (the unit CI job has no ffmpeg).
+            assert w.getnframes() >= 16000  # silent chunk (8000) + first loud chunk (8000)
 
     # … and the per-chunk WAV was cleaned up like any other processed chunk.
     assert not captured[0].exists()
