@@ -44,7 +44,13 @@ FOOTER_ACTIONS: tuple[FooterAction, ...] = (
     FooterAction("c", "ack_errors", "Ack errors", core=False),
     # ctrl+d, not ctrl+i: ctrl+i is byte-identical to Tab (0x09) on terminals without
     # the kitty keyboard protocol, so a ctrl+i binding never fires (it arrives as Tab).
-    FooterAction("ctrl+d", "finalize_speakers", "Speaker ID", core=False, priority=True),
+    # "Speaker ID / Retranscribe": one canonical action (OQ-F10-2) — Speaker ID
+    # has always re-run the *full* WhisperX transcription on the selected session;
+    # the label finally says so, making the operator's requested "retranscribe"
+    # discoverable in the palette and the ? overlay without a second pipeline.
+    FooterAction(
+        "ctrl+d", "finalize_speakers", "Speaker ID / Retranscribe", core=False, priority=True
+    ),
     FooterAction("ctrl+1", "focus_live_tab", "Live tab", core=False),
     FooterAction("ctrl+2", "focus_meetings_tab", "Meetings tab", core=False),
     FooterAction("ctrl+3", "focus_logs_tab", "Logs tab", core=False),

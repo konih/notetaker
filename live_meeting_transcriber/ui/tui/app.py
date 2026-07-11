@@ -69,6 +69,7 @@ from live_meeting_transcriber.ui.state.selectors import (
     select_unacknowledged_errors,
 )
 from live_meeting_transcriber.ui.state.store import Store
+from live_meeting_transcriber.ui.tui import meeting_actions
 from live_meeting_transcriber.ui.tui.empty_states import (
     LIVE_EMPTY_HINT,
     SESSIONS_EMPTY_HINT,
@@ -767,6 +768,15 @@ class TranscriberApp(App[None]):
     #meeting-browser-split { height: 1fr; min-height: 8; }
     #meeting-list-pane { width: 48; min-width: 30; margin-right: 1; }
     #meeting-filter { margin-bottom: 0; }
+    #finalize-jobs-panel {
+        height: auto; max-height: 9;
+        border: round $primary 35%;
+        border-title-color: $secondary;
+        border-title-style: bold;
+        padding: 0 1;
+        margin-top: 1;
+        display: none;
+    }
     #meeting-sessions-table {
         width: 1fr; height: 1fr;
         border: round $primary 35%;
@@ -1290,10 +1300,7 @@ class TranscriberApp(App[None]):
                 severity="warning",
             )
             return
-        self.notify(
-            "Running speaker ID (WhisperX) — this may take a while…",
-            severity="information",
-        )
+        self.notify(meeting_actions.SPEAKER_ID_STARTED_NOTICE, severity="information")
         await self.store.dispatch_with_effects(
             act.FinalizeSessionRequested(session_id=sid, at=utc_now())
         )

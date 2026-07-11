@@ -10,6 +10,8 @@ from live_meeting_transcriber.ui.state.finalize_stages import select_finalize_st
 from live_meeting_transcriber.ui.state.model import (
     AppState,
     DiarizationStatus,
+    FinalizeJobState,
+    FinalizeJobStatus,
     RecordingStatus,
     SessionRowState,
     TranscriptionStatus,
@@ -22,6 +24,12 @@ _MAX_ERRORS = 40
 _MAX_WARNINGS = 30
 _MAX_NOTICES = 12
 _MAX_UI_LOG_LINES = 500
+# F10 jobs panel: finished (done/failed) rows are in-session working memory, not an
+# archive — notices (12), recent_errors (40), the Logs tab (500) and the DB itself
+# are the durable record. Five outcomes keep the card inside the Meetings
+# list-pane height budget without scrolling; queued/running rows are never
+# trimmed (the sequential queue keeps them naturally small).
+_MAX_FINALIZE_FINISHED_JOBS = 5
 # Sparkline source: one peak per chunk; 48 readings ≈ 8 minutes at the 10s default.
 _MAX_LEVEL_HISTORY = 48
 
@@ -52,6 +60,123 @@ def _format_ui_log_line(level: str, message: str, at: datetime) -> str:
 def _append_ui_log(state: AppState, level: str, message: str, at: datetime) -> tuple[str, ...]:
     line = _format_ui_log_line(level, message, at)
     return (*state.ui_log_lines, line)[-_MAX_UI_LOG_LINES:]
+
+
+_TERMINAL_JOB_STATUSES = (FinalizeJobStatus.done, FinalizeJobStatus.failed)
+
+
+def _jobs_with_queued(
+    jobs: tuple[FinalizeJobState, ...], action: act.FinalizeSessionQueued
+) -> tuple[FinalizeJobState, ...]:
+    """Append a queued job row; a re-run replaces the session's old outcome row."""
+    sid = str(action.session_id)
+    if any(j.session_id == sid and j.status not in _TERMINAL_JOB_STATUSES for j in jobs):
+        # Controller dedups active jobs per session; stay idempotent regardless.
+        return jobs
+    kept = tuple(j for j in jobs if j.session_id != sid)
+    return (
+        *kept,
+        FinalizeJobState(
+            session_id=sid,
+            title=action.title,
+            status=FinalizeJobStatus.queued,
+            enqueued_at=action.at,
+        ),
+    )
+
+
+def _jobs_mark_running(
+    jobs: tuple[FinalizeJobState, ...], action: act.FinalizeSessionStarted
+) -> tuple[FinalizeJobState, ...]:
+    sid = str(action.session_id)
+    out: list[FinalizeJobState] = []
+    promoted = False
+    for j in jobs:
+        if not promoted and j.session_id == sid and j.status == FinalizeJobStatus.queued:
+            out.append(
+                j.model_copy(
+                    update={
+                        "status": FinalizeJobStatus.running,
+                        "started_at": action.at,
+                        "stage": "starting…",
+                        "stage_index": 0,
+                    }
+                )
+            )
+            promoted = True
+        else:
+            out.append(j)
+    if not promoted:
+        # Defensive: a Started without a prior Queued still gets a visible row.
+        out.append(
+            FinalizeJobState(
+                session_id=sid,
+                title=action.title,
+                status=FinalizeJobStatus.running,
+                enqueued_at=action.at,
+                started_at=action.at,
+                stage="starting…",
+            )
+        )
+    return tuple(out)
+
+
+def _jobs_update_stage(
+    jobs: tuple[FinalizeJobState, ...], action: act.FinalizeProgressUpdated
+) -> tuple[FinalizeJobState, ...]:
+    sid = str(action.session_id)
+    return tuple(
+        j.model_copy(
+            update={
+                "stage": action.stage,
+                # Same high-water rule as the deck bar (F8): late/unrecognized
+                # wording can never run this job's bar backwards.
+                "stage_index": max(j.stage_index, select_finalize_stage_index(action.stage)),
+            }
+        )
+        if j.session_id == sid and j.status == FinalizeJobStatus.running
+        else j
+        for j in jobs
+    )
+
+
+def _jobs_finish(
+    jobs: tuple[FinalizeJobState, ...],
+    session_id: str,
+    at: datetime,
+    status: FinalizeJobStatus,
+    detail: str,
+    level: str,
+) -> tuple[FinalizeJobState, ...]:
+    """Mark the session's active job terminal and trim old finished rows."""
+    out: list[FinalizeJobState] = []
+    finished = False
+    for j in jobs:
+        if not finished and j.session_id == session_id and j.status not in _TERMINAL_JOB_STATUSES:
+            out.append(
+                j.model_copy(
+                    update={
+                        "status": status,
+                        "finished_at": at,
+                        "detail": detail,
+                        "level": level,
+                    }
+                )
+            )
+            finished = True
+        else:
+            out.append(j)
+    terminal_count = sum(1 for j in out if j.status in _TERMINAL_JOB_STATUSES)
+    to_drop = terminal_count - _MAX_FINALIZE_FINISHED_JOBS
+    if to_drop <= 0:
+        return tuple(out)
+    trimmed: list[FinalizeJobState] = []
+    for j in out:  # tuple order ≈ finish order (sequential FIFO queue)
+        if to_drop > 0 and j.status in _TERMINAL_JOB_STATUSES:
+            to_drop -= 1
+            continue
+        trimmed.append(j)
+    return tuple(trimmed)
 
 
 def reduce(state: AppState, action: act.Action) -> AppState:
@@ -282,6 +407,7 @@ def reduce(state: AppState, action: act.Action) -> AppState:
             state.model_copy(
                 update={
                     "finalize_queued_count": state.finalize_queued_count + 1,
+                    "finalize_jobs": _jobs_with_queued(state.finalize_jobs, action),
                     "ui_log_lines": logs,
                 }
             ),
@@ -298,6 +424,7 @@ def reduce(state: AppState, action: act.Action) -> AppState:
                     "finalize_stage": "starting…",
                     "finalize_stage_index": 0,
                     "finalize_queued_count": max(0, state.finalize_queued_count - 1),
+                    "finalize_jobs": _jobs_mark_running(state.finalize_jobs, action),
                     "finalize_last_result": None,
                     "finalize_last_result_level": "info",
                     "ui_log_lines": logs,
@@ -317,6 +444,7 @@ def reduce(state: AppState, action: act.Action) -> AppState:
                     "finalize_stage_index": max(
                         state.finalize_stage_index, select_finalize_stage_index(action.stage)
                     ),
+                    "finalize_jobs": _jobs_update_stage(state.finalize_jobs, action),
                     "ui_log_lines": logs,
                 }
             ),
@@ -343,6 +471,14 @@ def reduce(state: AppState, action: act.Action) -> AppState:
                     "finalize_stage_index": 0,
                     "finalize_last_result": action.message,
                     "finalize_last_result_level": "error",
+                    "finalize_jobs": _jobs_finish(
+                        state.finalize_jobs,
+                        str(action.session_id),
+                        action.at,
+                        FinalizeJobStatus.failed,
+                        action.message,
+                        "error",
+                    ),
                 }
             ),
             action.at,
@@ -356,6 +492,7 @@ def reduce(state: AppState, action: act.Action) -> AppState:
         )
         if action.speakers_labelled:
             msg = f"Speaker ID done: {title} — {action.segment_count} segment(s)."
+            job_detail = f"done — {action.segment_count} segment(s)"
             level = "info"
         else:
             # B4 honesty: WhisperX refined the transcript but diarization labelled
@@ -364,6 +501,7 @@ def reduce(state: AppState, action: act.Action) -> AppState:
                 f"Speaker ID finished for {title} ({action.segment_count} segment(s)), "
                 "but speakers were NOT labelled — set HF_TOKEN (pyannote) and re-run."
             )
+            job_detail = "done — speakers NOT labelled (set HF_TOKEN)"
             level = "warning"
         n = (*state.notices, msg)[-_MAX_NOTICES:]
         logs = _append_ui_log(state, level, msg, action.at)
@@ -377,10 +515,33 @@ def reduce(state: AppState, action: act.Action) -> AppState:
             "finalize_stage_index": 0,
             "finalize_last_result": msg,
             "finalize_last_result_level": level,
+            "finalize_jobs": _jobs_finish(
+                state.finalize_jobs,
+                str(action.session_id),
+                action.at,
+                FinalizeJobStatus.done,
+                job_detail,
+                level,
+            ),
         }
         if action.live_lines is not None:
             finalize_updates["recent_transcript_segments"] = action.live_lines
         return _touch(state.model_copy(update=finalize_updates), action.at)
+
+    if isinstance(action, act.FinalizeQueueBacklogDropped):
+        dropped = {str(s) for s in action.session_ids}
+        jobs = tuple(
+            j
+            for j in state.finalize_jobs
+            if not (j.session_id in dropped and j.status == FinalizeJobStatus.queued)
+        )
+        remaining_queued = sum(1 for j in jobs if j.status == FinalizeJobStatus.queued)
+        return _touch(
+            state.model_copy(
+                update={"finalize_jobs": jobs, "finalize_queued_count": remaining_queued}
+            ),
+            action.at,
+        )
 
     if isinstance(action, act.DetailReloadAcknowledged):
         return _touch(

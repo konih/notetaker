@@ -31,6 +31,40 @@ class DiarizationStatus(str, Enum):
     failed = "failed"
 
 
+class FinalizeJobStatus(str, Enum):
+    queued = "queued"
+    running = "running"
+    done = "done"
+    failed = "failed"
+
+
+class FinalizeJobState(BaseModel):
+    """One offline Speaker ID / finalize job in the F10 jobs panel.
+
+    Tracks the full lifecycle (queued → running → done/failed) with wall-clock
+    timestamps, the latest F8 pipeline stage while running, and — per the B4
+    honesty rule — the outcome ``detail`` (why-failed reason or done summary)
+    with its severity ``level``.
+    """
+
+    model_config = {"frozen": True}
+
+    session_id: str
+    title: str
+    status: FinalizeJobStatus
+    enqueued_at: datetime
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    # Latest free-form pipeline stage message (F8) while running.
+    stage: str | None = None
+    # Per-job monotonic high-water mark into FINALIZE_STAGES (F8 parity: late or
+    # unrecognized progress wording can never run this job's bar backwards).
+    stage_index: int = 0
+    # Outcome message once terminal: why-failed reason or the done summary (B4).
+    detail: str | None = None
+    level: str = "info"
+
+
 class TranscriptLineState(BaseModel):
     """One line in the live transcript panel (immutable snapshot)."""
 
@@ -142,6 +176,9 @@ class AppState(BaseModel):
     # starts (a 3s toast is not enough feedback for a multi-minute job).
     finalize_last_result: str | None = None
     finalize_last_result_level: str = "info"
+    # F10 jobs panel: every queued/running job plus a bounded tail of finished
+    # outcomes (reducer caps terminal rows; see _MAX_FINALIZE_FINISHED_JOBS).
+    finalize_jobs: tuple[FinalizeJobState, ...] = Field(default_factory=tuple)
 
 
 def initial_app_state() -> AppState:

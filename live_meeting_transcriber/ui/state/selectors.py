@@ -3,6 +3,8 @@ from __future__ import annotations
 import math
 from datetime import datetime, tzinfo
 
+from rich.markup import escape
+
 from live_meeting_transcriber.domain.speaker_display import format_transcript_speaker_label
 
 # Stage ladder lives in its own module so the (import-light) reducer can share it;
@@ -15,6 +17,8 @@ from live_meeting_transcriber.ui.state.finalize_stages import (
 )
 from live_meeting_transcriber.ui.state.model import (
     AppState,
+    FinalizeJobState,
+    FinalizeJobStatus,
     RecordingStatus,
     TranscriptionStatus,
     TranscriptLineState,
@@ -275,3 +279,57 @@ def select_status_line(state: AppState) -> str:
 
     parts.append(_speakers_label(state))
     return " · ".join(parts)
+
+
+# F10 jobs-panel row budget: the panel lives in the 48-cell Meetings list pane
+# (border + padding leave ~44 usable). Each part is clamped so a row can never
+# wrap: 2 (glyph) + 12 (title) + 1 + 5 (bar) + 1 + 14 (stage) + 1 + 7 (elapsed) ≤ 43.
+_JOBS_TITLE_MAX = 12
+_JOBS_STAGE_MAX = 14
+_JOBS_DETAIL_MAX = 29
+
+
+def _clip(text: str, limit: int) -> str:
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def _jobs_stage_bar(index: int, total: int) -> str:
+    """Compact per-row stage bar (same fill semantics as the deck's F8 bar)."""
+    filled = max(1, min(total, index + 1))
+    return "▰" * filled + f"[dim]{'▱' * (total - filled)}[/]"
+
+
+def build_finalize_jobs_lines(state: AppState, now: datetime) -> list[str]:
+    """Rich-markup rows for the Speaker ID / Retranscribe jobs panel (F10).
+
+    Pure and unit-testable: running jobs first (with the F8 stage bar and a live
+    elapsed clock), then the queue in order, then finished outcomes newest-first
+    with their B4-honest detail (why-failed reason or done summary). Empty list
+    when there has been no job activity — the panel collapses to zero rows at
+    rest instead of reserving chrome (U8 collapse idiom).
+    """
+
+    def _title(job: FinalizeJobState) -> str:
+        return escape(_clip(job.title, _JOBS_TITLE_MAX))
+
+    running = [j for j in state.finalize_jobs if j.status == FinalizeJobStatus.running]
+    queued = [j for j in state.finalize_jobs if j.status == FinalizeJobStatus.queued]
+    finished = [
+        j
+        for j in state.finalize_jobs
+        if j.status in (FinalizeJobStatus.done, FinalizeJobStatus.failed)
+    ]
+    lines: list[str] = []
+    for job in running:
+        elapsed = format_duration(elapsed_seconds(job.started_at or job.enqueued_at, now))
+        bar = _jobs_stage_bar(job.stage_index, len(FINALIZE_STAGES))
+        stage = escape(_clip(job.stage or "starting…", _JOBS_STAGE_MAX))
+        lines.append(f"⚙ [bold]{_title(job)}[/] {bar} [dim]{stage}[/] {elapsed}")
+    for job in queued:
+        waiting = format_duration(elapsed_seconds(job.enqueued_at, now))
+        lines.append(f"[dim]⧗ {_title(job)} queued {waiting}[/]")
+    for job in reversed(finished):  # newest outcome first
+        glyph = "✖" if job.status == FinalizeJobStatus.failed else "✓"
+        detail = escape(_clip(job.detail or job.status.value, _JOBS_DETAIL_MAX))
+        lines.append(f"{glyph} {_title(job)} [dim]{detail}[/]")
+    return lines
