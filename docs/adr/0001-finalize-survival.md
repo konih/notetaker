@@ -38,7 +38,13 @@ on `TuiController` (`_enqueue_finalize` → `_finalize_worker` /
    on `hf_token` so it is not a surprise multi-hour GPU sweep of the whole
    history on every launch, and not an infinite retry for a session that
    legitimately has no diarization credentials. This catches anything the
-   event-loop teardown still drops on a quick quit.
+   event-loop teardown still drops on a quick quit. *Amended by B3
+   (2026-07-11):* a finalize that fails **unrecoverably** (whisperx extra not
+   importable; recorded audio missing for an ended session) writes a JSON
+   sidecar (`sessions/<id>/finalize_unrecoverable.json`) and recovery skips
+   marked sessions with one aggregate notice — transient failures (network,
+   OOM, auth) keep retrying, a later successful finalize clears the marker,
+   and `finalize-pending` ignores it (explicit user intent).
 3. **CLI backfill**: `live-transcriber finalize-pending [--dry-run]` runs the
    same query with no time bound, so a user can deliberately re-diarize their
    existing backlog of orphaned sessions on their own schedule.
