@@ -19,7 +19,7 @@ Local, extensible background transcription for browser/Teams meetings on **Linux
 
 ### Models, backends, and where they run
 
-Everything below is configured via `.env` (see `.env.example` and `docs/configuration.md`). **“Local”** means processes on your machine; **“cloud”** means a network API.
+Everything below is configured via the in-app Settings screen / `config.yaml`, environment variables, or a `.env` file (see `docs/configuration.md`). **“Local”** means processes on your machine; **“cloud”** means a network API.
 
 | Capability | Default | Typical model / stack | Runs |
 |------------|---------|------------------------|------|
@@ -37,6 +37,22 @@ Everything below is configured via `.env` (see `.env.example` and `docs/configur
 **Diarization caveat:** pyannote outputs **speaker clusters** (e.g. `SPEAKER_00`), not real-world identities. Use **`speaker-alias`** / the TUI to map clusters to names.
 
 ### Installation (uv)
+
+**macOS one-shot install** (first-class target): from a clone of this repo,
+
+```bash
+task install:macos        # or: bash packaging/install-macos.sh
+```
+
+checks/installs the system deps via Homebrew (ffmpeg, uv), installs the
+`live-transcriber` CLI globally with `uv tool install`, creates the config directory,
+and finishes with `live-transcriber doctor`. Add `-- --offline` to also install the
+offline finalize stack (whisperx + diarization + mlx extras), or `-- --dry-run` to
+preview every action. Fresh macOS installs keep config and data under
+`~/Library/Application Support/live-meeting-transcriber` (existing installs keep their
+current XDG paths — see `live-transcriber paths` and `docs/configuration.md`).
+
+Everything below is the developer / Linux setup inside the repo checkout.
 
 **Python version:** The core app supports **3.12+**. Extras **`whisperx`** and **`diarization`** depend on **PyTorch**, which (as of early 2026) provides wheels only up to **3.13** — on **CPython 3.14** those extras are omitted so `uv sync` still succeeds. For offline finalize / pyannote, use **`uv python pin 3.13`** (or 3.12) in this repo, then `uv sync --extra whisperx` (and/or `--extra diarization`).
 
@@ -84,7 +100,9 @@ Inline PNG preview works in **Kitty**, **WezTerm**, or **Ghostty** — not in Te
 
 ### Configuration
 
-Copy `.env.example` to `.env` and edit:
+Configure via the TUI Settings screen (writes `config.yaml`), or create a `.env`
+file — in the app config dir (`live-transcriber paths` shows it) or the repo root —
+with the variables you need:
 
 - `OPENAI_API_KEY` (required for OpenAI transcription and/or default summarization)
 - `DATABASE_URL`

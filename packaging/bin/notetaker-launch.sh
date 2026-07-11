@@ -37,7 +37,7 @@ if ((${#missing[@]} > 0)); then
 fi
 
 if [[ ! -f "${CONFIG_DIR}/.env" ]]; then
-  echo "First run: create ${CONFIG_DIR}/.env (copy from .env.example in the repo)." >&2
+  echo "First run: create ${CONFIG_DIR}/.env (see docs/configuration.md) or use the TUI Settings screen." >&2
   echo "At minimum set OPENAI_API_KEY when using OpenAI transcription/summaries." >&2
 fi
 
