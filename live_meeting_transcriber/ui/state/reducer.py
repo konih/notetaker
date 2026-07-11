@@ -6,6 +6,7 @@ from datetime import datetime
 from rich.markup import escape
 
 from live_meeting_transcriber.ui.state import actions as act
+from live_meeting_transcriber.ui.state.finalize_stages import select_finalize_stage_index
 from live_meeting_transcriber.ui.state.model import (
     AppState,
     DiarizationStatus,
@@ -295,6 +296,7 @@ def reduce(state: AppState, action: act.Action) -> AppState:
                     "finalize_active_session_id": action.session_id,
                     "finalize_active_title": action.title,
                     "finalize_stage": "starting…",
+                    "finalize_stage_index": 0,
                     "finalize_queued_count": max(0, state.finalize_queued_count - 1),
                     "finalize_last_result": None,
                     "finalize_last_result_level": "info",
@@ -307,7 +309,17 @@ def reduce(state: AppState, action: act.Action) -> AppState:
     if isinstance(action, act.FinalizeProgressUpdated):
         logs = _append_ui_log(state, "info", f"Finalize: {action.stage}", action.at)
         return _touch(
-            state.model_copy(update={"finalize_stage": action.stage, "ui_log_lines": logs}),
+            state.model_copy(
+                update={
+                    "finalize_stage": action.stage,
+                    # High-water mark: classification of a late message can only
+                    # advance the bar, never rewind it (wording-drift safety).
+                    "finalize_stage_index": max(
+                        state.finalize_stage_index, select_finalize_stage_index(action.stage)
+                    ),
+                    "ui_log_lines": logs,
+                }
+            ),
             action.at,
         )
 
@@ -328,6 +340,7 @@ def reduce(state: AppState, action: act.Action) -> AppState:
                     "finalize_active_session_id": None,
                     "finalize_active_title": None,
                     "finalize_stage": None,
+                    "finalize_stage_index": 0,
                     "finalize_last_result": action.message,
                     "finalize_last_result_level": "error",
                 }
@@ -361,6 +374,7 @@ def reduce(state: AppState, action: act.Action) -> AppState:
             "finalize_active_session_id": None,
             "finalize_active_title": None,
             "finalize_stage": None,
+            "finalize_stage_index": 0,
             "finalize_last_result": msg,
             "finalize_last_result_level": level,
         }

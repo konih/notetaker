@@ -4,6 +4,15 @@ import math
 from datetime import datetime, tzinfo
 
 from live_meeting_transcriber.domain.speaker_display import format_transcript_speaker_label
+
+# Stage ladder lives in its own module so the (import-light) reducer can share it;
+# re-exported here because selectors are the UI's one-stop derive-from-state API.
+from live_meeting_transcriber.ui.state.finalize_stages import (
+    FINALIZE_STAGES as FINALIZE_STAGES,
+)
+from live_meeting_transcriber.ui.state.finalize_stages import (
+    select_finalize_stage_index as select_finalize_stage_index,
+)
 from live_meeting_transcriber.ui.state.model import (
     AppState,
     RecordingStatus,
@@ -45,39 +54,6 @@ def select_decayed_level(state: AppState, now: datetime) -> float | None:
     # Hold at full for one interval; decay over the next; zero once two intervals stale.
     factor = 1.0 if elapsed <= window else max(0.0, 1.0 - (elapsed - window) / window)
     return state.current_level_meter * factor
-
-
-# Canonical offline Speaker ID / finalize pipeline stages (F8). The WhisperX
-# progress hook emits free-form human messages; the deck's stage bar needs a
-# stable, ordered ladder to derive "how far along" from them. ``persist`` is the
-# DB write after the last callback fires (no message of its own).
-FINALIZE_STAGES: tuple[str, ...] = ("load", "transcribe", "align", "diarize", "persist")
-
-# Keyword → stage, checked in order: later-stage markers first so e.g.
-# "Loading diarization model…" reads as diarize (not load) and the terminal
-# "Diarization finished." / "Skipping diarization…" messages read as persist.
-_STAGE_MARKERS: tuple[tuple[tuple[str, ...], int], ...] = (
-    (("diarization finished", "skipping diarization"), 4),
-    (("diariz", "assigning speakers"), 3),
-    (("align",), 2),
-    (("transcrib",), 1),
-)
-
-
-def select_finalize_stage_index(stage: str | None) -> int:
-    """Index into :data:`FINALIZE_STAGES` for a free-form finalize progress message.
-
-    Unrecognized or missing messages (including the reducer's initial "starting…")
-    classify as the earliest stage — the bar must degrade gracefully, never crash,
-    when the pipeline's wording changes.
-    """
-    if not stage:
-        return 0
-    lowered = stage.lower()
-    for keywords, index in _STAGE_MARKERS:
-        if any(k in lowered for k in keywords):
-            return index
-    return 0
 
 
 def select_chunk_progress_label(state: AppState) -> str | None:

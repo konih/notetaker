@@ -20,7 +20,6 @@ from live_meeting_transcriber.ui.state.selectors import (
     FINALIZE_STAGES,
     select_decayed_level,
     select_elapsed_label,
-    select_finalize_stage_index,
 )
 from live_meeting_transcriber.ui.tui.theme import (
     ACCENT,
@@ -150,6 +149,10 @@ _DECK_SEP = " [dim]│[/] "
 
 _DECK_TITLE_MAX = 24
 
+# Stage messages can be long ("Loading Whisper model 'large-v3' on 'cpu'…");
+# truncated so the trailing queued count survives an 80-col deck line.
+_DECK_STAGE_MAX = 40
+
 
 def _deck_truncate(text: str, limit: int = _DECK_TITLE_MAX) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
@@ -177,10 +180,10 @@ def finalize_deck_markup(state: AppState) -> str | None:
     """
     if state.finalize_active_session_id is not None:
         title = _deck_truncate(state.finalize_active_title or "meeting")
-        stage = state.finalize_stage or "starting…"
-        bar = stage_bar_markup(
-            select_finalize_stage_index(state.finalize_stage), len(FINALIZE_STAGES)
-        )
+        stage = _deck_truncate(state.finalize_stage or "starting…", _DECK_STAGE_MAX)
+        # The reducer owns the stage index (monotonic high-water mark) so the bar
+        # can never run backwards on late or unrecognized progress wording.
+        bar = stage_bar_markup(state.finalize_stage_index, len(FINALIZE_STAGES))
         queued = (
             f" [dim](+{state.finalize_queued_count} queued)[/]"
             if state.finalize_queued_count > 0

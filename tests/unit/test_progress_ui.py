@@ -159,9 +159,7 @@ def test_reducer_stage_index_never_moves_backwards_over_a_true_full_run(
     )
     seen: list[int] = [state.finalize_stage_index]
     for message in run:
-        state = reduce(
-            state, act.FinalizeProgressUpdated(session_id=sid, stage=message, at=_NOW)
-        )
+        state = reduce(state, act.FinalizeProgressUpdated(session_id=sid, stage=message, at=_NOW))
         seen.append(state.finalize_stage_index)
     assert seen == sorted(seen), list(zip(("<start>", *run), seen, strict=True))
     assert seen[-1] == len(FINALIZE_STAGES) - 1
@@ -269,15 +267,15 @@ def test_deck_bar_stays_full_through_the_terminal_pass_complete_message() -> Non
         initial_app_state(),
         act.FinalizeSessionStarted(session_id=sid, title="Weekly sync", at=_NOW),
     )
+    final = ""
     for message in _FULL_RUN_HF:
-        state = reduce(
-            state, act.FinalizeProgressUpdated(session_id=sid, stage=message, at=_NOW)
-        )
+        state = reduce(state, act.FinalizeProgressUpdated(session_id=sid, stage=message, at=_NOW))
         markup = finalize_deck_markup(state)
         assert markup is not None
+        final = markup
     # The last two messages ("Diarization finished.", "WhisperX pass complete…")
     # both render a full bar — the persist window must not collapse to load.
-    assert "▰▰▰▰▰" in _plain(markup)
+    assert "▰▰▰▰▰" in _plain(final)
 
 
 def test_deck_truncates_long_stage_text_so_queued_count_survives() -> None:
@@ -287,9 +285,7 @@ def test_deck_truncates_long_stage_text_so_queued_count_survives() -> None:
     state = reduce(state, act.FinalizeSessionStarted(session_id=sid, title="A", at=_NOW))
     state = reduce(state, act.FinalizeSessionQueued(session_id=uuid4(), title="B", at=_NOW))
     long_stage = "Loading Whisper model 'large-v3-turbo' on 'cpu' (compute='int8')…"
-    state = reduce(
-        state, act.FinalizeProgressUpdated(session_id=sid, stage=long_stage, at=_NOW)
-    )
+    state = reduce(state, act.FinalizeProgressUpdated(session_id=sid, stage=long_stage, at=_NOW))
     markup = finalize_deck_markup(state)
     assert markup is not None
     plain = _plain(markup)
