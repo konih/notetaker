@@ -57,6 +57,8 @@ class Store:
         slog = structlog.get_logger(component="ui")
         if isinstance(action, act.ErrorRaised):
             slog.error("user_visible_error", message=action.message)
+        elif isinstance(action, act.FinalizeSessionFailed):
+            slog.error("user_visible_error", message=action.message, source="finalize")
         elif isinstance(action, act.WarningRaised):
             slog.warning("user_visible_warning", message=action.message)
         elif isinstance(action, act.RecordingFailed):

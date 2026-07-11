@@ -124,17 +124,86 @@ class TuiController:
         below is the safety net for anything still dropped on a quick quit.
         """
         if session_id in self._finalize_queued:
+            # Not silently: the operator pressing Speaker ID again (often because
+            # startup recovery already queued the same session invisibly) must
+            # learn that one job per session is already in the queue (B7).
+            self.store.dispatch(
+                act.NoticeRaised(
+                    message="Speaker ID is already queued or running for this meeting.",
+                    at=utc_now(),
+                )
+            )
             return
         self._finalize_queued.add(session_id)
         if self._finalize_worker_task is None or self._finalize_worker_task.done():
             self._finalize_worker_task = asyncio.create_task(self._finalize_worker())
         self._finalize_queue.put_nowait(session_id)
+        self.store.dispatch(
+            act.FinalizeSessionQueued(
+                session_id=session_id,
+                title=self._session_title(session_id),
+                at=utc_now(),
+            )
+        )
+
+    def _session_title(self, session_id: UUID) -> str:
+        try:
+            session = self.container.sessions.get(session_id)
+        except Exception:
+            session = None
+        title = getattr(session, "title", None)
+        return title if isinstance(title, str) and title else f"session {session_id}"
+
+    @property
+    def finalize_busy(self) -> bool:
+        """True while any Speaker ID / finalize job is queued or in flight."""
+        return bool(self._finalize_queued)
+
+    async def wait_finalize_idle(self) -> None:
+        """Let the in-flight finalize job finish (and persist); drop the backlog.
+
+        Called by the quit path (B7): exiting mid-job used to cancel the worker
+        task between the WhisperX pass and ``_finalize_persist_segments`` while
+        the loop shutdown still joined the compute thread — the app hung for the
+        remaining minutes and then threw the result away. Waiting here costs the
+        same wall-clock time but keeps the result. Queued-but-unstarted jobs are
+        dropped (no compute lost); startup recovery / ``finalize-pending`` picks
+        them up next launch.
+        """
+        dropped = 0
+        while True:
+            try:
+                sid = self._finalize_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+            self._finalize_queued.discard(sid)
+            self._finalize_queue.task_done()
+            dropped += 1
+        if dropped:
+            self.store.dispatch(
+                act.UiLogLineAdded(
+                    level="warning",
+                    message=(
+                        f"Dropped {dropped} queued Speaker ID job(s) at quit — "
+                        "they are re-queued on next launch (or run finalize-pending)."
+                    ),
+                    at=utc_now(),
+                )
+            )
+        await self._finalize_queue.join()
 
     async def _finalize_worker(self) -> None:
         """Run queued finalize jobs one at a time (avoids GPU/CPU contention)."""
         while True:
             session_id = await self._finalize_queue.get()
             try:
+                self.store.dispatch(
+                    act.FinalizeSessionStarted(
+                        session_id=session_id,
+                        title=self._session_title(session_id),
+                        at=utc_now(),
+                    )
+                )
                 await self._run_finalize_for_session(self.store, session_id)
             finally:
                 self._finalize_queued.discard(session_id)
@@ -179,24 +248,20 @@ class TuiController:
         loop = asyncio.get_running_loop()
 
         def _progress(msg: str) -> None:
+            # Runs on the WhisperX worker thread; hop to the loop before touching
+            # the store. The reducer folds the stage into the always-visible deck
+            # AND the Logs tab (B7).
             def _emit() -> None:
                 store.dispatch(
-                    act.UiLogLineAdded(
-                        level="info",
-                        message=f"Finalize: {msg}",
+                    act.FinalizeProgressUpdated(
+                        session_id=session_id,
+                        stage=msg,
                         at=utc_now(),
                     )
                 )
 
             loop.call_soon_threadsafe(_emit)
 
-        store.dispatch(
-            act.UiLogLineAdded(
-                level="info",
-                message=f"Starting speaker ID / finalize for session {session_id}…",
-                at=utc_now(),
-            )
-        )
         try:
             n = await finalize_session_offline(
                 container=self.container,
@@ -206,7 +271,8 @@ class TuiController:
             )
         except ImportError as e:
             store.dispatch(
-                act.ErrorRaised(
+                act.FinalizeSessionFailed(
+                    session_id=session_id,
                     message=f"Speaker ID / finalize skipped: install whisperx extra ({e}).",
                     at=utc_now(),
                 )
@@ -214,7 +280,8 @@ class TuiController:
             return
         except FileNotFoundError as e:
             store.dispatch(
-                act.ErrorRaised(
+                act.FinalizeSessionFailed(
+                    session_id=session_id,
                     message=f"No recorded audio for finalize yet: {e}",
                     at=utc_now(),
                 )
@@ -224,7 +291,13 @@ class TuiController:
             # Log the full traceback to the file sink — the user-visible error only carries
             # str(e), which is too thin to diagnose failures like "bad value(s) in fds_to_keep".
             _log.exception("finalize_failed", session_id=str(session_id))
-            store.dispatch(act.ErrorRaised(message=f"Finalize failed: {e}", at=utc_now()))
+            store.dispatch(
+                act.FinalizeSessionFailed(
+                    session_id=session_id,
+                    message=f"Finalize failed: {e} — details in the Logs tab (ctrl+3) / log file.",
+                    at=utc_now(),
+                )
+            )
             return
 
         st = store.get_state()
@@ -243,12 +316,19 @@ class TuiController:
                 for s in segs
             )[-_MAX_LIVE_TRANSCRIPT_LINES:]
 
+        from live_meeting_transcriber.application.finalize_service import (
+            session_speakers_are_all_unknown,
+        )
+
         store.dispatch(
             act.FinalizeSessionSucceeded(
                 session_id=session_id,
                 segment_count=n,
                 live_lines=live_lines,
                 at=utc_now(),
+                speakers_labelled=not session_speakers_are_all_unknown(
+                    container=self.container, session_id=session_id
+                ),
             )
         )
         await self._load_sessions_catalog(store)
