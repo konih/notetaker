@@ -10,7 +10,7 @@ Settings live in a single human-readable YAML file at
 `~/.config/live-meeting-transcriber/config.yaml`). Editing settings **in-app** (Settings
 screen → `e: edit`) writes this file atomically. Two groups are editable in-app:
 
-- **Runtime toggles** (U15) — a deliberately small, safe subset:
+- **Runtime toggles** (U15) — a deliberately small, safe subset (note: a field set via an env var still wins over the saved `config.yaml` value on next launch — env > yaml precedence):
   `FINALIZE_ON_SESSION_STOP`, `AUDIO_SILENCE_SKIP_ENABLED` and `KEEP_AUDIO_CHUNKS` as
   switches, plus `AUDIO_SILENCE_THRESHOLD_DBFS` and `AUDIO_CHUNK_SECONDS` as validated
   number inputs. Out-of-range or non-numeric values show an inline error and **nothing is
