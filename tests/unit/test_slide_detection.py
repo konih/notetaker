@@ -9,6 +9,7 @@ from live_meeting_transcriber.video.slide_common import effective_min_slide_inte
 from live_meeting_transcriber.video.slide_detection import detect_slide_candidates
 from live_meeting_transcriber.video.strategies.factory import build_slide_strategy
 from live_meeting_transcriber.video.strategies.ffmpeg_scene import FfmpegSceneStrategy
+
 from tests.e2e.video_helpers import ffmpeg_available
 from tests.fixtures.paths import PRESENTATION_EN_VIDEO
 

@@ -8,16 +8,13 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock
 from uuid import uuid4
 
-from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.models import MeetingSession
-from live_meeting_transcriber.ui.effects.controller import TuiController
-from live_meeting_transcriber.ui.state.model import initial_app_state
-from live_meeting_transcriber.ui.state.store import Store
-from live_meeting_transcriber.ui.tui.app import SessionsScreen, TranscriberApp
+from live_meeting_transcriber.ui.tui.app import SessionsScreen
 from textual.widgets import DataTable, Static, TabbedContent
+
+from tests.unit.conftest import make_mock_tui_container, make_tui_app
 
 
 def _column_labels(table: DataTable[Any]) -> list[str]:
@@ -35,30 +32,12 @@ def _row_keys(table: DataTable[Any]) -> list[str]:
     return [rk.value for rk in table.rows if rk.value is not None]
 
 
-def _make_app(container: MagicMock) -> TranscriberApp:
-    store = Store(state=initial_app_state())
-    controller = TuiController(store=store, container=container, settings=Settings())
-    store.register_effects(controller.handle)
-    return TranscriberApp(store=store, container=container, controller=controller)
-
-
-def _mock_container(tmp_path: Path, session: MeetingSession) -> MagicMock:
-    container = MagicMock()
-    container.sessions.list.return_value = [session]
-    container.sessions.get.return_value = session
-    container.summaries.get_by_session.return_value = None
-    container.transcripts.list_by_session.return_value = []
-    container.session_speakers.get_map.return_value = {}
-    container.settings.ensure_data_dir.return_value = tmp_path
-    return container
-
-
 async def test_meetings_table_hides_uuid_but_keeps_selection_key(tmp_path: Path) -> None:
     sid = uuid4()
     session = MeetingSession(id=sid, title="Weekly sync")
-    container = _mock_container(tmp_path, session)
+    container = make_mock_tui_container(tmp_path, [session])
 
-    app = _make_app(container)
+    app = make_tui_app(container)
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
         app.query_one(TabbedContent).active = "tab-meetings"
@@ -79,8 +58,8 @@ async def test_meetings_table_hides_uuid_but_keeps_selection_key(tmp_path: Path)
 async def test_sessions_modal_hides_uuid_column(tmp_path: Path) -> None:
     sid = uuid4()
     session = MeetingSession(id=sid, title="Planning")
-    container = _mock_container(tmp_path, session)
-    app = _make_app(container)
+    container = make_mock_tui_container(tmp_path, [session])
+    app = make_tui_app(container)
 
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
@@ -98,8 +77,8 @@ async def test_sessions_modal_hides_uuid_column(tmp_path: Path) -> None:
 async def test_sessions_modal_copy_id_copies_full_uuid(tmp_path: Path) -> None:
     sid = uuid4()
     session = MeetingSession(id=sid, title="Planning")
-    container = _mock_container(tmp_path, session)
-    app = _make_app(container)
+    container = make_mock_tui_container(tmp_path, [session])
+    app = make_tui_app(container)
 
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()

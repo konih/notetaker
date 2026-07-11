@@ -11,8 +11,6 @@ from datetime import UTC, datetime
 from unittest.mock import MagicMock
 from uuid import UUID
 
-from live_meeting_transcriber.config.settings import Settings
-from live_meeting_transcriber.ui.effects.controller import TuiController
 from live_meeting_transcriber.ui.state.model import (
     UiErrorState,
     initial_app_state,
@@ -22,10 +20,11 @@ from live_meeting_transcriber.ui.state.selectors import (
     select_errors_compact_summary,
     select_short_session_id,
 )
-from live_meeting_transcriber.ui.state.store import Store
 from live_meeting_transcriber.ui.tui.app import TranscriberApp
 from textual.content import Content
 from textual.widgets import RichLog, Static
+
+from tests.unit.conftest import make_tui_app
 
 _NOW = datetime(2026, 7, 8, 12, 0, 0, tzinfo=UTC)
 _SID = UUID("12345678-1234-5678-1234-567812345678")
@@ -97,10 +96,7 @@ def _app(**updates: object) -> TranscriberApp:
     # Healthy audio env so the U10 startup check raises no warning — the compact
     # errors panel only holds when there is genuinely nothing to report.
     container.devices.list_sources.return_value = [object()]
-    store = Store(state=initial_app_state().model_copy(update=updates))
-    controller = TuiController(store=store, container=container, settings=Settings())
-    store.register_effects(controller.handle)
-    return TranscriberApp(store=store, container=container, controller=controller)
+    return make_tui_app(container, state_updates=updates)
 
 
 async def test_empty_errors_panel_is_compact_single_line() -> None:

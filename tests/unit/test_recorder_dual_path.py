@@ -15,7 +15,6 @@ ffmpeg), so no other subprocess is spawned.
 from __future__ import annotations
 
 import asyncio
-import wave
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -36,17 +35,7 @@ from live_meeting_transcriber.domain.application_events import (
 )
 from live_meeting_transcriber.domain.models import AudioChunk, TranscriptSegment
 
-
-def _write_silent_wav(
-    path: Path, *, seconds: float = 2.0, rate: int = 16000, channels: int = 2
-) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    nframes = int(seconds * rate)
-    with wave.open(str(path), "wb") as w:
-        w.setnchannels(channels)
-        w.setsampwidth(2)
-        w.setframerate(rate)
-        w.writeframes(b"\x00\x00" * nframes * channels)
+from tests.unit.conftest import write_silent_wav
 
 
 @dataclass(frozen=True)
@@ -57,7 +46,7 @@ class _StereoSplitFakeWavOps(FfmpegWavOps):
 
     def extract_mono_channel(self, path: Path, channel: int, *, sample_rate_hz: int) -> Path:
         p = self.tmp_path / f"mono_{channel}_{uuid4().hex}.wav"
-        _write_silent_wav(p, seconds=2.0, channels=1)
+        write_silent_wav(p, seconds=2.0, channels=1)
         return p
 
 
@@ -82,7 +71,7 @@ async def _run_one_stereo_chunk(
     class _Audio:
         def capture_chunk(self, **_kwargs: object) -> AudioChunk:
             p = tmp_path / f"{uuid4().hex}.wav"
-            _write_silent_wav(p, seconds=2.0, channels=2)
+            write_silent_wav(p, seconds=2.0, channels=2)
             return AudioChunk(
                 session_id=sid,
                 started_at=t0,

@@ -9,14 +9,10 @@ button that opens an overflow menu; every action stays reachable.
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
-from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.models import MeetingSession
-from live_meeting_transcriber.ui.effects.controller import TuiController
-from live_meeting_transcriber.ui.state.model import initial_app_state
-from live_meeting_transcriber.ui.state.store import Store
 from live_meeting_transcriber.ui.tui.app import TranscriberApp
 from live_meeting_transcriber.ui.tui.meeting_browser import MeetingBrowser
 from live_meeting_transcriber.ui.tui.meeting_modals import MeetingActionsMenu
@@ -30,6 +26,8 @@ from live_meeting_transcriber.ui.tui.meeting_toolbar import (
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal
 from textual.widgets import Button, OptionList, TabbedContent
+
+from tests.unit.conftest import make_mock_tui_container, make_tui_app
 
 # --- pure partition -------------------------------------------------------
 
@@ -86,25 +84,6 @@ def test_every_action_maps_to_a_real_browser_method() -> None:
 # --- real layout at 120x40 (Pilot) ---------------------------------------
 
 
-def _make_app(container: MagicMock) -> TranscriberApp:
-    store = Store(state=initial_app_state())
-    controller = TuiController(store=store, container=container, settings=Settings())
-    store.register_effects(controller.handle)
-    return TranscriberApp(store=store, container=container, controller=controller)
-
-
-def _mock_container(tmp_path: Path, session: MeetingSession) -> MagicMock:
-    container = MagicMock()
-    container.sessions.list.return_value = [session]
-    container.sessions.get.return_value = session
-    container.summaries.get_by_session.return_value = None
-    container.transcripts.list_by_session.return_value = []
-    container.session_speakers.get_map.return_value = {}
-    container.settings.ensure_data_dir.return_value = tmp_path
-    container.devices.list_sources.return_value = [object()]
-    return container
-
-
 async def _meetings_browser(app: TranscriberApp, pilot) -> MeetingBrowser:  # type: ignore[no-untyped-def]
     app.query_one(TabbedContent).active = "tab-meetings"
     await pilot.pause()
@@ -136,7 +115,7 @@ async def test_full_ten_button_row_would_overflow_120w() -> None:
 
 async def test_toolbar_buttons_fit_within_120w(tmp_path: Path) -> None:
     session = MeetingSession(id=uuid4(), title="Weekly sync")
-    app = _make_app(_mock_container(tmp_path, session))
+    app = make_tui_app(make_mock_tui_container(tmp_path, [session]))
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
         browser = await _meetings_browser(app, pilot)
@@ -153,7 +132,7 @@ async def test_toolbar_buttons_fit_within_120w(tmp_path: Path) -> None:
 
 async def test_more_button_present_and_overflow_buttons_absent(tmp_path: Path) -> None:
     session = MeetingSession(id=uuid4(), title="Weekly sync")
-    app = _make_app(_mock_container(tmp_path, session))
+    app = make_tui_app(make_mock_tui_container(tmp_path, [session]))
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
         browser = await _meetings_browser(app, pilot)
@@ -170,7 +149,7 @@ async def test_more_button_present_and_overflow_buttons_absent(tmp_path: Path) -
 
 async def test_more_button_opens_overflow_menu(tmp_path: Path) -> None:
     session = MeetingSession(id=uuid4(), title="Weekly sync")
-    app = _make_app(_mock_container(tmp_path, session))
+    app = make_tui_app(make_mock_tui_container(tmp_path, [session]))
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
         browser = await _meetings_browser(app, pilot)
@@ -185,7 +164,7 @@ async def test_more_button_opens_overflow_menu(tmp_path: Path) -> None:
 
 async def test_dispatch_toolbar_action_invokes_mapped_method(tmp_path: Path) -> None:
     session = MeetingSession(id=uuid4(), title="Weekly sync")
-    app = _make_app(_mock_container(tmp_path, session))
+    app = make_tui_app(make_mock_tui_container(tmp_path, [session]))
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
         browser = await _meetings_browser(app, pilot)

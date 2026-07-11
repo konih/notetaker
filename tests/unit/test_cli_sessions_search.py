@@ -9,44 +9,17 @@ import pytest
 from live_meeting_transcriber.application.container import Container
 from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.models import MeetingSession
-from live_meeting_transcriber.storage.people_composite import CompositeKnownPeopleRepository
-from live_meeting_transcriber.storage.repositories import (
-    SqliteDiarizationRepository,
-    SqliteKnownPeopleRepository,
-    SqliteMeetingSessionRepository,
-    SqliteSessionSpeakerNameRepository,
-    SqliteSummaryRepository,
-    SqliteTranscriptRepository,
-)
-from live_meeting_transcriber.storage.sqlite import open_connection
 from typer.testing import CliRunner
+
+from tests.e2e.cli_helpers import build_e2e_container
 
 
 def _container_with_sessions(tmp_path: Path) -> Container:
     settings = Settings(openai_api_key="x", database_url=f"sqlite:////{tmp_path}/db.sqlite3")
-    conn = open_connection(settings.database_url)
-    sessions = SqliteMeetingSessionRepository(conn)
-    sessions.create(MeetingSession(title="Platform Review", attendees=["Konrad"]))
-    sessions.create(MeetingSession(title="Budget Planning", notes="Q3 numbers"))
-    return Container(
-        settings=settings,
-        _conn=conn,
-        devices=None,  # type: ignore[arg-type]
-        audio=None,  # type: ignore[arg-type]
-        transcriber=None,  # type: ignore[arg-type]
-        summarizer=None,  # type: ignore[arg-type]
-        diarizer=None,  # type: ignore[arg-type]
-        diarization_segments=SqliteDiarizationRepository(conn),
-        sessions=sessions,
-        transcripts=SqliteTranscriptRepository(conn),
-        summaries=SqliteSummaryRepository(conn),
-        people=CompositeKnownPeopleRepository(
-            inner=SqliteKnownPeopleRepository(conn),
-            people_dir=None,
-            person_template=None,
-        ),
-        session_speakers=SqliteSessionSpeakerNameRepository(conn),
-    )
+    container = build_e2e_container(tmp_path, settings)
+    container.sessions.create(MeetingSession(title="Platform Review", attendees=["Konrad"]))
+    container.sessions.create(MeetingSession(title="Budget Planning", notes="Q3 numbers"))
+    return container
 
 
 def _patch(monkeypatch: pytest.MonkeyPatch, container: Container) -> None:

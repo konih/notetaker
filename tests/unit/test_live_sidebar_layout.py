@@ -10,14 +10,12 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 from uuid import uuid4
 
-from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.models import MeetingSession
-from live_meeting_transcriber.ui.effects.controller import TuiController
-from live_meeting_transcriber.ui.state.model import initial_app_state
-from live_meeting_transcriber.ui.state.store import Store
 from live_meeting_transcriber.ui.tui.app import TranscriberApp
 from live_meeting_transcriber.ui.tui.tab_complete_input import TabCompletableInput
 from textual.widgets import RichLog, Static
+
+from tests.unit.conftest import make_tui_app
 
 
 def _app_with_session(sid: object, existing: MeetingSession) -> TranscriberApp:
@@ -25,14 +23,10 @@ def _app_with_session(sid: object, existing: MeetingSession) -> TranscriberApp:
     container.sessions.list.return_value = []
     container.sessions.get.return_value = existing
     container.devices.list_sources.return_value = [object()]
-    store = Store(
-        state=initial_app_state().model_copy(
-            update={"current_session_id": sid, "session_title": existing.title}
-        )
+    return make_tui_app(
+        container,
+        state_updates={"current_session_id": sid, "session_title": existing.title},
     )
-    controller = TuiController(store=store, container=container, settings=Settings())
-    store.register_effects(controller.handle)
-    return TranscriberApp(store=store, container=container, controller=controller)
 
 
 async def test_sidebar_is_broader_transcript_still_workable() -> None:

@@ -10,14 +10,9 @@ activate → confirm → `sessions.delete` → table refreshed → row gone.
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock
 from uuid import uuid4
 
-from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.models import MeetingSession
-from live_meeting_transcriber.ui.effects.controller import TuiController
-from live_meeting_transcriber.ui.state.model import initial_app_state
-from live_meeting_transcriber.ui.state.store import Store
 from live_meeting_transcriber.ui.tui.app import TranscriberApp
 from live_meeting_transcriber.ui.tui.meeting_browser import MeetingBrowser
 from live_meeting_transcriber.ui.tui.meeting_modals import ConfirmDeleteMeetingModal
@@ -29,35 +24,7 @@ from live_meeting_transcriber.ui.tui.meeting_toolbar import (
 from textual.binding import Binding
 from textual.widgets import Button, DataTable, TabbedContent
 
-
-def _container(tmp_path: Path, sessions: list[MeetingSession]) -> MagicMock:
-    store_list = list(sessions)
-    c = MagicMock()
-    c.sessions.list.side_effect = lambda: list(store_list)
-
-    def _get(sid: object) -> MeetingSession | None:
-        return next((s for s in store_list if s.id == sid), None)
-
-    def _delete(sid: object) -> bool:
-        before = len(store_list)
-        store_list[:] = [s for s in store_list if s.id != sid]
-        return len(store_list) < before
-
-    c.sessions.get.side_effect = _get
-    c.sessions.delete.side_effect = _delete
-    c.summaries.get_by_session.return_value = None
-    c.transcripts.list_by_session.return_value = []
-    c.session_speakers.get_map.return_value = {}
-    c.settings.ensure_data_dir.return_value = tmp_path
-    c.devices.list_sources.return_value = [object()]
-    return c
-
-
-def _app(container: MagicMock) -> TranscriberApp:
-    store = Store(state=initial_app_state())
-    controller = TuiController(store=store, container=container, settings=Settings())
-    store.register_effects(controller.handle)
-    return TranscriberApp(store=store, container=container, controller=controller)
+from tests.unit.conftest import make_mock_tui_container, make_tui_app
 
 
 async def _browser(app: TranscriberApp, pilot) -> MeetingBrowser:  # type: ignore[no-untyped-def]
@@ -94,8 +61,8 @@ def test_delete_binding_is_a_working_key_not_a_dead_chord() -> None:
 async def test_delete_button_removes_the_meeting_end_to_end(tmp_path: Path) -> None:
     sid = uuid4()
     session = MeetingSession(id=sid, title="Weekly sync")
-    container = _container(tmp_path, [session])
-    app = _app(container)
+    container = make_mock_tui_container(tmp_path, [session])
+    app = make_tui_app(container)
 
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
@@ -126,8 +93,8 @@ async def test_delete_button_removes_the_meeting_end_to_end(tmp_path: Path) -> N
 async def test_delete_key_triggers_the_same_flow(tmp_path: Path) -> None:
     sid = uuid4()
     session = MeetingSession(id=sid, title="Weekly sync")
-    container = _container(tmp_path, [session])
-    app = _app(container)
+    container = make_mock_tui_container(tmp_path, [session])
+    app = make_tui_app(container)
 
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
@@ -151,8 +118,8 @@ async def test_typing_d_in_a_meeting_field_does_not_delete(tmp_path: Path) -> No
 
     sid = uuid4()
     session = MeetingSession(id=sid, title="Weekly sync")
-    container = _container(tmp_path, [session])
-    app = _app(container)
+    container = make_mock_tui_container(tmp_path, [session])
+    app = make_tui_app(container)
 
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()

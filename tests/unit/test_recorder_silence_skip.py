@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import asyncio
 import math
-import struct
 import wave
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -23,23 +22,9 @@ from live_meeting_transcriber.audio.session_recording import FfmpegSessionAudioS
 from live_meeting_transcriber.audio.wav_ops import FfmpegWavOps
 from live_meeting_transcriber.domain import application_events as ev
 from live_meeting_transcriber.domain.models import AudioChunk, TranscriptSegment
+
 from tests.e2e.video_helpers import ffmpeg_available
-
-
-def _write_wav(
-    path: Path,
-    samples: list[float],
-    *,
-    sample_rate_hz: int = 16000,
-    channels: int = 1,
-) -> Path:
-    ints = [max(-32768, min(32767, round(s * 32767))) for s in samples]
-    with wave.open(str(path), "wb") as w:
-        w.setnchannels(channels)
-        w.setsampwidth(2)
-        w.setframerate(sample_rate_hz)
-        w.writeframes(struct.pack(f"<{len(ints)}h", *ints))
-    return path
+from tests.unit.conftest import write_wav
 
 
 def _loud_samples(n: int = 8000) -> list[float]:
@@ -87,7 +72,7 @@ async def test_silent_chunk_is_not_transcribed_but_loud_chunk_is(tmp_path: Path)
             n = len(captured)
             path = tmp_path / f"c{n}.wav"
             # First chunk digital silence, all later chunks loud speech-like audio.
-            _write_wav(path, [0.0] * 8000 if n == 0 else _loud_samples())
+            write_wav(path, [0.0] * 8000 if n == 0 else _loud_samples())
             captured.append(path)
             return _chunk(sid, path)
 
@@ -156,7 +141,7 @@ async def test_silent_chunk_transcribed_when_skip_disabled(tmp_path: Path) -> No
     class _Audio:
         def capture_chunk(self, **_kw: object) -> AudioChunk:
             path = tmp_path / f"c{uuid4().hex}.wav"
-            _write_wav(path, [0.0] * 8000)
+            write_wav(path, [0.0] * 8000)
             return _chunk(sid, path)
 
     segment_saved = asyncio.Event()
@@ -198,7 +183,7 @@ async def test_dual_path_silent_stereo_chunk_is_skipped(tmp_path: Path) -> None:
     class _Audio:
         def capture_chunk(self, **_kw: object) -> AudioChunk:
             path = tmp_path / f"c{uuid4().hex}.wav"
-            _write_wav(path, [0.0] * 16000, channels=2)
+            write_wav(path, [0.0] * 16000, channels=2)
             return _chunk(sid, path, channels=2)
 
     stereo_calls: list[object] = []

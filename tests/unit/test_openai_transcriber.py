@@ -7,7 +7,6 @@ client is stubbed. Construction only stores the API key, so no key is validated.
 
 from __future__ import annotations
 
-import wave
 from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -21,6 +20,8 @@ from live_meeting_transcriber.transcription.openai_transcriber import (
     OpenAITranscriptionProvider,
     _openai_error_message,
 )
+
+from tests.unit.conftest import write_silent_wav
 
 
 class _ApiError(Exception):
@@ -47,18 +48,10 @@ def test_openai_error_message_maps_known_failures(exc: Exception, needle: str) -
     assert needle in _openai_error_message(exc)
 
 
-def _write_wav(path: Path) -> None:
-    with wave.open(str(path), "wb") as w:
-        w.setnchannels(1)
-        w.setsampwidth(2)
-        w.setframerate(16000)
-        w.writeframes(b"\x00\x00" * 16000)
-
-
 def _chunk(tmp_path: Path, *, exists: bool = True) -> AudioChunk:
     p = tmp_path / f"{uuid4().hex}.wav"
     if exists:
-        _write_wav(p)
+        write_silent_wav(p, seconds=1.0)
     t0 = datetime(2026, 1, 1, 12, 0, 0)
     return AudioChunk(
         session_id=uuid4(),

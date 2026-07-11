@@ -30,6 +30,8 @@ from live_meeting_transcriber.ui.tui.empty_states import (
 from textual.content import Content
 from textual.widgets import RichLog, Static, TabbedContent
 
+from tests.unit.conftest import make_tui_app
+
 _NOW = datetime(2026, 7, 8, 12, 0, 0, tzinfo=UTC)
 
 
@@ -76,10 +78,7 @@ def _app(**updates: object) -> TranscriberApp:
     container.sessions.list.return_value = []
     # Healthy audio env by default so the startup check stays quiet.
     container.devices.list_sources.return_value = [object()]
-    store = Store(state=initial_app_state().model_copy(update=updates))
-    controller = TuiController(store=store, container=container, settings=Settings())
-    store.register_effects(controller.handle)
-    return TranscriberApp(store=store, container=container, controller=controller)
+    return make_tui_app(container, state_updates=updates)
 
 
 def _richlog_text(log: RichLog) -> str:

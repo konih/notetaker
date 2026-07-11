@@ -30,6 +30,9 @@ def test_cli_sessions_smoke_e2e(monkeypatch: pytest.MonkeyPatch, tmp_path: Path)
     assert len(sessions) == 1
     session = sessions[0]
     assert session.title == "Listed Session"
+    # Persisted-state depth (T4): `sessions` must list a *closed* session — a NULL
+    # ended_at here is the B4/B2 interrupted-session data-loss class.
+    assert session.ended_at is not None, "record must set ended_at before sessions lists it"
 
     result = CliRunner().invoke(app, ["sessions"])
     assert result.exit_code == 0, result.stdout + result.stderr

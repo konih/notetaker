@@ -12,10 +12,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from live_meeting_transcriber.config.settings import Settings
-from live_meeting_transcriber.ui.effects.controller import TuiController
-from live_meeting_transcriber.ui.state.model import initial_app_state
-from live_meeting_transcriber.ui.state.store import Store
 from live_meeting_transcriber.ui.tui.app import HelpScreen, TranscriberApp
 from live_meeting_transcriber.ui.tui.footer_bindings import FOOTER_ACTIONS
 from live_meeting_transcriber.ui.tui.help_overlay import (
@@ -26,15 +22,14 @@ from live_meeting_transcriber.ui.tui.help_overlay import (
 from live_meeting_transcriber.ui.tui.meeting_browser import MeetingBrowser
 from textual.widgets import TabbedContent
 
+from tests.unit.conftest import make_tui_app
+
 
 def _make_app() -> TranscriberApp:
     container = MagicMock()
     container.sessions.list.return_value = []
     container.settings.ensure_data_dir.return_value = None
-    store = Store(state=initial_app_state())
-    controller = TuiController(store=store, container=container, settings=Settings())
-    store.register_effects(controller.handle)
-    return TranscriberApp(store=store, container=container, controller=controller)
+    return make_tui_app(container)
 
 
 # --- pure key humanization ---------------------------------------------------

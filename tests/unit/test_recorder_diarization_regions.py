@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import wave
 from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -13,17 +12,7 @@ from live_meeting_transcriber.audio.session_recording import FfmpegSessionAudioS
 from live_meeting_transcriber.audio.wav_ops import FfmpegWavOps
 from live_meeting_transcriber.domain.models import AudioChunk, TranscriptSegment
 
-
-def _write_silent_wav(
-    path: Path, *, seconds: float = 2.0, rate: int = 16000, channels: int = 1
-) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    nframes = int(seconds * rate)
-    with wave.open(str(path), "wb") as w:
-        w.setnchannels(channels)
-        w.setsampwidth(2)
-        w.setframerate(rate)
-        w.writeframes(b"\x00\x00" * nframes * channels)
+from tests.unit.conftest import write_silent_wav
 
 
 @pytest.mark.asyncio
@@ -35,7 +24,7 @@ async def test_recorder_live_chunk_sets_unknown_speaker_without_diarization(tmp_
     class _Audio:
         def capture_chunk(self, **_kwargs: object) -> AudioChunk:
             p = tmp_path / f"{uuid4().hex}.wav"
-            _write_silent_wav(p, seconds=2.0)
+            write_silent_wav(p, seconds=2.0)
             return AudioChunk(
                 session_id=sid,
                 started_at=t0,

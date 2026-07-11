@@ -20,41 +20,12 @@ from uuid import UUID, uuid4
 
 import pytest
 from live_meeting_transcriber.application.container import Container
-from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.models import MeetingSession, TranscriptSegment
-from live_meeting_transcriber.storage.repositories import (
-    SqliteDiarizationRepository,
-    SqliteMeetingSessionRepository,
-    SqliteTranscriptRepository,
-)
-from live_meeting_transcriber.storage.sqlite import open_connection
 from live_meeting_transcriber.ui.effects.controller import TuiController
 from live_meeting_transcriber.ui.state import actions as act
 from live_meeting_transcriber.ui.state.store import Store
 
-
-def _settings(tmp_path: Path, **overrides: object) -> Settings:
-    db = tmp_path / "controller_test.sqlite3"
-    return Settings(database_url=f"sqlite:////{db}", **overrides)  # type: ignore[arg-type]
-
-
-def _container(settings: Settings) -> Container:
-    conn = open_connection(settings.database_url)
-    return Container(
-        settings=settings,
-        _conn=conn,
-        devices=None,  # type: ignore[arg-type]
-        audio=None,  # type: ignore[arg-type]
-        transcriber=None,  # type: ignore[arg-type]
-        summarizer=None,  # type: ignore[arg-type]
-        diarizer=None,  # type: ignore[arg-type]
-        diarization_segments=SqliteDiarizationRepository(conn),
-        sessions=SqliteMeetingSessionRepository(conn),
-        transcripts=SqliteTranscriptRepository(conn),
-        summaries=None,  # type: ignore[arg-type]
-        people=None,  # type: ignore[arg-type]
-        session_speakers=None,  # type: ignore[arg-type]
-    )
+from tests.unit.conftest import build_sqlite_container, sqlite_test_settings
 
 
 def _seed_ended_all_unknown_session(container: Container, *, ended_at: datetime) -> UUID:
@@ -91,8 +62,8 @@ async def _cancel(task: asyncio.Task[None] | None) -> None:
 async def test_finalize_requested_runs_on_tracked_worker_not_inline(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    settings = _settings(tmp_path)
-    container = _container(settings)
+    settings = sqlite_test_settings(tmp_path)
+    container = build_sqlite_container(settings)
     sid = _seed_ended_all_unknown_session(container, ended_at=datetime(2026, 1, 1, 10, 0, 0))
     store = Store()
     controller = TuiController(store=store, container=container, settings=settings)
@@ -135,8 +106,8 @@ async def test_finalize_requested_runs_on_tracked_worker_not_inline(
 async def test_enqueue_dedups_and_tracks_worker(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    settings = _settings(tmp_path)
-    container = _container(settings)
+    settings = sqlite_test_settings(tmp_path)
+    container = build_sqlite_container(settings)
     store = Store()
     controller = TuiController(store=store, container=container, settings=settings)
 
@@ -168,8 +139,8 @@ async def test_auto_finalize_on_stop_enqueues_via_tracked_worker(
 ) -> None:
     # The exact regression: stopping a recording with FINALIZE_ON_SESSION_STOP must go
     # through the tracked queue, never a bare create_task that a quick quit would kill.
-    settings = _settings(tmp_path, FINALIZE_ON_SESSION_STOP=True)
-    container = _container(settings)
+    settings = sqlite_test_settings(tmp_path, FINALIZE_ON_SESSION_STOP=True)
+    container = build_sqlite_container(settings)
     session = MeetingSession(title="live")
     container.sessions.create(session)
     sid = session.id
@@ -198,8 +169,8 @@ async def test_auto_finalize_on_stop_enqueues_via_tracked_worker(
 async def test_startup_recovery_enqueues_recent_all_unknown_session(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    settings = _settings(tmp_path, FINALIZE_ON_SESSION_STOP=True, HF_TOKEN="fake-token")
-    container = _container(settings)
+    settings = sqlite_test_settings(tmp_path, FINALIZE_ON_SESSION_STOP=True, HF_TOKEN="fake-token")
+    container = build_sqlite_container(settings)
     recent_sid = _seed_ended_all_unknown_session(
         container, ended_at=datetime.now(UTC) - timedelta(hours=1)
     )
@@ -229,8 +200,8 @@ async def test_startup_recovery_enqueues_recent_all_unknown_session(
 async def test_startup_recovery_skipped_without_hf_token(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    settings = _settings(tmp_path, FINALIZE_ON_SESSION_STOP=True, HF_TOKEN=None)
-    container = _container(settings)
+    settings = sqlite_test_settings(tmp_path, FINALIZE_ON_SESSION_STOP=True, HF_TOKEN=None)
+    container = build_sqlite_container(settings)
     _seed_ended_all_unknown_session(container, ended_at=datetime.now(UTC) - timedelta(hours=1))
     store = Store()
     controller = TuiController(store=store, container=container, settings=settings)
@@ -258,8 +229,8 @@ async def test_startup_recovery_skipped_without_hf_token(
 async def test_startup_recovery_skips_sessions_ended_outside_the_recovery_window(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    settings = _settings(tmp_path, FINALIZE_ON_SESSION_STOP=True, HF_TOKEN="fake-token")
-    container = _container(settings)
+    settings = sqlite_test_settings(tmp_path, FINALIZE_ON_SESSION_STOP=True, HF_TOKEN="fake-token")
+    container = build_sqlite_container(settings)
     _seed_ended_all_unknown_session(container, ended_at=datetime.now(UTC) - timedelta(days=10))
     store = Store()
     controller = TuiController(store=store, container=container, settings=settings)

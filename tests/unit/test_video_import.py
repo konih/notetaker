@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import wave
 from dataclasses import dataclass, field
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
@@ -25,7 +24,9 @@ from live_meeting_transcriber.domain.models import AudioChunk, SlideCandidate, T
 from live_meeting_transcriber.transcription.openai_transcriber import OpenAITranscriptionError
 from live_meeting_transcriber.video.strategies.frame_diff import mean_absolute_difference
 from live_meeting_transcriber.video.tools import FfmpegSlideDetectionTools
+
 from tests.e2e.video_helpers import ffmpeg_available
+from tests.unit.conftest import write_silent_wav
 
 # T3: these tests split real WAV files with the ffmpeg binary (no way to mock the
 # actual chunk-splitting), so they legitimately skip when it's absent — an
@@ -35,15 +36,6 @@ from tests.e2e.video_helpers import ffmpeg_available
 requires_ffmpeg = pytest.mark.skipif(
     not ffmpeg_available(), reason="requires the ffmpeg binary to split real WAV chunks"
 )
-
-
-def _write_silent_wav(path: Path, *, seconds: float, rate: int = 16000, channels: int = 1) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with wave.open(str(path), "wb") as w:
-        w.setnchannels(channels)
-        w.setsampwidth(2)
-        w.setframerate(rate)
-        w.writeframes(b"\x00\x00" * int(rate * seconds * channels))
 
 
 @dataclass
@@ -81,7 +73,7 @@ class _FakeMedia:
         self, *, video_path: Path, dest_wav: Path, sample_rate_hz: int, channels: int
     ) -> Path:
         dest_wav.parent.mkdir(parents=True, exist_ok=True)
-        _write_silent_wav(dest_wav, seconds=self.duration)
+        write_silent_wav(dest_wav, seconds=self.duration)
         return dest_wav
 
 
@@ -118,7 +110,7 @@ def test_effective_video_chunk_seconds_explicit_chunking() -> None:
 @pytest.mark.asyncio
 async def test_transcribe_wav_in_chunks_single_request_for_short_video(tmp_path: Path) -> None:
     full_wav = tmp_path / "full.wav"
-    _write_silent_wav(full_wav, seconds=30.0)
+    write_silent_wav(full_wav, seconds=30.0)
     chunk_dir = tmp_path / "chunks"
     transcriber = _RecordingTranscriber()
     svc = VideoImportService(
@@ -156,7 +148,7 @@ async def test_transcribe_wav_in_chunks_single_request_for_short_video(tmp_path:
 @pytest.mark.asyncio
 async def test_transcribe_wav_in_chunks_skips_sub_minimum_tail(tmp_path: Path) -> None:
     full_wav = tmp_path / "full.wav"
-    _write_silent_wav(full_wav, seconds=120.064)
+    write_silent_wav(full_wav, seconds=120.064)
     chunk_dir = tmp_path / "chunks"
     transcriber = _RecordingTranscriber()
     svc = VideoImportService(
@@ -289,7 +281,7 @@ def test_planned_chunk_count_200s_video() -> None:
 @pytest.mark.asyncio
 async def test_transcribe_wav_in_chunks_200s_processes_all_chunks(tmp_path: Path) -> None:
     full_wav = tmp_path / "full.wav"
-    _write_silent_wav(full_wav, seconds=200.0)
+    write_silent_wav(full_wav, seconds=200.0)
     chunk_dir = tmp_path / "chunks"
     transcriber = _RecordingTranscriber()
     svc = VideoImportService(
@@ -346,7 +338,7 @@ async def test_transcribe_wav_in_chunks_api_failure_returns_partial_summary(
     tmp_path: Path,
 ) -> None:
     full_wav = tmp_path / "full.wav"
-    _write_silent_wav(full_wav, seconds=30.0)
+    write_silent_wav(full_wav, seconds=30.0)
     chunk_dir = tmp_path / "chunks"
     transcriber = _FailingAfterFirstTranscriber()
     svc = VideoImportService(

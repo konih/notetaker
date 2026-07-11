@@ -7,32 +7,19 @@ and the editing widgets keep their ids (all save/summarize actions query them).
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock
 from uuid import uuid4
 
-from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.models import MeetingSession
-from live_meeting_transcriber.ui.effects.controller import TuiController
-from live_meeting_transcriber.ui.state.model import initial_app_state
-from live_meeting_transcriber.ui.state.store import Store
 from live_meeting_transcriber.ui.tui.app import TranscriberApp
 from live_meeting_transcriber.ui.tui.meeting_browser import MeetingBrowser
 from textual.widgets import ContentSwitcher, TabbedContent, Tabs
 
+from tests.unit.conftest import make_mock_tui_container, make_tui_app
+
 
 def _make_app(tmp_path: Path) -> TranscriberApp:
     session = MeetingSession(id=uuid4(), title="Weekly sync")
-    container = MagicMock()
-    container.sessions.list.return_value = [session]
-    container.sessions.get.return_value = session
-    container.summaries.get_by_session.return_value = None
-    container.transcripts.list_by_session.return_value = []
-    container.session_speakers.get_map.return_value = {}
-    container.settings.ensure_data_dir.return_value = tmp_path
-    store = Store(state=initial_app_state())
-    controller = TuiController(store=store, container=container, settings=Settings())
-    store.register_effects(controller.handle)
-    return TranscriberApp(store=store, container=container, controller=controller)
+    return make_tui_app(make_mock_tui_container(tmp_path, [session]))
 
 
 async def test_detail_sub_tabs_switch_panes(tmp_path: Path) -> None:

@@ -10,19 +10,16 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import MagicMock
 from uuid import uuid4
 
-from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.models import MeetingSession
-from live_meeting_transcriber.ui.effects.controller import TuiController
-from live_meeting_transcriber.ui.state.model import initial_app_state
-from live_meeting_transcriber.ui.state.store import Store
-from live_meeting_transcriber.ui.tui.app import SessionsScreen, TranscriberApp
+from live_meeting_transcriber.ui.tui.app import SessionsScreen
 from live_meeting_transcriber.ui.tui.footer_bindings import FOOTER_ACTIONS
 from live_meeting_transcriber.ui.tui.meeting_browser import MeetingBrowser
 from textual.binding import Binding
 from textual.widgets import DataTable, Input, TabbedContent
+
+from tests.unit.conftest import make_mock_tui_container, make_tui_app
 
 WEEKLY_ID = uuid4()
 DESIGN_ID = uuid4()
@@ -41,26 +38,6 @@ def _sessions() -> list[MeetingSession]:
             started_at=datetime(2026, 7, 10, 12, tzinfo=UTC),
         ),
     ]
-
-
-def _container(tmp_path: Path) -> MagicMock:
-    sessions = _sessions()
-    c = MagicMock()
-    c.sessions.list.side_effect = lambda: list(sessions)
-    c.sessions.get.side_effect = lambda sid: next((s for s in sessions if s.id == sid), None)
-    c.summaries.get_by_session.return_value = None
-    c.transcripts.list_by_session.return_value = []
-    c.session_speakers.get_map.return_value = {}
-    c.settings.ensure_data_dir.return_value = tmp_path
-    c.devices.list_sources.return_value = [object()]
-    return c
-
-
-def _app(container: MagicMock) -> TranscriberApp:
-    store = Store(state=initial_app_state())
-    controller = TuiController(store=store, container=container, settings=Settings())
-    store.register_effects(controller.handle)
-    return TranscriberApp(store=store, container=container, controller=controller)
 
 
 # --- structure: the modal is a picker, not a second management surface -----
@@ -87,7 +64,7 @@ def test_footer_labels_the_j_key_as_jump() -> None:
 
 
 async def test_j_opens_the_jump_picker_with_filter_focused(tmp_path: Path) -> None:
-    app = _app(_container(tmp_path))
+    app = make_tui_app(make_mock_tui_container(tmp_path, _sessions()))
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
         await pilot.press("j")
@@ -97,7 +74,7 @@ async def test_j_opens_the_jump_picker_with_filter_focused(tmp_path: Path) -> No
 
 
 async def test_typing_fuzzy_filters_the_picker(tmp_path: Path) -> None:
-    app = _app(_container(tmp_path))
+    app = make_tui_app(make_mock_tui_container(tmp_path, _sessions()))
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
         await pilot.press("j")
@@ -114,7 +91,7 @@ async def test_typing_fuzzy_filters_the_picker(tmp_path: Path) -> None:
 
 
 async def test_enter_jumps_to_the_meeting_in_the_single_home(tmp_path: Path) -> None:
-    app = _app(_container(tmp_path))
+    app = make_tui_app(make_mock_tui_container(tmp_path, _sessions()))
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
         await pilot.press("j")
