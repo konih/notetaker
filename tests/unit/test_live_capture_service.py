@@ -165,7 +165,7 @@ async def test_unexpected_capture_error_warns_and_stops(tmp_path: Path) -> None:
     events: list[ApplicationEvent] = []
     sid = uuid4()
     loop = LiveScreenCaptureLoop(
-        screen=_ExplodingScreen(),  # type: ignore[arg-type]
+        screen=_ExplodingScreen(),
         data_dir=tmp_path,
         enabled=True,
         interval_seconds=60,
@@ -182,8 +182,6 @@ async def test_manifest_write_is_atomic_via_replace(
 ) -> None:
     # Crash-safety: the manifest lands via temp file + os.replace so a crash
     # mid-write can never truncate captures.json and orphan prior shots.
-    import live_meeting_transcriber.application.live_capture as lc
-
     replaced: list[tuple[str, str]] = []
     real_replace = os.replace
 
@@ -191,7 +189,7 @@ async def test_manifest_write_is_atomic_via_replace(
         replaced.append((str(src), str(dst)))
         real_replace(src, dst)
 
-    monkeypatch.setattr(lc.os, "replace", spy_replace)
+    monkeypatch.setattr("live_meeting_transcriber.application.live_capture.os.replace", spy_replace)
 
     sid = uuid4()
     with pytest.raises(asyncio.CancelledError):

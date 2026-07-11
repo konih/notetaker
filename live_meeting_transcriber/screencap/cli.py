@@ -19,10 +19,19 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
+# A screen grab takes well under a second; 30s only trips on a truly wedged
+# screencapture (WindowServer stall, dead volume). The bound matters because the
+# capture runs on an executor thread that recording-stop and app-quit join —
+# without it, one hung subprocess would hang stop/quit unboundedly.
+_CAPTURE_TIMEOUT_SECONDS = 30.0
 
-def _run_quiet(cmd: Sequence[str]) -> int:
-    """Run the capture command with all output swallowed; return its exit code."""
-    proc = subprocess.run(list(cmd), capture_output=True, check=False)
+
+def _run_quiet(cmd: Sequence[str], timeout_seconds: float = _CAPTURE_TIMEOUT_SECONDS) -> int:
+    """Run the capture command with output swallowed and a hang bound; return exit code."""
+    try:
+        proc = subprocess.run(list(cmd), capture_output=True, check=False, timeout=timeout_seconds)
+    except subprocess.TimeoutExpired:
+        return -1
     return proc.returncode
 
 
@@ -50,7 +59,11 @@ class ScreencaptureCli:
         if resolved is None:  # pragma: no cover - availability() already gates this
             return False
         # -x: no sound; -t png: explicit format regardless of user defaults.
-        rc = self.runner([resolved, "-x", "-t", "png", str(output_path)])
+        try:
+            rc = self.runner([resolved, "-x", "-t", "png", str(output_path)])
+        except subprocess.TimeoutExpired:
+            # Injected runners may surface the hang as the exception itself.
+            return False
         if rc != 0:
             return False
         return output_path.is_file() and output_path.stat().st_size > 0

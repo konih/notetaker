@@ -15,7 +15,10 @@ warning event and stops the loop; it never disturbs the recording itself.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
+import os
+import tempfile
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -47,6 +50,21 @@ def _emit(
 ) -> None:
     if sink is not None:
         sink(event)
+
+
+def _write_manifest(path: Path, items: list[dict[str, str]]) -> None:
+    """Atomically replace the manifest (temp file + ``os.replace``) so a crash
+    mid-write can never truncate ``captures.json`` and orphan prior shots."""
+    body = json.dumps(items, indent=2)
+    fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), prefix="captures-", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(body)
+        os.replace(tmp_name, path)
+    except BaseException:
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink(tmp_name)
+        raise
 
 
 def _load_manifest(path: Path) -> list[dict[str, str]]:
@@ -103,20 +121,36 @@ class LiveScreenCaptureLoop:
             at = utc_now()
             name = f"capture_{at.strftime('%Y%m%dT%H%M%SZ')}_{index:03d}.png"
             path = captures_dir / name
-            captured = await asyncio.to_thread(self.screen.capture, path)
-            if not captured:
-                message = (
-                    f"Live screen capture failed (screencapture wrote no image to {path.name}); "
-                    f"stopping captures for this session. {_TCC_HINT}"
-                )
-                log.warning("screen_capture_failed", path=str(path))
+            try:
+                captured = await asyncio.to_thread(self.screen.capture, path)
+                if not captured:
+                    message = (
+                        f"Live screen capture failed (screencapture wrote no image to "
+                        f"{path.name}); stopping captures for this session. {_TCC_HINT}"
+                    )
+                    log.warning("screen_capture_failed", path=str(path))
+                    _emit(
+                        on_application_event,
+                        ScreenCaptureUnavailable(
+                            session_id=session_id, message=message, at=utc_now()
+                        ),
+                    )
+                    return
+                manifest.append({"path": name, "captured_at": at.isoformat()})
+                _write_manifest(manifest_path, manifest)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                # Unexpected failure (e.g. disk full): stop loudly with one warning —
+                # never die silently ("exception was never retrieved") or leak a
+                # non-CancelledError into the stop handler's cancel-await.
+                message = f"Live screen capture errored ({e}); stopping captures for this session."
+                log.warning("screen_capture_errored", error=str(e), exc_info=True)
                 _emit(
                     on_application_event,
                     ScreenCaptureUnavailable(session_id=session_id, message=message, at=utc_now()),
                 )
                 return
-            manifest.append({"path": name, "captured_at": at.isoformat()})
-            manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
             index += 1
             shot_count += 1
             log.info("screen_capture_shot", path=str(path), shot_count=shot_count)
