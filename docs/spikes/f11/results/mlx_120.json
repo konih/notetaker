@@ -1,0 +1,2348 @@
+{
+ "engine": "mlx-whisper (Metal GPU)",
+ "model": "mlx-community/whisper-large-v3-turbo",
+ "audio_s_last_segment_end": 119.98,
+ "t_cold_s": 6.77,
+ "t_warm_s": 5.82,
+ "xrt_warm_vs_last_end": 20.63,
+ "peak_rss_mb": 1880.6,
+ "n_segments": 34,
+ "segments": [
+  {
+   "start": 0.0,
+   "end": 3.12,
+   "text": "like how much money people have to spend on things like that.",
+   "words": [
+    {
+     "word": " like",
+     "start": 0.0,
+     "end": 0.62
+    },
+    {
+     "word": " how",
+     "start": 0.62,
+     "end": 1.2
+    },
+    {
+     "word": " much",
+     "start": 1.2,
+     "end": 1.5
+    },
+    {
+     "word": " money",
+     "start": 1.5,
+     "end": 1.86
+    },
+    {
+     "word": " people",
+     "start": 1.86,
+     "end": 2.12
+    },
+    {
+     "word": " have",
+     "start": 2.12,
+     "end": 2.28
+    },
+    {
+     "word": " to",
+     "start": 2.28,
+     "end": 2.36
+    },
+    {
+     "word": " spend",
+     "start": 2.36,
+     "end": 2.6
+    },
+    {
+     "word": " on",
+     "start": 2.6,
+     "end": 2.78
+    },
+    {
+     "word": " things",
+     "start": 2.78,
+     "end": 2.9
+    },
+    {
+     "word": " like",
+     "start": 2.9,
+     "end": 3.12
+    },
+    {
+     "word": " that.",
+     "start": 3.12,
+     "end": 3.12
+    }
+   ]
+  },
+  {
+   "start": 3.12,
+   "end": 5.6,
+   "text": "Or just like basic product positioning.",
+   "words": [
+    {
+     "word": " Or",
+     "start": 3.12,
+     "end": 3.12
+    },
+    {
+     "word": " just",
+     "start": 3.12,
+     "end": 3.26
+    },
+    {
+     "word": " like",
+     "start": 3.26,
+     "end": 3.44
+    },
+    {
+     "word": " basic",
+     "start": 3.44,
+     "end": 4.38
+    },
+    {
+     "word": " product",
+     "start": 4.38,
+     "end": 4.74
+    },
+    {
+     "word": " positioning.",
+     "start": 4.74,
+     "end": 5.6
+    }
+   ]
+  },
+  {
+   "start": 5.98,
+   "end": 10.56,
+   "text": "The 25 euro remote control might be a big hit in London,",
+   "words": [
+    {
+     "word": " The",
+     "start": 5.98,
+     "end": 6.42
+    },
+    {
+     "word": " 25",
+     "start": 6.42,
+     "end": 6.9
+    },
+    {
+     "word": " euro",
+     "start": 6.9,
+     "end": 7.34
+    },
+    {
+     "word": " remote",
+     "start": 7.34,
+     "end": 8.28
+    },
+    {
+     "word": " control",
+     "start": 8.28,
+     "end": 8.66
+    },
+    {
+     "word": " might",
+     "start": 8.66,
+     "end": 8.88
+    },
+    {
+     "word": " be",
+     "start": 8.88,
+     "end": 9.02
+    },
+    {
+     "word": " a",
+     "start": 9.02,
+     "end": 9.12
+    },
+    {
+     "word": " big",
+     "start": 9.12,
+     "end": 9.3
+    },
+    {
+     "word": " hit",
+     "start": 9.3,
+     "end": 9.62
+    },
+    {
+     "word": " in",
+     "start": 9.62,
+     "end": 10.04
+    },
+    {
+     "word": " London,",
+     "start": 10.04,
+     "end": 10.56
+    }
+   ]
+  },
+  {
+   "start": 10.56,
+   "end": 14.9,
+   "text": "might not be such a big hit in Greece.",
+   "words": [
+    {
+     "word": " might",
+     "start": 10.56,
+     "end": 11.32
+    },
+    {
+     "word": " not",
+     "start": 11.32,
+     "end": 11.5
+    },
+    {
+     "word": " be",
+     "start": 11.5,
+     "end": 11.68
+    },
+    {
+     "word": " such",
+     "start": 11.68,
+     "end": 11.94
+    },
+    {
+     "word": " a",
+     "start": 11.94,
+     "end": 12.06
+    },
+    {
+     "word": " big",
+     "start": 12.06,
+     "end": 12.26
+    },
+    {
+     "word": " hit",
+     "start": 12.26,
+     "end": 12.7
+    },
+    {
+     "word": " in",
+     "start": 12.7,
+     "end": 13.28
+    },
+    {
+     "word": " Greece.",
+     "start": 13.28,
+     "end": 14.9
+    }
+   ]
+  },
+  {
+   "start": 15.24,
+   "end": 15.56,
+   "text": "Who knows?",
+   "words": [
+    {
+     "word": " Who",
+     "start": 15.24,
+     "end": 15.3
+    },
+    {
+     "word": " knows?",
+     "start": 15.3,
+     "end": 15.56
+    }
+   ]
+  },
+  {
+   "start": 15.7,
+   "end": 16.52,
+   "text": "I see you too.",
+   "words": [
+    {
+     "word": " I",
+     "start": 15.7,
+     "end": 15.92
+    },
+    {
+     "word": " see",
+     "start": 15.92,
+     "end": 16.22
+    },
+    {
+     "word": " you",
+     "start": 16.22,
+     "end": 16.36
+    },
+    {
+     "word": " too.",
+     "start": 16.36,
+     "end": 16.52
+    }
+   ]
+  },
+  {
+   "start": 16.76,
+   "end": 17.08,
+   "text": "Yeah.",
+   "words": [
+    {
+     "word": " Yeah.",
+     "start": 16.76,
+     "end": 17.08
+    }
+   ]
+  },
+  {
+   "start": 18.840000000000003,
+   "end": 19.36,
+   "text": "Marketing.",
+   "words": [
+    {
+     "word": " Marketing.",
+     "start": 18.840000000000003,
+     "end": 19.36
+    }
+   ]
+  },
+  {
+   "start": 19.68,
+   "end": 20.86,
+   "text": "Good marketing thoughts.",
+   "words": [
+    {
+     "word": " Good",
+     "start": 19.68,
+     "end": 20.2
+    },
+    {
+     "word": " marketing",
+     "start": 20.2,
+     "end": 20.52
+    },
+    {
+     "word": " thoughts.",
+     "start": 20.52,
+     "end": 20.86
+    }
+   ]
+  },
+  {
+   "start": 21.06,
+   "end": 22.58,
+   "text": "Oh gosh, I should be writing all this down.",
+   "words": [
+    {
+     "word": " Oh",
+     "start": 21.06,
+     "end": 21.18
+    },
+    {
+     "word": " gosh,",
+     "start": 21.18,
+     "end": 21.42
+    },
+    {
+     "word": " I",
+     "start": 21.5,
+     "end": 21.58
+    },
+    {
+     "word": " should",
+     "start": 21.58,
+     "end": 21.7
+    },
+    {
+     "word": " be",
+     "start": 21.7,
+     "end": 21.8
+    },
+    {
+     "word": " writing",
+     "start": 21.8,
+     "end": 22.0
+    },
+    {
+     "word": " all",
+     "start": 22.0,
+     "end": 22.18
+    },
+    {
+     "word": " this",
+     "start": 22.18,
+     "end": 22.32
+    },
+    {
+     "word": " down.",
+     "start": 22.32,
+     "end": 22.58
+    }
+   ]
+  },
+  {
+   "start": 39.160000000000004,
+   "end": 41.96,
+   "text": "Thank you.",
+   "words": [
+    {
+     "word": " Thank",
+     "start": 39.160000000000004,
+     "end": 40.56
+    },
+    {
+     "word": " you.",
+     "start": 40.56,
+     "end": 41.96
+    }
+   ]
+  },
+  {
+   "start": 60.0,
+   "end": 65.16,
+   "text": "I'm in here thinking, okay, trendy probably means something other than just basic.",
+   "words": [
+    {
+     "word": " I'm",
+     "start": 60.0,
+     "end": 60.08
+    },
+    {
+     "word": " in",
+     "start": 60.08,
+     "end": 60.08
+    },
+    {
+     "word": " here",
+     "start": 60.08,
+     "end": 60.28
+    },
+    {
+     "word": " thinking,",
+     "start": 60.28,
+     "end": 60.98
+    },
+    {
+     "word": " okay,",
+     "start": 62.08,
+     "end": 62.26
+    },
+    {
+     "word": " trendy",
+     "start": 62.42,
+     "end": 62.58
+    },
+    {
+     "word": " probably",
+     "start": 62.58,
+     "end": 62.98
+    },
+    {
+     "word": " means",
+     "start": 62.98,
+     "end": 63.3
+    },
+    {
+     "word": " something",
+     "start": 63.3,
+     "end": 63.64
+    },
+    {
+     "word": " other",
+     "start": 63.64,
+     "end": 64.36
+    },
+    {
+     "word": " than",
+     "start": 64.36,
+     "end": 64.54
+    },
+    {
+     "word": " just",
+     "start": 64.54,
+     "end": 64.72
+    },
+    {
+     "word": " basic.",
+     "start": 64.72,
+     "end": 65.16
+    }
+   ]
+  },
+  {
+   "start": 65.42,
+   "end": 65.58,
+   "text": "Yeah.",
+   "words": [
+    {
+     "word": " Yeah.",
+     "start": 65.42,
+     "end": 65.58
+    }
+   ]
+  },
+  {
+   "start": 65.78,
+   "end": 67.8,
+   "text": "Something other than just standard.",
+   "words": [
+    {
+     "word": " Something",
+     "start": 65.78,
+     "end": 65.86
+    },
+    {
+     "word": " other",
+     "start": 65.86,
+     "end": 66.08
+    },
+    {
+     "word": " than",
+     "start": 66.08,
+     "end": 66.28
+    },
+    {
+     "word": " just",
+     "start": 66.28,
+     "end": 66.58
+    },
+    {
+     "word": " standard.",
+     "start": 66.58,
+     "end": 67.8
+    }
+   ]
+  },
+  {
+   "start": 70.04,
+   "end": 73.42,
+   "text": "So I'm wondering right away, is selling 25 euros,",
+   "words": [
+    {
+     "word": " So",
+     "start": 70.04,
+     "end": 70.48
+    },
+    {
+     "word": " I'm",
+     "start": 70.48,
+     "end": 70.8
+    },
+    {
+     "word": " wondering",
+     "start": 70.8,
+     "end": 71.62
+    },
+    {
+     "word": " right",
+     "start": 71.62,
+     "end": 71.86
+    },
+    {
+     "word": " away,",
+     "start": 71.86,
+     "end": 72.1
+    },
+    {
+     "word": " is",
+     "start": 72.28,
+     "end": 72.38
+    },
+    {
+     "word": " selling",
+     "start": 72.38,
+     "end": 72.66
+    },
+    {
+     "word": " 25",
+     "start": 72.66,
+     "end": 73.16
+    },
+    {
+     "word": " euros,",
+     "start": 73.16,
+     "end": 73.42
+    }
+   ]
+  },
+  {
+   "start": 73.54,
+   "end": 76.26,
+   "text": "is this going to be like the premium product?",
+   "words": [
+    {
+     "word": " is",
+     "start": 73.54,
+     "end": 73.62
+    },
+    {
+     "word": " this",
+     "start": 73.62,
+     "end": 73.76
+    },
+    {
+     "word": " going",
+     "start": 73.76,
+     "end": 75.04
+    },
+    {
+     "word": " to",
+     "start": 75.04,
+     "end": 75.1
+    },
+    {
+     "word": " be",
+     "start": 75.1,
+     "end": 75.2
+    },
+    {
+     "word": " like",
+     "start": 75.2,
+     "end": 75.34
+    },
+    {
+     "word": " the",
+     "start": 75.34,
+     "end": 75.48
+    },
+    {
+     "word": " premium",
+     "start": 75.48,
+     "end": 75.78
+    },
+    {
+     "word": " product?",
+     "start": 75.78,
+     "end": 76.26
+    }
+   ]
+  },
+  {
+   "start": 76.96000000000001,
+   "end": 77.62,
+   "text": "Yeah, yeah.",
+   "words": [
+    {
+     "word": " Yeah,",
+     "start": 76.96000000000001,
+     "end": 77.4
+    },
+    {
+     "word": " yeah.",
+     "start": 77.52,
+     "end": 77.62
+    }
+   ]
+  },
+  {
+   "start": 77.68,
+   "end": 80.26,
+   "text": "Like how much does a remote control cost?",
+   "words": [
+    {
+     "word": " Like",
+     "start": 77.68,
+     "end": 77.82
+    },
+    {
+     "word": " how",
+     "start": 77.82,
+     "end": 77.98
+    },
+    {
+     "word": " much",
+     "start": 77.98,
+     "end": 78.24
+    },
+    {
+     "word": " does",
+     "start": 78.24,
+     "end": 78.54
+    },
+    {
+     "word": " a",
+     "start": 78.54,
+     "end": 79.16
+    },
+    {
+     "word": " remote",
+     "start": 79.16,
+     "end": 79.36
+    },
+    {
+     "word": " control",
+     "start": 79.36,
+     "end": 79.68
+    },
+    {
+     "word": " cost?",
+     "start": 79.68,
+     "end": 80.26
+    }
+   ]
+  },
+  {
+   "start": 81.38,
+   "end": 87.48,
+   "text": "Well, 25 euro, I mean, that's about like 18 pounds or something, isn't it?",
+   "words": [
+    {
+     "word": " Well,",
+     "start": 81.38,
+     "end": 81.82
+    },
+    {
+     "word": " 25",
+     "start": 81.94,
+     "end": 82.22
+    },
+    {
+     "word": " euro,",
+     "start": 82.22,
+     "end": 82.5
+    },
+    {
+     "word": " I",
+     "start": 82.66,
+     "end": 82.66
+    },
+    {
+     "word": " mean,",
+     "start": 82.66,
+     "end": 82.78
+    },
+    {
+     "word": " that's",
+     "start": 82.86,
+     "end": 83.24
+    },
+    {
+     "word": " about",
+     "start": 83.24,
+     "end": 85.3
+    },
+    {
+     "word": " like",
+     "start": 85.3,
+     "end": 85.54
+    },
+    {
+     "word": " 18",
+     "start": 85.54,
+     "end": 86.3
+    },
+    {
+     "word": " pounds",
+     "start": 86.3,
+     "end": 86.62
+    },
+    {
+     "word": " or",
+     "start": 86.62,
+     "end": 86.78
+    },
+    {
+     "word": " something,",
+     "start": 86.78,
+     "end": 87.04
+    },
+    {
+     "word": " isn't",
+     "start": 87.16,
+     "end": 87.26
+    },
+    {
+     "word": " it?",
+     "start": 87.26,
+     "end": 87.48
+    }
+   ]
+  },
+  {
+   "start": 87.7,
+   "end": 89.1,
+   "text": "Or no, is it as much as that?",
+   "words": [
+    {
+     "word": " Or",
+     "start": 87.7,
+     "end": 87.94
+    },
+    {
+     "word": " no,",
+     "start": 87.94,
+     "end": 88.06
+    },
+    {
+     "word": " is",
+     "start": 88.16,
+     "end": 88.3
+    },
+    {
+     "word": " it",
+     "start": 88.3,
+     "end": 88.38
+    },
+    {
+     "word": " as",
+     "start": 88.38,
+     "end": 88.5
+    },
+    {
+     "word": " much",
+     "start": 88.5,
+     "end": 88.7
+    },
+    {
+     "word": " as",
+     "start": 88.7,
+     "end": 88.86
+    },
+    {
+     "word": " that?",
+     "start": 88.86,
+     "end": 89.1
+    }
+   ]
+  },
+  {
+   "start": 89.7,
+   "end": 91.12,
+   "text": "16, 17, 18 pounds.",
+   "words": [
+    {
+     "word": " 16,",
+     "start": 89.7,
+     "end": 90.06
+    },
+    {
+     "word": " 17,",
+     "start": 90.2,
+     "end": 90.4
+    },
+    {
+     "word": " 18",
+     "start": 90.5,
+     "end": 90.68
+    },
+    {
+     "word": " pounds.",
+     "start": 90.68,
+     "end": 91.12
+    }
+   ]
+  },
+  {
+   "start": 91.24,
+   "end": 91.76,
+   "text": "Yeah, I'd say so.",
+   "words": [
+    {
+     "word": " Yeah,",
+     "start": 91.24,
+     "end": 91.32
+    },
+    {
+     "word": " I'd",
+     "start": 91.4,
+     "end": 91.48
+    },
+    {
+     "word": " say",
+     "start": 91.48,
+     "end": 91.58
+    },
+    {
+     "word": " so.",
+     "start": 91.58,
+     "end": 91.76
+    }
+   ]
+  },
+  {
+   "start": 93.54,
+   "end": 94.12,
+   "text": "I don't know.",
+   "words": [
+    {
+     "word": " I",
+     "start": 93.54,
+     "end": 93.9
+    },
+    {
+     "word": " don't",
+     "start": 93.9,
+     "end": 94.0
+    },
+    {
+     "word": " know.",
+     "start": 94.0,
+     "end": 94.12
+    }
+   ]
+  },
+  {
+   "start": 94.16,
+   "end": 98.96,
+   "text": "I've never bought a remote control, so I don't know how good a remote control that would get you.",
+   "words": [
+    {
+     "word": " I've",
+     "start": 94.16,
+     "end": 94.3
+    },
+    {
+     "word": " never",
+     "start": 94.3,
+     "end": 94.46
+    },
+    {
+     "word": " bought",
+     "start": 94.46,
+     "end": 94.68
+    },
+    {
+     "word": " a",
+     "start": 94.68,
+     "end": 94.8
+    },
+    {
+     "word": " remote",
+     "start": 94.8,
+     "end": 95.02
+    },
+    {
+     "word": " control,",
+     "start": 95.02,
+     "end": 95.42
+    },
+    {
+     "word": " so",
+     "start": 95.44,
+     "end": 95.68
+    },
+    {
+     "word": " I",
+     "start": 95.68,
+     "end": 95.78
+    },
+    {
+     "word": " don't",
+     "start": 95.78,
+     "end": 95.94
+    },
+    {
+     "word": " know",
+     "start": 95.94,
+     "end": 96.14
+    },
+    {
+     "word": " how",
+     "start": 96.14,
+     "end": 96.94
+    },
+    {
+     "word": " good",
+     "start": 96.94,
+     "end": 97.66
+    },
+    {
+     "word": " a",
+     "start": 97.66,
+     "end": 97.76
+    },
+    {
+     "word": " remote",
+     "start": 97.76,
+     "end": 97.94
+    },
+    {
+     "word": " control",
+     "start": 97.94,
+     "end": 98.26
+    },
+    {
+     "word": " that",
+     "start": 98.26,
+     "end": 98.44
+    },
+    {
+     "word": " would",
+     "start": 98.44,
+     "end": 98.56
+    },
+    {
+     "word": " get",
+     "start": 98.56,
+     "end": 98.74
+    },
+    {
+     "word": " you.",
+     "start": 98.74,
+     "end": 98.96
+    }
+   ]
+  },
+  {
+   "start": 101.53999999999999,
+   "end": 104.88,
+   "text": "But yeah, I suppose it has to look kind of cool and gimmicky.",
+   "words": [
+    {
+     "word": " But",
+     "start": 101.53999999999999,
+     "end": 102.1
+    },
+    {
+     "word": " yeah,",
+     "start": 102.1,
+     "end": 102.22
+    },
+    {
+     "word": " I",
+     "start": 102.32,
+     "end": 102.34
+    },
+    {
+     "word": " suppose",
+     "start": 102.34,
+     "end": 102.48
+    },
+    {
+     "word": " it",
+     "start": 102.48,
+     "end": 102.62
+    },
+    {
+     "word": " has",
+     "start": 102.62,
+     "end": 102.76
+    },
+    {
+     "word": " to",
+     "start": 102.76,
+     "end": 102.9
+    },
+    {
+     "word": " look",
+     "start": 102.9,
+     "end": 103.2
+    },
+    {
+     "word": " kind",
+     "start": 103.2,
+     "end": 103.62
+    },
+    {
+     "word": " of",
+     "start": 103.62,
+     "end": 103.8
+    },
+    {
+     "word": " cool",
+     "start": 103.8,
+     "end": 104.06
+    },
+    {
+     "word": " and",
+     "start": 104.06,
+     "end": 104.4
+    },
+    {
+     "word": " gimmicky.",
+     "start": 104.4,
+     "end": 104.88
+    }
+   ]
+  },
+  {
+   "start": 108.24,
+   "end": 108.8,
+   "text": "Right.",
+   "words": [
+    {
+     "word": " Right.",
+     "start": 108.24,
+     "end": 108.8
+    }
+   ]
+  },
+  {
+   "start": 109.54,
+   "end": 109.94,
+   "text": "Okay.",
+   "words": [
+    {
+     "word": " Okay.",
+     "start": 109.54,
+     "end": 109.94
+    }
+   ]
+  },
+  {
+   "start": 111.06,
+   "end": 112.84,
+   "text": "Let me just scoot on ahead here.",
+   "words": [
+    {
+     "word": " Let",
+     "start": 111.06,
+     "end": 111.58
+    },
+    {
+     "word": " me",
+     "start": 111.58,
+     "end": 111.64
+    },
+    {
+     "word": " just",
+     "start": 111.64,
+     "end": 111.86
+    },
+    {
+     "word": " scoot",
+     "start": 111.86,
+     "end": 112.12
+    },
+    {
+     "word": " on",
+     "start": 112.12,
+     "end": 112.3
+    },
+    {
+     "word": " ahead",
+     "start": 112.3,
+     "end": 112.56
+    },
+    {
+     "word": " here.",
+     "start": 112.56,
+     "end": 112.84
+    }
+   ]
+  },
+  {
+   "start": 113.74,
+   "end": 114.02,
+   "text": "Okay.",
+   "words": [
+    {
+     "word": " Okay.",
+     "start": 113.74,
+     "end": 114.02
+    }
+   ]
+  },
+  {
+   "start": 115.7,
+   "end": 117.46,
+   "text": "Does anybody have anything to add to this?",
+   "words": [
+    {
+     "word": " Does",
+     "start": 115.7,
+     "end": 116.14
+    },
+    {
+     "word": " anybody",
+     "start": 116.14,
+     "end": 116.4
+    },
+    {
+     "word": " have",
+     "start": 116.4,
+     "end": 116.62
+    },
+    {
+     "word": " anything",
+     "start": 116.62,
+     "end": 116.88
+    },
+    {
+     "word": " to",
+     "start": 116.88,
+     "end": 117.06
+    },
+    {
+     "word": " add",
+     "start": 117.06,
+     "end": 117.28
+    },
+    {
+     "word": " to",
+     "start": 117.28,
+     "end": 117.46
+    },
+    {
+     "word": " this?",
+     "start": 117.46,
+     "end": 117.46
+    }
+   ]
+  },
+  {
+   "start": 117.46,
+   "end": 117.46,
+   "text": "",
+   "words": []
+  },
+  {
+   "start": 117.46,
+   "end": 117.78,
+   "text": "Does anybody have anything to add to this?",
+   "words": [
+    {
+     "word": " Does",
+     "start": 117.46,
+     "end": 117.46
+    },
+    {
+     "word": " anybody",
+     "start": 117.46,
+     "end": 117.46
+    },
+    {
+     "word": " have",
+     "start": 117.46,
+     "end": 117.46
+    },
+    {
+     "word": " anything",
+     "start": 117.46,
+     "end": 117.46
+    },
+    {
+     "word": " to",
+     "start": 117.46,
+     "end": 117.46
+    },
+    {
+     "word": " add",
+     "start": 117.46,
+     "end": 117.46
+    },
+    {
+     "word": " to",
+     "start": 117.46,
+     "end": 117.58
+    },
+    {
+     "word": " this?",
+     "start": 117.58,
+     "end": 117.78
+    }
+   ]
+  },
+  {
+   "start": 118.92,
+   "end": 119.98,
+   "text": "Do Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba Cuba",
+   "words": [
+    {
+     "word": " Do",
+     "start": 118.92,
+     "end": 119.08
+    },
+    {
+     "word": " Cuba",
+     "start": 119.08,
+     "end": 119.24
+    },
+    {
+     "word": " Cuba",
+     "start": 119.24,
+     "end": 119.24
+    },
+    {
+     "word": " Cuba",
+     "start": 119.24,
+     "end": 119.24
+    },
+    {
+     "word": " Cuba",
+     "start": 119.24,
+     "end": 119.24
+    },
+    {
+     "word": " Cuba",
+     "start": 119.24,
+     "end": 119.24
+    },
+    {
+     "word": " Cuba",
+     "start": 119.24,
+     "end": 119.24
+    },
+    {
+     "word": " Cuba",
+     "start": 119.24,
+     "end": 119.4
+    },
+    {
+     "word": " Cuba",
+     "start": 119.4,
+     "end": 119.4
+    },
+    {
+     "word": " Cuba",
+     "start": 119.4,
+     "end": 119.4
+    },
+    {
+     "word": " Cuba",
+     "start": 119.4,
+     "end": 119.4
+    },
+    {
+     "word": " Cuba",
+     "start": 119.4,
+     "end": 119.4
+    },
+    {
+     "word": " Cuba",
+     "start": 119.4,
+     "end": 119.6
+    },
+    {
+     "word": " Cuba",
+     "start": 119.6,
+     "end": 119.6
+    },
+    {
+     "word": " Cuba",
+     "start": 119.6,
+     "end": 119.6
+    },
+    {
+     "word": " Cuba",
+     "start": 119.6,
+     "end": 119.6
+    },
+    {
+     "word": " Cuba",
+     "start": 119.6,
+     "end": 119.6
+    },
+    {
+     "word": " Cuba",
+     "start": 119.6,
+     "end": 119.6
+    },
+    {
+     "word": " Cuba",
+     "start": 119.6,
+     "end": 119.6
+    },
+    {
+     "word": " Cuba",
+     "start": 119.6,
+     "end": 119.68
+    },
+    {
+     "word": " Cuba",
+     "start": 119.68,
+     "end": 119.68
+    },
+    {
+     "word": " Cuba",
+     "start": 119.68,
+     "end": 119.8
+    },
+    {
+     "word": " Cuba",
+     "start": 119.8,
+     "end": 119.8
+    },
+    {
+     "word": " Cuba",
+     "start": 119.8,
+     "end": 119.8
+    },
+    {
+     "word": " Cuba",
+     "start": 119.8,
+     "end": 119.8
+    },
+    {
+     "word": " Cuba",
+     "start": 119.8,
+     "end": 119.8
+    },
+    {
+     "word": " Cuba",
+     "start": 119.8,
+     "end": 119.8
+    },
+    {
+     "word": " Cuba",
+     "start": 119.8,
+     "end": 119.8
+    },
+    {
+     "word": " Cuba",
+     "start": 119.8,
+     "end": 119.8
+    },
+    {
+     "word": " Cuba",
+     "start": 119.8,
+     "end": 119.8
+    },
+    {
+     "word": " Cuba",
+     "start": 119.8,
+     "end": 119.8
+    },
+    {
+     "word": " Cuba",
+     "start": 119.8,
+     "end": 119.8
+    },
+    {
+     "word": " Cuba",
+     "start": 119.8,
+     "end": 119.8
+    },
+    {
+     "word": " Cuba",
+     "start": 119.8,
+     "end": 119.8
+    },
+    {
+     "word": " Cuba",
+     "start": 119.8,
+     "end": 119.8
+    },
+    {
+     "word": " Cuba",
+     "start": 119.8,
+     "end": 119.8
+    },
+    {
+     "word": " Cuba",
+     "start": 119.8,
+     "end": 119.88
+    },
+    {
+     "word": " Cuba",
+     "start": 119.88,
+     "end": 119.88
+    },
+    {
+     "word": " Cuba",
+     "start": 119.88,
+     "end": 119.88
+    },
+    {
+     "word": " Cuba",
+     "start": 119.88,
+     "end": 119.88
+    },
+    {
+     "word": " Cuba",
+     "start": 119.88,
+     "end": 119.88
+    },
+    {
+     "word": " Cuba",
+     "start": 119.88,
+     "end": 119.88
+    },
+    {
+     "word": " Cuba",
+     "start": 119.88,
+     "end": 119.88
+    },
+    {
+     "word": " Cuba",
+     "start": 119.88,
+     "end": 119.88
+    },
+    {
+     "word": " Cuba",
+     "start": 119.88,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.92
+    },
+    {
+     "word": " Cuba",
+     "start": 119.92,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.94
+    },
+    {
+     "word": " Cuba",
+     "start": 119.94,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.96
+    },
+    {
+     "word": " Cuba",
+     "start": 119.96,
+     "end": 119.98
+    }
+   ]
+  },
+  {
+   "start": 119.96,
+   "end": 119.96,
+   "text": "",
+   "words": []
+  }
+ ]
+}
