@@ -1,6 +1,6 @@
-# Architecture guardrails — decision memo (story A10)
+# Architecture guardrails — decision memo (stories A10 + A9)
 
-Status: **pilot / report-only** · Introduced: 2026-07-08 · Follow-up: story **A9** (promote to blocking)
+Status: **ENFORCED (all three contracts blocking)** · Pilot introduced: 2026-07-08 (A10) · Promoted to blocking: 2026-07-11 (A9, per operator decision OQ-3)
 
 Notetaker follows a clean/hexagonal architecture (see [`architecture.md`](architecture.md)).
 Until now that boundary was enforced only by review. This memo records the decision to adopt
@@ -26,70 +26,74 @@ Rationale:
 
 | Contract id | Type | Enforcement | Today |
 | --- | --- | --- | --- |
-| `domain-independence` | forbidden | **BLOCKING** (pytest + `task check` + CI unit job) | ✅ KEPT |
-| `application-independent-of-adapters` | forbidden | report-only (`task arch:check`, non-blocking CI `arch` job) | ❌ BROKEN |
-| `adapters-do-not-import-upward` | forbidden | report-only | ❌ BROKEN |
+| `domain-independence` | forbidden | **BLOCKING** (pytest + `task check` + CI unit job + CI `arch` job) | ✅ KEPT |
+| `application-independent-of-adapters` | forbidden | **BLOCKING** (same) | ✅ KEPT |
+| `adapters-do-not-import-upward` | forbidden | **BLOCKING** (same) | ✅ KEPT |
 
-- **Blocking** is scoped to the single invariant that already holds — the domain layer imports
-  nothing outward. It is gated in [`tests/architecture/test_import_contracts.py`](../tests/architecture/test_import_contracts.py)
-  (via `--contract domain-independence`), so a regression fails `task check` and the CI unit job.
-- **Report-only** contracts document real debt without blocking merges. Run them with
-  `task arch:check` (never fails) or read the non-blocking CI `arch` job.
+- All three contracts are gated in [`tests/architecture/test_import_contracts.py`](../tests/architecture/test_import_contracts.py)
+  (`ENFORCED_CONTRACTS`), so a regression fails `task check` and the CI unit job; the CI `arch`
+  job and `task arch:check` run the same `lint-imports` check and are blocking too.
 - The composition root `application/container.py` is *exempt* from the application contract
   (`ignore_imports = ...container -> live_meeting_transcriber.**`): wiring concrete adapters is
-  its job.
+  its job. Do not add further `ignore_imports`; invert new dependencies through ports.
 
-## Violation inventory (2026-07-08)
+## Violation inventory (2026-07-08) — cleared by A9 (2026-07-11)
 
-Analyzed 101 files / 238 dependencies. Two report-only contracts broken.
+Original pilot inventory (101 files / 238 dependencies, two contracts broken), kept for
+history. **All edges below are fixed**; the "Fix path" column records what actually landed.
 
 ### Batch 1 — application → concrete adapters (owner: A-epic)
 
 `application` should depend on `domain` + ports only. Concrete-adapter imports found (container
 excluded):
 
-| Module | Imports | Fix path |
+| Module | Imported | Fix that landed (A9) |
 | --- | --- | --- |
-| `application/finalize_service.py` | `offline.whisperx_pipeline` | Introduce an offline-ASR **port**; inject the WhisperX impl via container. → new story / **A4** neighbourhood |
-| `application/slide_preview_service.py` | `video.slide_common`, `video.strategies.factory` | Depend on the `SlideDetectionStrategy` port + a factory port; inject concrete strategies. |
-| `application/video_import_service.py` | `video.slide_common`, `video.strategies.factory`, `audio.*` | Same as above + audio helpers behind ports. |
-| `application/recorder.py` | `audio.session_recording/stereo/timeline/wav_*` | **A4** — extract an audio-IO port for WAV/timeline append. |
-| `application/screenshot_export.py`, `session_media.py`, `video_session_storage.py` | `audio.session_recording` | Small: move `session_audio_dir`/path helpers behind a storage-path port or into domain. |
-| `application/session_service.py` | `obsidian.vault_patterns` | Move `is_placeholder_meeting_title` into domain (pure predicate). |
+| `application/finalize_service.py` | `offline.whisperx_pipeline`, `audio.session_recording/timeline` | `OfflineTranscriber` port (impl `WhisperxOfflineTranscriber`, lazily built by `Container.offline_transcriber()`); timeline reads via `SessionAudioStore`; paths from `domain.session_audio`. |
+| `application/slide_preview_service.py` | `video.slide_common`, `video.strategies.factory`, `audio.media_import` | `SlideDetectionTools` + `MediaImporter` ports (impls `FfmpegSlideDetectionTools`, `FfmpegMediaImporter`), wired by the container. |
+| `application/video_import_service.py` | `video.*`, `audio.*` | Same ports plus `WavAudioOps` (`FfmpegWavOps`) and `SessionAudioStore` (`FfmpegSessionAudioStore`). |
+| `application/recorder.py` | `audio.session_recording/stereo/wav_level` | `SessionAudioStore` (chunk+timeline append) and `WavAudioOps` (levels, channel split, mixdown) ports. |
+| `application/screenshot_export.py`, `session_media.py`, `video_session_storage.py` | `audio.session_recording` | Path layout moved to `domain/session_audio.py` (`session_audio_dir`, `full_session_wav_path`). |
+| `application/session_service.py` | `obsidian.vault_patterns` | `is_placeholder_meeting_title` moved to `domain/meeting_naming.py` (pure predicate). |
+| `application/export_markdown.py` | `obsidian.meeting_export` | `ExportCancelledError` moved to `domain.exceptions`; `slug_title` to `domain/meeting_naming.py`. |
 
 ### Batch 2 — adapter → application (owner: A-epic)
 
-| Module | Imports | Fix path |
+| Module | Imported | Fix that landed (A9) |
 | --- | --- | --- |
-| `obsidian/meeting_export.py` | `application.export_markdown` / `export_overwrite` / `screenshot_export` | Upward leak. Move shared export helpers down to `domain`/a shared util, or invert so `application` orchestrates `obsidian`. New story under the A epic. |
+| `obsidian/meeting_export.py` | `application.export_markdown` / `export_overwrite` / `screenshot_export` | Inverted: `prepare/write_dual_export` moved to `application/dual_export.py`; the adapter keeps rendering/naming only and implements the `MeetingNoteRenderer` port (`ObsidianMeetingNoteRenderer`). |
 
 `domain` (✅ clean) and `storage` (✅ leaf, no sibling/upward imports) need no work.
 
 ## Rollout / phased adoption gates
 
-1. **Phase 0 — pilot (this story, done):** tool wired; `domain-independence` blocking; other
+1. **Phase 0 — pilot (A10, done 2026-07-08):** tool wired; `domain-independence` blocking; other
    contracts report-only in `task arch:check` + non-blocking CI.
-2. **Phase 1 — stop the bleeding:** keep report-only, but treat *new* violations as review
-   blockers. Entry criteria for promoting a contract to blocking: its violation count is **0**.
-3. **Phase 2 — pay down Batch 1/2** via the A-epic refactors (ports for offline/video/audio;
-   relocate `obsidian`→`application` leak). As each contract reaches 0 violations, move its id
-   into `ENFORCED_CONTRACTS` in the guard test and delete it from the report-only set.
-4. **Phase 3 — fully enforced (story A9):** all three contracts blocking; drop `continue-on-error`
-   from the CI `arch` job; consider a `layers` contract for the full hexagon.
+2. **Phase 1 — stop the bleeding (done):** new violations treated as review blockers.
+3. **Phase 2 — pay down Batch 1/2 (A9, done 2026-07-11):** ports for offline-ASR
+   (`OfflineTranscriber`), media import (`MediaImporter`), WAV ops (`WavAudioOps`),
+   session-audio persistence (`SessionAudioStore`), slide detection (`SlideDetectionTools`)
+   and vault note rendering (`MeetingNoteRenderer`); pure layout/naming/exception types moved
+   into `domain/`.
+4. **Phase 3 — fully enforced (A9, done 2026-07-11):** all three contracts blocking;
+   `continue-on-error` dropped from the CI `arch` job; `task arch:check` fails on violations.
+   Possible future hardening: a `layers` contract for the full hexagon.
 
 ### Follow-up: story A9 entry criteria
 
-Promote `application-independent-of-adapters` and `adapters-do-not-import-upward` to blocking when:
+**DONE (2026-07-11).** All entry criteria were met and the promotion landed:
 
-- Batch 1 and Batch 2 violation counts are both 0 (verified by `task arch:check`), **and**
-- the relevant A-epic ports exist (offline-ASR, slide-detection, audio-IO), **and**
-- `ENFORCED_CONTRACTS` in the guard test has been widened to include them with a green suite.
+- Batch 1 and Batch 2 violation counts are both 0 — `task arch:check` reports
+  `Contracts: 3 kept, 0 broken`.
+- The A-epic ports exist (offline-ASR, slide-detection, media-import, audio-IO,
+  session-audio store, meeting-note renderer) and are wired via the container.
+- `ENFORCED_CONTRACTS` in [`tests/architecture/test_import_contracts.py`](../tests/architecture/test_import_contracts.py)
+  now lists all three contracts, with a green suite.
 
 ## How to run
 
 ```bash
-task arch:check                       # full report, never fails (pilot)
-uv run lint-imports                   # same report
-uv run lint-imports --contract domain-independence   # the blocking subset
-uv run pytest tests/architecture      # the guard test that gates task check
+task arch:check                       # full contract check, fails on violations
+uv run lint-imports                   # same check
+uv run pytest tests/architecture      # the in-process guard that gates task check
 ```

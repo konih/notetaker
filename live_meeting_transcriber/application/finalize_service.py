@@ -7,13 +7,13 @@ from pathlib import Path
 from uuid import UUID
 
 from live_meeting_transcriber.application.container import Container
-from live_meeting_transcriber.audio.session_recording import (
+from live_meeting_transcriber.config.settings import Settings
+from live_meeting_transcriber.domain.models import MeetingSession, TranscriptSegment
+from live_meeting_transcriber.domain.session_audio import (
+    AudioTimelineEntry,
     full_session_wav_path,
     session_audio_dir,
 )
-from live_meeting_transcriber.audio.timeline import AudioTimelineEntry, load_timeline
-from live_meeting_transcriber.config.settings import Settings
-from live_meeting_transcriber.domain.models import MeetingSession, TranscriptSegment
 
 
 def _as_utc(dt: datetime) -> datetime:
@@ -105,7 +105,7 @@ def _finalize_load_inputs(
         raise FileNotFoundError(
             f"No full_session.wav for this session (nothing recorded yet). Expected: {wav}"
         )
-    timeline = load_timeline(root)
+    timeline = container.session_audio.load_timeline(root)
     return session.started_at, wav, timeline
 
 
@@ -118,18 +118,15 @@ def _finalize_persist_segments(
 
 
 def finalize_session_sync(*, container: Container, settings: Settings, session_id: UUID) -> int:
-    """Run WhisperX on stored ``full_session.wav`` and replace the session transcript."""
-    from live_meeting_transcriber.offline.whisperx_pipeline import run_whisperx_finalize
-
+    """Run offline ASR on stored ``full_session.wav`` and replace the session transcript."""
     session_started_at, wav, timeline = _finalize_load_inputs(
         container=container, settings=settings, session_id=session_id
     )
-    segments = run_whisperx_finalize(
+    segments = container.offline_transcriber().transcribe_session(
         session_id=session_id,
         audio_wav=wav,
         timeline=timeline,
         session_started_at=session_started_at,
-        settings=settings,
     )
     return _finalize_persist_segments(container=container, session_id=session_id, segments=segments)
 
@@ -144,25 +141,24 @@ async def finalize_session_offline(
     """Async entry for the TUI: GPU/CPU work runs in a thread pool; DB stays on the event-loop thread.
 
     The SQLite connection is created on the asyncio thread; ``check_same_thread`` forbids using it
-    from ``asyncio.to_thread`` workers, so only :func:`run_whisperx_finalize` is offloaded.
+    from ``asyncio.to_thread`` workers, so only the offline transcription is offloaded.
     """
-    from live_meeting_transcriber.offline.whisperx_pipeline import run_whisperx_finalize
     from live_meeting_transcriber.utils.std_streams import subprocess_safe_std_streams
 
     session_started_at, wav, timeline = _finalize_load_inputs(
         container=container, settings=settings, session_id=session_id
     )
+    offline_transcriber = container.offline_transcriber()
 
     def _run() -> list[TranscriptSegment]:
         # A running TUI redirects std streams to fileno()==-1; WhisperX's model load forks a
         # child and would raise "bad value(s) in fds_to_keep". Give it real (devnull) std fds.
         with subprocess_safe_std_streams():
-            return run_whisperx_finalize(
+            return offline_transcriber.transcribe_session(
                 session_id=session_id,
                 audio_wav=wav,
                 timeline=timeline,
                 session_started_at=session_started_at,
-                settings=settings,
                 progress=progress,
             )
 

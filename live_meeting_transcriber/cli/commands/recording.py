@@ -89,6 +89,8 @@ def record(
         data_dir=c.settings.ensure_data_dir(),
         audio_stereo_mode=c.settings.audio_stereo_mode,
         transcription_provider=c.settings.transcription_provider,
+        session_audio=c.session_audio,
+        wav_ops=c.wav_ops,
         silence_skip_enabled=c.settings.audio_silence_skip_enabled,
         silence_threshold_dbfs=c.settings.audio_silence_threshold_dbfs,
     )

@@ -17,14 +17,17 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
-from live_meeting_transcriber.application import video_import_service as vis
 from live_meeting_transcriber.application.video_import_service import VideoImportService
+from live_meeting_transcriber.audio.media_import import FfmpegMediaImporter
+from live_meeting_transcriber.audio.session_recording import FfmpegSessionAudioStore
+from live_meeting_transcriber.audio.wav_ops import FfmpegWavOps
 from live_meeting_transcriber.domain.models import AudioChunk, TranscriptSegment
 from live_meeting_transcriber.storage.repositories import (
     SqliteMeetingSessionRepository,
     SqliteTranscriptRepository,
 )
 from live_meeting_transcriber.storage.sqlite import open_connection
+from live_meeting_transcriber.video.tools import FfmpegSlideDetectionTools
 from tests.e2e.video_helpers import ffmpeg_available, patch_data_dir, video_import_settings
 
 _FIXTURE = (
@@ -58,15 +61,15 @@ def test_transcribe_video_from_downloaded_url(
     url = "https://www.youtube.com/watch?v=DZL-ExKPjnc"
     resolved_sources: list[str] = []
 
-    def _fake_resolve(*, source: str, download_dir: Path) -> Path:
-        # Stand in for yt-dlp: record the requested source, place the fixture where a
-        # real download would have landed, and return that path.
-        resolved_sources.append(source)
-        dest = download_dir / _FIXTURE.name
-        dest.write_bytes(_FIXTURE.read_bytes())
-        return dest
+    class _FakeDownloadMedia(FfmpegMediaImporter):
+        """Stand in for yt-dlp: record the requested source, place the fixture where a
+        real download would have landed, and return that path (probe/demux stay real)."""
 
-    monkeypatch.setattr(vis, "resolve_media_source", _fake_resolve)
+        def resolve_source(self, *, source: str, download_dir: Path) -> Path:
+            resolved_sources.append(source)
+            dest = download_dir / _FIXTURE.name
+            dest.write_bytes(_FIXTURE.read_bytes())
+            return dest
 
     settings = video_import_settings(
         tmp_path,
@@ -76,6 +79,10 @@ def test_transcribe_video_from_downloaded_url(
 
     conn = open_connection(settings.database_url)
     svc = VideoImportService(
+        media=_FakeDownloadMedia(),
+        wav_ops=FfmpegWavOps(),
+        session_audio=FfmpegSessionAudioStore(),
+        slide_tools=FfmpegSlideDetectionTools(),
         settings=settings,
         sessions=SqliteMeetingSessionRepository(conn),
         transcripts=SqliteTranscriptRepository(conn),

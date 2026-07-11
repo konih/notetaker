@@ -1,7 +1,56 @@
+# Pre-commit hooks — parity with `task check` (story C2).
+#
+# `task check` = ruff format --check + ruff check + mypy (whole tree) + unit pytest
+# with the coverage floor. The hooks below run the SAME tools via `uv run`, so the
+# versions come from the project venv (dev extra in pyproject.toml) instead of
+# independently pinned mirror repos that drift (the old astral-sh/ruff-pre-commit
+# pin had already fallen behind the project's ruff).
+#
+# Speed budget (measured 2026-07-11, Apple Silicon, warm venv):
+#   whole commit stage    ~ 3 s   (ruff format + ruff check + mypy incremental + lint-imports)
+#   mypy . cold cache     ~ 21 s  (first run only; .mypy_cache makes later runs ~1.5 s)
+#   pytest unit lane      ~ 66 s  -> too slow per-commit; runs at PRE-PUSH instead
+#                                    (documented subset decision — same gate, later stage)
+#
+# Setup:  uv run pre-commit install        # installs pre-commit AND pre-push hooks
+#         (default_install_hook_types below covers both)
+# See docs/development.md#pre-commit-hooks.
+
+default_install_hook_types: [pre-commit, pre-push]
+
 repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.9
+  - repo: local
     hooks:
-      - id: ruff
-        args: ["--fix"]
       - id: ruff-format
+        name: ruff format (autofix; parity with `ruff format --check`)
+        entry: uv run ruff format
+        language: system
+        types_or: [python, pyi]
+
+      - id: ruff-check
+        name: ruff check --fix
+        entry: uv run ruff check --fix
+        language: system
+        types_or: [python, pyi]
+
+      - id: mypy
+        name: mypy (strict, whole tree — same scope as `task check`)
+        entry: uv run mypy .
+        language: system
+        pass_filenames: false
+        files: '\.pyi?$|^pyproject\.toml$'
+
+      - id: import-linter
+        name: import-linter architecture contracts (A9)
+        entry: uv run lint-imports
+        language: system
+        pass_filenames: false
+        files: '\.py$|^\.importlinter$'
+
+      - id: pytest-unit
+        name: pytest unit lane + coverage floor (pre-push only; ~70 s)
+        entry: uv run pytest -m "not integration" --cov=live_meeting_transcriber --cov-report=term-missing
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]

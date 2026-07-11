@@ -130,12 +130,10 @@ jobs:
         run: uv run pytest -m integration -q
 
   arch:
-    name: Architecture boundaries (import-linter, non-blocking)
+    name: Architecture boundaries (import-linter)
     runs-on: ubuntu-latest
-    # Pilot: reports hexagonal boundary violations but does not block merges yet.
-    # The enforced subset (domain-independence) is covered by the unit test suite.
-    # Promote to blocking per agent-context (story A9).
-    continue-on-error: true
+    # Blocking since A9: all three hexagonal contracts must hold. The same check
+    # also runs in-process via tests/architecture/ in the unit test suite.
     steps:
       - uses: actions/checkout@v7
 
@@ -148,7 +146,7 @@ jobs:
       - name: Sync dev tools
         run: uv sync --python 3.12 --extra dev
 
-      - name: Import Linter (report)
+      - name: Import Linter
         run: uv run lint-imports
 
   secrets:

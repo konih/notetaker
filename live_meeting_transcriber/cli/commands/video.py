@@ -101,6 +101,10 @@ def transcribe_video(
         sessions=c.sessions,
         transcripts=c.transcripts,
         transcriber=c.transcriber,
+        media=c.media_importer,
+        wav_ops=c.wav_ops,
+        session_audio=c.session_audio,
+        slide_tools=c.slide_tools,
     )
     slide_params = _slide_params_from_cli(
         sample_interval=sample_interval,
@@ -118,7 +122,12 @@ def transcribe_video(
                 extract_slides=False,
                 skip_transcription=True,
             )
-            preview_svc = SlidePreviewService(settings=c.settings, sessions=c.sessions)
+            preview_svc = SlidePreviewService(
+                settings=c.settings,
+                sessions=c.sessions,
+                media=c.media_importer,
+                slide_tools=c.slide_tools,
+            )
             preview = await preview_svc.preview(
                 session_id=result.session_id,
                 strategy=strategy,
@@ -245,7 +254,12 @@ def slides_preview(
         max_candidates=max_candidates,
         settings=c.settings,
     )
-    svc = SlidePreviewService(settings=c.settings, sessions=c.sessions)
+    svc = SlidePreviewService(
+        settings=c.settings,
+        sessions=c.sessions,
+        media=c.media_importer,
+        slide_tools=c.slide_tools,
+    )
 
     async def _run() -> None:
         preview = await svc.preview(session_id=sid, strategy=strategy, params=params)
@@ -287,7 +301,12 @@ def slides_apply(
         max_candidates=max_candidates,
         settings=c.settings,
     )
-    svc = SlidePreviewService(settings=c.settings, sessions=c.sessions)
+    svc = SlidePreviewService(
+        settings=c.settings,
+        sessions=c.sessions,
+        media=c.media_importer,
+        slide_tools=c.slide_tools,
+    )
 
     async def _run() -> None:
         preview = await svc.preview(session_id=sid, strategy=strategy, params=params)

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from live_meeting_transcriber.application.export_overwrite import (
@@ -9,19 +8,14 @@ from live_meeting_transcriber.application.export_overwrite import (
     resolve_export_write,
     write_text_from_decision,
 )
+from live_meeting_transcriber.domain.exceptions import ExportCancelledError
+from live_meeting_transcriber.domain.meeting_naming import slug_title
 from live_meeting_transcriber.domain.models import MeetingSession, Summary, TranscriptSegment
 from live_meeting_transcriber.domain.speaker_display import format_transcript_speaker_label
-from live_meeting_transcriber.obsidian.meeting_export import ExportCancelledError
-
-
-def _slug_title(title: str, max_len: int = 48) -> str:
-    s = re.sub(r"[^\w\s-]", "", title, flags=re.UNICODE).strip().lower()
-    s = re.sub(r"[-\s]+", "-", s).strip("-")
-    return (s[:max_len] if s else "session").rstrip("-")
 
 
 def export_filename_for_session(session: MeetingSession) -> str:
-    return f"{session.id}_{_slug_title(session.title)}.md"
+    return f"{session.id}_{slug_title(session.title)}.md"
 
 
 def build_session_export_markdown(

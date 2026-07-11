@@ -18,14 +18,13 @@ from live_meeting_transcriber.application.video_session_storage import (
     session_slides_dir,
     session_slides_manifest_path,
 )
-from live_meeting_transcriber.audio.media_import import probe_media_duration_seconds
 from live_meeting_transcriber.config.settings import Settings
+from live_meeting_transcriber.domain.exceptions import SlideDetectionError
 from live_meeting_transcriber.domain.models import SlideCandidate, SlideDetectionParams
-from live_meeting_transcriber.domain.ports import MeetingSessionRepository
-from live_meeting_transcriber.video.slide_common import SlideDetectionError, extract_slide_frame
-from live_meeting_transcriber.video.strategies.factory import (
-    SlideStrategyName,
-    build_slide_strategy,
+from live_meeting_transcriber.domain.ports import (
+    MediaImporter,
+    MeetingSessionRepository,
+    SlideDetectionTools,
 )
 
 
@@ -47,12 +46,15 @@ class SlidePreviewResult:
 class SlidePreviewService:
     settings: Settings
     sessions: MeetingSessionRepository
+    # Media/slide toolkits behind ports (A9); wired from the container.
+    media: MediaImporter
+    slide_tools: SlideDetectionTools
 
     async def preview(
         self,
         *,
         session_id: UUID,
-        strategy: SlideStrategyName | str | None = None,
+        strategy: str | None = None,
         params: SlideDetectionParams | None = None,
         preview_dir: Path | None = None,
     ) -> SlidePreviewResult:
@@ -65,11 +67,11 @@ class SlidePreviewService:
             video_path = await asyncio.to_thread(read_source_media_video_path, data_dir, session_id)
         except VideoSessionStorageError as e:
             raise SlidePreviewError(str(e)) from e
-        duration = await asyncio.to_thread(probe_media_duration_seconds, video_path)
+        duration = await asyncio.to_thread(self.media.probe_duration_seconds, video_path)
 
         detection_params = params or self.settings.slide_detection_params()
         resolved_strategy = strategy or self.settings.video_slide_strategy
-        strat = build_slide_strategy(resolved_strategy, settings=self.settings)
+        strat = self.slide_tools.build_strategy(resolved_strategy)
 
         out_preview = (
             preview_dir or (data_dir / "imports" / "slide_previews" / str(session_id)).resolve()
@@ -137,7 +139,7 @@ class SlidePreviewService:
                 shutil.copy2(cand.preview_path, dest)
             else:
                 await asyncio.to_thread(
-                    extract_slide_frame,
+                    self.slide_tools.extract_frame,
                     video_path=video_path,
                     timestamp_seconds=cand.timestamp_seconds,
                     dest_png=dest,

@@ -101,6 +101,10 @@ async def run_video_import(
         sessions=container.sessions,
         transcripts=container.transcripts,
         transcriber=container.transcriber,
+        media=container.media_importer,
+        wav_ops=container.wav_ops,
+        session_audio=container.session_audio,
+        slide_tools=container.slide_tools,
     )
     return await svc.import_video(
         source=source,

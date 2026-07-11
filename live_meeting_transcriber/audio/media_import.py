@@ -4,11 +4,21 @@ from __future__ import annotations
 
 import json
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 
+from live_meeting_transcriber.audio.media_source import (
+    media_title_from_source,
+    resolve_media_source,
+)
+from live_meeting_transcriber.domain.exceptions import MediaImportError
 
-class MediaImportError(RuntimeError):
-    pass
+__all__ = [
+    "FfmpegMediaImporter",
+    "MediaImportError",
+    "extract_audio_to_wav",
+    "probe_media_duration_seconds",
+]
 
 
 def probe_media_duration_seconds(path: Path) -> float:
@@ -76,3 +86,27 @@ def extract_audio_to_wav(
     if not dest_wav.is_file():
         raise MediaImportError(f"expected WAV at {dest_wav}")
     return dest_wav
+
+
+@dataclass(frozen=True)
+class FfmpegMediaImporter:
+    """Media source resolution + audio demux behind the ``MediaImporter`` port."""
+
+    def resolve_source(self, *, source: str, download_dir: Path) -> Path:
+        return resolve_media_source(source=source, download_dir=download_dir)
+
+    def title_from_source(self, source: str, video_path: Path) -> str:
+        return media_title_from_source(source, video_path)
+
+    def probe_duration_seconds(self, path: Path) -> float:
+        return probe_media_duration_seconds(path)
+
+    def extract_audio_to_wav(
+        self, *, video_path: Path, dest_wav: Path, sample_rate_hz: int, channels: int
+    ) -> Path:
+        return extract_audio_to_wav(
+            video_path=video_path,
+            dest_wav=dest_wav,
+            sample_rate_hz=sample_rate_hz,
+            channels=channels,
+        )

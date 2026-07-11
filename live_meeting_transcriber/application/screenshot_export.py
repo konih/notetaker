@@ -12,8 +12,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import UUID
 
-from live_meeting_transcriber.audio.session_recording import session_audio_dir
 from live_meeting_transcriber.domain.models import MeetingSession, TranscriptSegment
+from live_meeting_transcriber.domain.session_audio import session_audio_dir
 
 # e.g. "Screenshot From 2026-05-11 09-24-01.png" / "Screenshot from 2026-05-11 09-24-01 (1).png"
 _SCREENSHOT_NAME_RE = re.compile(

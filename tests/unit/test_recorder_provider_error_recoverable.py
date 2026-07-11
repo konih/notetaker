@@ -7,6 +7,8 @@ from uuid import UUID, uuid4
 
 import pytest
 from live_meeting_transcriber.application.recorder import Recorder
+from live_meeting_transcriber.audio.session_recording import FfmpegSessionAudioStore
+from live_meeting_transcriber.audio.wav_ops import FfmpegWavOps
 from live_meeting_transcriber.domain.exceptions import TranscriptionProviderError
 from live_meeting_transcriber.domain.models import AudioChunk, TranscriptSegment
 from live_meeting_transcriber.domain.ports import TranscriptionProvider
@@ -33,6 +35,8 @@ def _make_recorder(
     chunk_dir.mkdir()
     transcripts = MagicMock()
     recorder = Recorder(
+        session_audio=FfmpegSessionAudioStore(),
+        wav_ops=FfmpegWavOps(),
         audio=MagicMock(),
         transcriber=transcriber,
         transcripts=transcripts,

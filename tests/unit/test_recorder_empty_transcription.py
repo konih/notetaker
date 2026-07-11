@@ -8,6 +8,8 @@ from uuid import uuid4
 
 import pytest
 from live_meeting_transcriber.application.recorder import Recorder
+from live_meeting_transcriber.audio.session_recording import FfmpegSessionAudioStore
+from live_meeting_transcriber.audio.wav_ops import FfmpegWavOps
 from live_meeting_transcriber.domain.exceptions import EmptyTranscriptionError
 from live_meeting_transcriber.domain.models import AudioChunk, TranscriptSegment
 
@@ -56,6 +58,8 @@ async def test_recorder_skips_empty_transcription_and_continues(tmp_path: Path) 
 
     transcripts = MagicMock()
     recorder = Recorder(
+        session_audio=FfmpegSessionAudioStore(),
+        wav_ops=FfmpegWavOps(),
         audio=_Audio(),
         transcriber=_Transcriber(),
         transcripts=transcripts,

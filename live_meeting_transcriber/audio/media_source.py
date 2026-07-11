@@ -7,11 +7,16 @@ import subprocess
 from pathlib import Path
 from urllib.parse import urlparse
 
+from live_meeting_transcriber.domain.exceptions import MediaSourceError
+
+__all__ = [
+    "MediaSourceError",
+    "is_remote_url",
+    "media_title_from_source",
+    "resolve_media_source",
+]
+
 _URL_RE = re.compile(r"^https?://", re.IGNORECASE)
-
-
-class MediaSourceError(RuntimeError):
-    pass
 
 
 def is_remote_url(source: str) -> bool:

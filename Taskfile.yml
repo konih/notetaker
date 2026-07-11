@@ -72,13 +72,12 @@ tasks:
       - uv run mypy .
 
   arch:check:
-    desc: "Report hexagonal boundary violations (import-linter pilot; non-blocking)"
+    desc: "Check hexagonal boundary contracts (import-linter; blocking since A9)"
     cmds:
-      # Pilot/report-only: prints the full contract report but never fails the task,
-      # so known boundary debt does not block merges. The enforced subset
-      # (domain-independence) is gated by tests/architecture/ + `task check`.
+      # All three contracts are enforced (A9): a violation fails this task, the
+      # tests/architecture/ guard in `task check`, and the CI arch job.
       # See docs/architecture-guardrails.md.
-      - uv run lint-imports || true
+      - uv run lint-imports
 
   check:
     desc: Lint + format check + typecheck + tests (with coverage floor)

@@ -5,9 +5,15 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+from live_meeting_transcriber.domain.exceptions import SlideDetectionError
 
-class SlideDetectionError(RuntimeError):
-    pass
+__all__ = [
+    "SlideDetectionError",
+    "effective_min_slide_interval",
+    "extract_gray_frame_bytes",
+    "extract_slide_frame",
+    "maybe_save_preview",
+]
 
 
 def effective_min_slide_interval(

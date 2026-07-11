@@ -6,13 +6,17 @@ import subprocess
 import wave
 from pathlib import Path
 
+from live_meeting_transcriber.domain.exceptions import WavSegmentExtractionError
+from live_meeting_transcriber.domain.session_audio import MIN_TRANSCRIPTION_CHUNK_SECONDS
 
-class WavSegmentExtractionError(RuntimeError):
-    pass
-
-
-# OpenAI and most cloud STT APIs reject clips shorter than ~0.1s.
-MIN_TRANSCRIPTION_CHUNK_SECONDS = 0.1
+__all__ = [
+    "MIN_TRANSCRIPTION_CHUNK_SECONDS",
+    "WavSegmentExtractionError",
+    "extract_wav_time_range",
+    "pcm_wav_duration_seconds",
+    "safe_wav_duration_seconds",
+    "wav_is_transcribable",
+]
 
 # PCM s16le WAV header is 44 bytes; anything smaller is not usable audio.
 _MIN_PCM_WAV_BYTES = 44

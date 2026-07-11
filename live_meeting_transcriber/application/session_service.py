@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from live_meeting_transcriber.application.session_search import filter_sessions
+from live_meeting_transcriber.domain.meeting_naming import is_placeholder_meeting_title
 from live_meeting_transcriber.domain.models import MeetingSession, Summary
 from live_meeting_transcriber.domain.ports import (
     MeetingSessionRepository,
@@ -12,7 +13,6 @@ from live_meeting_transcriber.domain.ports import (
     SummaryRepository,
     TranscriptRepository,
 )
-from live_meeting_transcriber.obsidian.vault_patterns import is_placeholder_meeting_title
 
 
 @dataclass(frozen=True)

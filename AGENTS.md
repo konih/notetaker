@@ -18,10 +18,12 @@ Follow **clean / hexagonal** boundaries — do not leak provider code into appli
 - **Adapters:** `audio/`, `transcription/`, `summarization/`, `diarization/`, `storage/`, `offline/`, `ui/`
 
 **Enforced by import-linter** ([`.importlinter`](.importlinter), memo in
-[`docs/architecture-guardrails.md`](docs/architecture-guardrails.md)): the `domain-independence`
-contract is blocking (runs in `task check` / CI). The application/adapter contracts are a
-report-only pilot — `task arch:check` prints them without failing. Do not add new violations; new
-`application → adapter` or `adapter → application` imports are the debt being paid down (story A9).
+[`docs/architecture-guardrails.md`](docs/architecture-guardrails.md)): all three contracts —
+`domain-independence`, `application-independent-of-adapters`, `adapters-do-not-import-upward` —
+are blocking (A9). They run in `task check`, `task arch:check` and CI. A new
+`application → adapter` or `adapter → application` import fails the build; depend on the ports
+in `domain/ports.py` and wire concrete adapters in `application/container.py` (the one exempt
+composition root).
 
 ## Development workflow
 
