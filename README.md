@@ -226,6 +226,8 @@ uv run live-transcriber export --session-id <id> --format markdown
 
 Exports can **attach screenshots** from `~/Pictures/Screenshots` when filenames look like `Screenshot from 2026-05-11 09-24-01.png`: they are copied next to the export and, if Obsidian paths are configured, into `Images/Screenshots` with embeds placed after the transcript line for that time range. See `docs/configuration.md` (`SCREENSHOTS_*`, `OBSIDIAN_SCREENSHOTS_DIR`).
 
+**Live screen capture (opt-in, macOS):** set `LIVE_SCREEN_CAPTURE_ENABLED=true` to have `record` periodically capture the screen (default every 60s, `LIVE_SCREEN_CAPTURE_INTERVAL_SECONDS`) into the session folder as visual "who was speaking" context; the shots are interleaved into markdown exports like slides. **Privacy: this captures your whole screen and is OFF by default.** It needs the macOS Screen Recording permission for your terminal (System Settings → Privacy & Security → Screen Recording) — `live-transcriber doctor` reports the capture status. On Linux the feature degrades to a one-time warning.
+
 Offline WhisperX + speaker attribution (install **`uv sync --extra whisperx`**, set **`HF_TOKEN`**; needs Python **3.12 or 3.13** for PyTorch):
 
 ```bash

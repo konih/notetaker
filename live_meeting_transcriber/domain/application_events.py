@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from uuid import UUID
 
 from live_meeting_transcriber.domain.models import TranscriptSegment
@@ -139,6 +140,25 @@ class DiarizationFailed:
 
 
 @dataclass(frozen=True)
+class ScreenCaptureShotTaken:
+    """One live screen capture landed on disk (F6)."""
+
+    session_id: UUID
+    path: Path
+    shot_count: int
+    at: datetime
+
+
+@dataclass(frozen=True)
+class ScreenCaptureUnavailable:
+    """Live screen capture cannot run (platform/binary/permission); loop stopped (F6)."""
+
+    session_id: UUID
+    message: str
+    at: datetime
+
+
+@dataclass(frozen=True)
 class RecordingStopRequested:
     session_id: UUID
     at: datetime
@@ -172,6 +192,8 @@ ApplicationEvent = (
     | TranscriptSegmentPersisted
     | DiarizationChunkCompleted
     | DiarizationFailed
+    | ScreenCaptureShotTaken
+    | ScreenCaptureUnavailable
     | RecordingStopRequested
     | RecordingStopped
     | RecordingFailed

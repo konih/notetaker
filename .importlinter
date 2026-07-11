@@ -24,6 +24,7 @@ forbidden_modules =
     live_meeting_transcriber.transcription
     live_meeting_transcriber.summarization
     live_meeting_transcriber.diarization
+    live_meeting_transcriber.screencap
     live_meeting_transcriber.ui
     live_meeting_transcriber.video
     live_meeting_transcriber.obsidian
@@ -44,6 +45,7 @@ forbidden_modules =
     live_meeting_transcriber.transcription
     live_meeting_transcriber.summarization
     live_meeting_transcriber.diarization
+    live_meeting_transcriber.screencap
     live_meeting_transcriber.ui
     live_meeting_transcriber.video
     live_meeting_transcriber.obsidian
@@ -61,6 +63,7 @@ source_modules =
     live_meeting_transcriber.transcription
     live_meeting_transcriber.summarization
     live_meeting_transcriber.diarization
+    live_meeting_transcriber.screencap
     live_meeting_transcriber.video
     live_meeting_transcriber.obsidian
     live_meeting_transcriber.offline

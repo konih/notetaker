@@ -221,17 +221,49 @@ def build_audio_card_lines(state: AppState, now: datetime) -> list[str]:
     ]
 
 
-def build_pipeline_card_lines(state: AppState) -> list[str]:
+def _compact_age(seconds: float) -> str:
+    """Terse last-heard age for the Speakers line: ``now`` / ``42s`` / ``5m`` / ``2h``."""
+    if seconds < 10:
+        return "now"
+    if seconds < 60:
+        return f"{int(seconds)}s"
+    if seconds < 3600:
+        return f"{int(seconds // 60)}m"
+    return f"{int(seconds // 3600)}h"
+
+
+def _heard_speakers_label(state: AppState, now: datetime) -> str:
+    """Detected speakers with a compact recency tag, most recently heard first (F6).
+
+    Falls back to the bare name for a speaker with no observed segment time (e.g.
+    detected via diarization events only), sorted after the timestamped ones.
+    """
+    if not state.diarization_detected_speakers:
+        return ""
+
+    def sort_key(speaker: str) -> tuple[int, float, str]:
+        at = state.speaker_last_active.get(speaker)
+        if at is None:
+            return (1, 0.0, speaker)
+        return (0, -at.timestamp(), speaker)
+
+    parts = []
+    for speaker in sorted(state.diarization_detected_speakers, key=sort_key):
+        at = state.speaker_last_active.get(speaker)
+        if at is None:
+            parts.append(speaker)
+        else:
+            parts.append(f"{speaker} {_compact_age(elapsed_seconds(at, now))}")
+    return f" · heard: {', '.join(parts)}"
+
+
+def build_pipeline_card_lines(state: AppState, now: datetime) -> list[str]:
     """Rich-markup lines for the Live sidebar *Pipeline* card (pure, testable)."""
     log_hint = (
         state.log_file_path[:52] + "…" if len(state.log_file_path) > 55 else state.log_file_path
     )
-    heard = (
-        f" · heard: {', '.join(sorted(state.diarization_detected_speakers))}"
-        if state.diarization_detected_speakers
-        else ""
-    )
-    return [
+    heard = _heard_speakers_label(state, now)
+    lines = [
         _kv("Log", log_hint or "—"),
         _kv(
             "Sessions",
@@ -244,6 +276,11 @@ def build_pipeline_card_lines(state: AppState) -> list[str]:
             f"auto={state.finalize_on_session_stop} · HF={state.hf_token_configured}",
         ),
     ]
+    if state.screen_capture_enabled:
+        # Privacy-opt-in feature (F6): the line only exists when the operator enabled it.
+        shots = state.screen_capture_shots
+        lines.append(_kv("Capture", f"screen · {shots} shot{'s' if shots != 1 else ''}"))
+    return lines
 
 
 def build_live_status_lines(state: AppState, now: datetime) -> list[str]:
@@ -256,7 +293,7 @@ def build_live_status_lines(state: AppState, now: datetime) -> list[str]:
     return [
         *build_session_card_lines(state, now),
         *build_audio_card_lines(state, now),
-        *build_pipeline_card_lines(state),
+        *build_pipeline_card_lines(state, now),
     ]
 
 

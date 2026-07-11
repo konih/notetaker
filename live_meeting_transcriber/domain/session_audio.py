@@ -41,6 +41,16 @@ def full_session_wav_path(session_audio_root: Path) -> Path:
     return session_audio_root / "full_session.wav"
 
 
+def live_captures_dir(session_audio_root: Path) -> Path:
+    """Per-session live screen captures (F6). Pure path math — callers mkdir."""
+    return session_audio_root / "screenshots"
+
+
+def live_captures_manifest_path(session_audio_root: Path) -> Path:
+    """JSON journal of live captures: ``[{"path": ..., "captured_at": ISO-UTC}]``."""
+    return live_captures_dir(session_audio_root) / "captures.json"
+
+
 def finalize_unrecoverable_marker_path(session_audio_root: Path) -> Path:
     """Sidecar written when finalize failed *unrecoverably* (B3): startup recovery
     stops re-enqueuing the session until a later successful finalize clears it.

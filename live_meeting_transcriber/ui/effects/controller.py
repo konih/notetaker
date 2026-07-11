@@ -15,6 +15,7 @@ from live_meeting_transcriber.application.dual_export import (
     write_dual_export,
 )
 from live_meeting_transcriber.application.export_overwrite import export_content_identical
+from live_meeting_transcriber.application.live_capture import LiveScreenCaptureLoop
 from live_meeting_transcriber.application.recorder import Recorder
 from live_meeting_transcriber.application.session_service import SessionService
 from live_meeting_transcriber.audio.sources import resolve_microphone_source
@@ -82,6 +83,7 @@ def settings_loaded_action(settings: Settings, at: datetime) -> act.SettingsLoad
         hf_token_configured=bool(settings.hf_token and settings.hf_token.strip()),
         log_file_resolved=str(settings.resolved_log_file()),
         audio_include_microphone=settings.audio_include_microphone,
+        screen_capture_enabled=settings.live_screen_capture_enabled,
         at=at,
     )
 
@@ -98,6 +100,8 @@ class TuiController:
     )
     _session_service: SessionService = field(init=False)
     _record_task: asyncio.Task[None] | None = field(default=None, init=False)
+    # Live screen-capture loop task (F6); runs beside the record task, cancelled with it.
+    _capture_task: asyncio.Task[None] | None = field(default=None, init=False)
     _finalize_queue: asyncio.Queue[UUID] = field(
         default_factory=asyncio.Queue, init=False, repr=False
     )
@@ -112,6 +116,27 @@ class TuiController:
             summarizer=self.container.summarizer,
             session_speakers=self.container.session_speakers,
         )
+
+    def start_capture_task(
+        self,
+        session_id: UUID,
+        emit: Callable[[ApplicationEvent], None],
+    ) -> asyncio.Task[None] | None:
+        """Start the F6 live screen-capture loop beside the recorder, if opted in.
+
+        Returns ``None`` when the operator has not enabled live capture (privacy
+        default-off). The loop degrades on its own (warning event, then stops), so
+        the task needs no supervision beyond cancel-on-stop.
+        """
+        loop = LiveScreenCaptureLoop(
+            screen=self.container.screen_capture,
+            data_dir=self.settings.ensure_data_dir(),
+            enabled=self.settings.live_screen_capture_enabled,
+            interval_seconds=self.settings.live_screen_capture_interval_seconds,
+        )
+        if not loop.enabled:
+            return None
+        return asyncio.create_task(loop.run(session_id=session_id, on_application_event=emit))
 
     def _enqueue_finalize(self, session_id: UUID) -> None:
         """Schedule finalize on a tracked, sequential background worker.
@@ -576,6 +601,7 @@ class TuiController:
                 )
 
             self._record_task = asyncio.create_task(run())
+            self._capture_task = self.start_capture_task(active_session_id, emit)
 
         elif isinstance(action, act.FinalizeSessionRequested):
             self._enqueue_finalize(action.session_id)
@@ -714,6 +740,15 @@ class TuiController:
                 except asyncio.CancelledError:
                     pass
             self._record_task = None
+
+            capture_task = self._capture_task
+            if capture_task is not None and not capture_task.done():
+                capture_task.cancel()
+                try:
+                    await capture_task
+                except asyncio.CancelledError:
+                    pass
+            self._capture_task = None
 
             if should_end_session and sid is not None:
                 try:

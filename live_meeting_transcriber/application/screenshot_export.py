@@ -13,7 +13,12 @@ from pathlib import Path
 from uuid import UUID
 
 from live_meeting_transcriber.domain.models import MeetingSession, TranscriptSegment
-from live_meeting_transcriber.domain.session_audio import session_audio_dir
+from live_meeting_transcriber.domain.session_audio import (
+    live_captures_dir,
+    live_captures_manifest_path,
+    session_audio_dir,
+)
+from live_meeting_transcriber.utils.time import ensure_aware
 
 # e.g. "Screenshot From 2026-05-11 09-24-01.png" / "Screenshot from 2026-05-11 09-24-01 (1).png"
 _SCREENSHOT_NAME_RE = re.compile(
@@ -148,6 +153,46 @@ def list_session_video_slides(
     return hits
 
 
+def list_session_live_captures(
+    data_dir: Path,
+    session: MeetingSession,
+) -> list[ScreenshotHit]:
+    """Load live screen captures journaled by the F6 loop (``screenshots/captures.json``).
+
+    Timestamps are stored ISO-UTC by the loop and coerced tz-aware here so they compare
+    cleanly with DB-backed session/segment times (A11).
+    """
+    root = session_audio_dir(data_dir, session.id)
+    manifest_path = live_captures_manifest_path(root)
+    if not manifest_path.is_file():
+        return []
+    try:
+        raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+    if not isinstance(raw, list):
+        return []
+    captures = live_captures_dir(root)
+    hits: list[ScreenshotHit] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        path_name = item.get("path")
+        captured_raw = item.get("captured_at")
+        if not isinstance(path_name, str) or not isinstance(captured_raw, str):
+            continue
+        img = captures / path_name
+        if not img.is_file():
+            continue
+        try:
+            captured = ensure_aware(datetime.fromisoformat(captured_raw))
+        except ValueError:
+            continue
+        hits.append(ScreenshotHit(captured_utc=captured, source_path=img.resolve()))
+    hits.sort(key=lambda h: (h.captured_utc, str(h.source_path)))
+    return hits
+
+
 def list_session_screenshots(
     source_dir: Path | None,
     session: MeetingSession,
@@ -171,9 +216,11 @@ def list_session_screenshots(
         hits.sort(key=lambda h: (h.captured_utc, str(h.source_path)))
 
     if data_dir is not None:
-        slide_hits = list_session_video_slides(data_dir, session)
         seen = {h.source_path for h in hits}
-        for h in slide_hits:
+        for h in (
+            *list_session_video_slides(data_dir, session),
+            *list_session_live_captures(data_dir, session),
+        ):
             if h.source_path not in seen:
                 hits.append(h)
                 seen.add(h.source_path)

@@ -7,6 +7,7 @@ import asyncio
 import typer
 
 from live_meeting_transcriber.application.dual_path import dual_path_downgrade_reason
+from live_meeting_transcriber.application.live_capture import LiveScreenCaptureLoop
 from live_meeting_transcriber.application.recorder import Recorder
 from live_meeting_transcriber.application.session_service import SessionService
 from live_meeting_transcriber.audio.sources import resolve_microphone_source
@@ -95,16 +96,38 @@ def record(
         silence_threshold_dbfs=c.settings.audio_silence_threshold_dbfs,
     )
 
+    capture_loop = LiveScreenCaptureLoop(
+        screen=c.screen_capture,
+        data_dir=c.settings.ensure_data_dir(),
+        enabled=c.settings.live_screen_capture_enabled,
+        interval_seconds=c.settings.live_screen_capture_interval_seconds,
+    )
+
     async def _run() -> None:
-        await recorder.record_forever(
-            session_id=session.id,
-            source=monitor,
-            microphone_source=mic,
-            chunk_seconds=chunk_seconds or c.settings.audio_chunk_seconds,
-            sample_rate_hz=c.settings.audio_sample_rate,
-            channels=c.settings.audio_channels,
-            on_segment=lambda seg: typer.echo(f"[{seg.started_at.isoformat()}] {seg.text}"),
+        # F6: periodic screen captures beside the recorder (no-op unless opted in);
+        # the loop degrades on its own, so it only needs cancel-on-stop here.
+        capture_task = (
+            asyncio.create_task(capture_loop.run(session_id=session.id))
+            if capture_loop.enabled
+            else None
         )
+        try:
+            await recorder.record_forever(
+                session_id=session.id,
+                source=monitor,
+                microphone_source=mic,
+                chunk_seconds=chunk_seconds or c.settings.audio_chunk_seconds,
+                sample_rate_hz=c.settings.audio_sample_rate,
+                channels=c.settings.audio_channels,
+                on_segment=lambda seg: typer.echo(f"[{seg.started_at.isoformat()}] {seg.text}"),
+            )
+        finally:
+            if capture_task is not None and not capture_task.done():
+                capture_task.cancel()
+                try:
+                    await capture_task
+                except asyncio.CancelledError:
+                    pass
 
     try:
         asyncio.run(_run())

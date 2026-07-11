@@ -42,6 +42,7 @@ def test_settings_loaded_updates_config_fields() -> None:
             hf_token_configured=False,
             log_file_resolved="/tmp/app.log",
             audio_include_microphone=True,
+            screen_capture_enabled=False,
             at=_t(),
         ),
     )

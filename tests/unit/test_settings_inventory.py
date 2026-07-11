@@ -68,6 +68,8 @@ EXPECTED_FIELD_ALIASES: dict[str, str] = {
     "obsidian_screenshots_dir": "OBSIDIAN_SCREENSHOTS_DIR",
     "screenshots_export_enabled": "SCREENSHOTS_EXPORT_ENABLED",
     "screenshots_source_dir": "SCREENSHOTS_SOURCE_DIR",
+    "live_screen_capture_enabled": "LIVE_SCREEN_CAPTURE_ENABLED",
+    "live_screen_capture_interval_seconds": "LIVE_SCREEN_CAPTURE_INTERVAL_SECONDS",
     "video_slide_strategy": "VIDEO_SLIDE_STRATEGY",
     "video_slide_sample_interval_seconds": "VIDEO_SLIDE_SAMPLE_INTERVAL_SECONDS",
     "video_slide_change_threshold": "VIDEO_SLIDE_CHANGE_THRESHOLD",

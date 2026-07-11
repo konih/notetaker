@@ -38,6 +38,7 @@ class SettingsLoaded:
     hf_token_configured: bool
     log_file_resolved: str
     audio_include_microphone: bool
+    screen_capture_enabled: bool
     at: datetime
 
 
@@ -126,6 +127,14 @@ class DiarizationSpeakersDetected:
     """Union of diarization speaker keys seen so far in the live session."""
 
     speakers: frozenset[str]
+    at: datetime
+
+
+@dataclass(frozen=True)
+class ScreenCaptureShotObserved:
+    """A live screen capture landed (F6); ``shot_count`` is the session-total so far."""
+
+    shot_count: int
     at: datetime
 
 
@@ -380,6 +389,7 @@ Action = (
     | RecordingFailed
     | AudioSourceChanged
     | TranscriptSegmentReceived
+    | ScreenCaptureShotObserved
     | DiarizationSegmentReceived
     | SpeakerAliasUpdated
     | SpeakerAliasesLoaded
