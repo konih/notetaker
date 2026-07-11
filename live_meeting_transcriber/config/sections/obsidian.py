@@ -50,6 +50,15 @@ class ScreenshotSettings(BaseSettings):
 
     screenshots_export_enabled: bool = Field(default=True, alias="SCREENSHOTS_EXPORT_ENABLED")
     screenshots_source_dir: Path | None = Field(default=None, alias="SCREENSHOTS_SOURCE_DIR")
+    # Live screen capture during recording (F6). Capturing the screen is invasive, so
+    # this is privacy-default-OFF; when enabled, periodic captures land under the
+    # session directory (``sessions/<id>/screenshots/``) and are interleaved into
+    # markdown exports as visual who-was-speaking context. macOS ``screencapture``
+    # needs the Screen Recording (TCC) permission — see docs/configuration.md.
+    live_screen_capture_enabled: bool = Field(default=False, alias="LIVE_SCREEN_CAPTURE_ENABLED")
+    live_screen_capture_interval_seconds: int = Field(
+        default=60, alias="LIVE_SCREEN_CAPTURE_INTERVAL_SECONDS", ge=5, le=3600
+    )
 
     @field_validator("screenshots_source_dir", mode="before")
     @classmethod

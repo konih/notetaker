@@ -8,12 +8,14 @@ silently never fire (multi-hour).
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from live_meeting_transcriber.config.settings import Settings
 from pydantic import ValidationError
 
 
-def _settings(**kwargs: object) -> Settings:
+def _settings(**kwargs: Any) -> Settings:
     return Settings(openai_api_key="k", database_url="sqlite:////tmp/t.db", **kwargs)
 
 

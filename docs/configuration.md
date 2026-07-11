@@ -114,6 +114,8 @@ Rules, in order:
 - `KEEP_AUDIO_CHUNKS`: default `0`
 - `SCREENSHOTS_EXPORT_ENABLED`: default `true` — embed matching screenshots in markdown exports
 - `SCREENSHOTS_SOURCE_DIR`: optional; default `~/Pictures/Screenshots` (GNOME filenames `Screenshot from YYYY-MM-DD HH-MM-SS.png`)
+- `LIVE_SCREEN_CAPTURE_ENABLED`: default `false` — **privacy: off unless you opt in.** When `true`, `record` (CLI and TUI) periodically captures the whole screen into `sessions/<id>/screenshots/` so you can later see who was speaking; captures are interleaved into markdown exports like slides/screenshots. macOS only (uses the `screencapture` CLI); requires the **Screen Recording** permission (System Settings → Privacy & Security → Screen Recording) for your terminal — without the grant, captures may show only the desktop wallpaper. On Linux the feature degrades to a one-time warning.
+- `LIVE_SCREEN_CAPTURE_INTERVAL_SECONDS`: default `60` (min 5, max 3600) — seconds between live screen captures.
 - `OBSIDIAN_PEOPLE_DIR`: optional; folder of person notes used for attendee autocomplete and where new person notes are created (see `OBSIDIAN_PERSON_TEMPLATE`).
 - `OBSIDIAN_MEETINGS_DIR`: optional; folder where exported meeting notes are written (also the anchor for the default `OBSIDIAN_SCREENSHOTS_DIR`).
 - `OBSIDIAN_MEETING_TEMPLATE`: optional; path to a Markdown template applied when exporting a meeting note.
