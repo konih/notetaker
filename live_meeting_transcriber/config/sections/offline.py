@@ -20,8 +20,10 @@ class WhisperXSettings(BaseSettings):
     whisperx_batch_size: int = Field(default=8, alias="WHISPERX_BATCH_SIZE", ge=1, le=64)
     whisperx_language: str | None = Field(default=None, alias="WHISPERX_LANGUAGE")
     whisperx_skip_alignment: bool = Field(default=False, alias="WHISPERX_SKIP_ALIGNMENT")
-    # When unset: if alignment uses CUDA/MPS, pyannote defaults to CPU (avoids OOM from a second
-    # GPU model after Whisper). Set to ``cuda`` / ``cuda:0`` to force GPU diarization if you have VRAM.
+    # When unset: on Apple Silicon with usable MPS, pyannote auto-runs on ``mps`` (F11 spike:
+    # byte-identical output, ~8-20x faster; auto-falls back to CPU if MPS errors at runtime).
+    # If alignment uses CUDA, pyannote defaults to CPU (avoids OOM from a second GPU model after
+    # Whisper). Explicit values always win — set ``cpu`` to opt out, ``cuda``/``cuda:0`` for VRAM.
     whisperx_diarize_device: str | None = Field(default=None, alias="WHISPERX_DIARIZE_DEVICE")
 
     @field_validator(

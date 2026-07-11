@@ -125,15 +125,19 @@ def check_gated_model_access(
 
 
 def check_device(settings: Settings) -> CheckResult:
-    """Informational: report the ASR device/compute the finalize pass will actually use."""
+    """Informational: report the ASR + diarization devices the finalize pass will use."""
     from live_meeting_transcriber.offline import whisperx_pipeline as wp
 
     has_cuda, has_mps = wp._detect_torch_devices()
     device = wp._resolve_asr_device(settings)
     compute = wp._resolve_compute_type(settings, device)
-    detail = f"ASR will run on device={device!r}, compute={compute!r}"
+    align_device = wp._resolve_torch_device(settings, device)
+    diarize_device = wp._resolve_diarize_device(settings, align_device)
+    detail = (
+        f"ASR will run on device={device!r}, compute={compute!r}; diarization on {diarize_device!r}"
+    )
     if has_mps and not has_cuda:
-        detail += " — Apple Silicon: CTranslate2 has no MPS backend, so CPU is used"
+        detail += " — Apple Silicon: CTranslate2 has no MPS backend, so the ASR stays on CPU"
     return CheckResult("Device / compute", True, detail)
 
 

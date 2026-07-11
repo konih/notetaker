@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import gc
+import platform
 import wave
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -84,15 +85,82 @@ def _resolve_torch_device(settings: Settings, asr_device: str) -> str:
     return asr_device
 
 
+def _platform_probe() -> tuple[str, str]:
+    """Return ``(platform.system(), platform.machine())`` — a seam so tests stay hermetic."""
+    return platform.system(), platform.machine()
+
+
+def _auto_diarize_device(*, align_device: str, has_mps: bool, system: str, machine: str) -> str:
+    """Pure auto-selection of the pyannote diarization device (no explicit setting).
+
+    - Alignment on CUDA: keep CPU — a second GPU model next to alignment often OOMs (B5).
+    - Apple Silicon (darwin/arm64) with usable MPS: prefer ``mps`` (F13). Verified in
+      ``docs/spikes/2026-07-11-f11-apple-silicon-asr.md``: pyannote 4.x output on MPS is
+      byte-identical to CPU and ~8-20x faster — diarization is the finalize CPU hog.
+    - Alignment on MPS while torch reports MPS unusable: CPU (B5 behavior).
+    - Otherwise follow the alignment device (CPU stays CPU) — non-macOS auto unchanged.
+    """
+    al = align_device.strip().lower()
+    if al.startswith("cuda"):
+        return "cpu"
+    if system == "Darwin" and machine == "arm64" and has_mps:
+        return "mps"
+    if al.startswith("mps"):
+        return "cpu"
+    return align_device
+
+
+def _diarize_device_is_explicit(settings: Settings) -> bool:
+    """True when the operator pinned ``WHISPERX_DIARIZE_DEVICE`` (any value, incl. cpu)."""
+    return bool((settings.whisperx_diarize_device or "").strip())
+
+
 def _resolve_diarize_device(settings: Settings, align_device: str) -> str:
-    """Prefer CPU for pyannote when alignment already uses a GPU (second model often OOMs there)."""
+    """Resolve the pyannote diarization device. An explicit setting always wins verbatim;
+    otherwise :func:`_auto_diarize_device` picks (MPS on Apple Silicon, else B5 rules).
+    Pure apart from the injected-by-name probes; the effective device is surfaced by the
+    finalize progress line, so this does not log."""
     explicit = (settings.whisperx_diarize_device or "").strip()
     if explicit:
         return explicit
-    al = align_device.strip().lower()
-    if al.startswith("cuda") or al.startswith("mps"):
-        return "cpu"
-    return align_device
+    _has_cuda, has_mps = _detect_torch_devices()
+    system, machine = _platform_probe()
+    return _auto_diarize_device(
+        align_device=align_device, has_mps=has_mps, system=system, machine=machine
+    )
+
+
+def _run_diarization_with_fallback(
+    *,
+    run: Callable[[str], Any],
+    device: str,
+    allow_cpu_fallback: bool,
+    progress: Callable[[str], None] | None,
+) -> Any:
+    """Run diarization on ``device``; retry once on CPU only for an auto-chosen device.
+
+    F13's auto-upgrade to MPS must never make finalize LESS reliable than the old CPU
+    default, so any exception from the pipeline on the auto-chosen device logs a warning
+    and retries on CPU. Explicit operator choices (``allow_cpu_fallback=False``) propagate
+    their errors unchanged.
+    """
+    try:
+        return run(device)
+    except Exception as exc:
+        if not allow_cpu_fallback or device == "cpu":
+            raise
+        get_logger(component="whisperx_finalize").warning(
+            "diarize_device_fallback",
+            device=device,
+            error=str(exc),
+            error_type=type(exc).__name__,
+        )
+        _progress_step(
+            progress,
+            f"Diarization on {device!r} failed ({type(exc).__name__}); retrying on 'cpu'…",
+        )
+        _empty_torch_cache(device)
+        return run("cpu")
 
 
 def _empty_torch_cache(device: str) -> None:
@@ -194,25 +262,39 @@ def run_whisperx_finalize(
     if hf_token:
         from whisperx.diarize import DiarizationPipeline
 
-        _progress_step(
-            progress,
-            f"Loading diarization model on {diarize_device!r} (HF token required)…",
-        )
-        try:
-            diarize_model = DiarizationPipeline(token=hf_token, device=diarize_device)
-        except TypeError:
-            diarize_model = DiarizationPipeline(use_auth_token=hf_token, device=diarize_device)
         diarize_kw: dict[str, int] = {}
         if settings.diarization_min_speakers is not None:
             diarize_kw["min_speakers"] = int(settings.diarization_min_speakers)
         if settings.diarization_max_speakers is not None:
             diarize_kw["max_speakers"] = int(settings.diarization_max_speakers)
-        _progress_step(progress, "Running speaker diarization…")
-        diarize_segments = diarize_model(audio, **diarize_kw)
+
+        def _diarize_on(dev: str, *, _audio: Any = audio) -> Any:
+            _progress_step(
+                progress,
+                f"Loading diarization model on {dev!r} (HF token required)…",
+            )
+            try:
+                diarize_model = DiarizationPipeline(token=hf_token, device=dev)
+            except TypeError:
+                diarize_model = DiarizationPipeline(use_auth_token=hf_token, device=dev)
+            try:
+                _progress_step(progress, "Running speaker diarization…")
+                return diarize_model(_audio, **diarize_kw)
+            finally:
+                del diarize_model
+                gc.collect()
+                _empty_torch_cache(dev)
+
+        diarize_segments = _run_diarization_with_fallback(
+            run=_diarize_on,
+            device=diarize_device,
+            allow_cpu_fallback=diarize_device == "mps"
+            and not _diarize_device_is_explicit(settings),
+            progress=progress,
+        )
         _progress_step(progress, "Assigning speakers to words…")
         result = whisperx.assign_word_speakers(diarize_segments, result)
         _progress_step(progress, "Diarization finished.")
-        del diarize_model
         gc.collect()
         _empty_torch_cache(diarize_device)
         _empty_torch_cache(align_device)
