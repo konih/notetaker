@@ -212,6 +212,14 @@ uv run live-transcriber finalize-pending
 > When `FINALIZE_ON_SESSION_STOP=true` and `HF_TOKEN` is set, the TUI also
 > re-runs finalize on startup for such sessions **ended within the last 24h**,
 > so a normal stop-then-quit no longer silently loses diarization.
+>
+> If a finalize fails **unrecoverably** (whisperx extra not installed, or the
+> session's recorded audio is gone), the session is marked won't-auto-retry
+> (`sessions/<id>/finalize_unrecoverable.json` in the data dir) and startup
+> recovery skips it instead of erroring on every launch. Fix the cause
+> (`live-transcriber doctor` diagnoses prerequisites), then run
+> `finalize-pending` — the explicit command ignores the marker, and a
+> successful finalize clears it.
 
 List and **search** sessions (filter by title, notes, or attendees):
 
