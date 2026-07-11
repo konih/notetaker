@@ -191,9 +191,10 @@ async def test_meetings_inline_hints_render_canonical_keys(tmp_path: Path) -> No
         # No inline hint anywhere on the tab references the purged chord.
         assert all("ctrl+g" not in t for t in texts), texts
 
+        # U14 removed the header's per-action key hints (the header was a third
+        # affordance layer on top of the toolbar and footer/help); the remaining
+        # inline hint on this tab must still render the canonical key. Header
+        # coverage lives in test_meeting_affordance_layers.py.
         key = _canonical_summarize_key()
-        header = _plain(str(browser.query_one("#meeting-browser-header", Static).render()))
-        assert f"{key} summarize" in header, header
-
         summary_hint = next(t for t in texts if "AI summary" in t)
         assert f"({key} to generate)" in summary_hint, summary_hint
