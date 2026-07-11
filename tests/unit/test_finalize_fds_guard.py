@@ -23,6 +23,7 @@ from uuid import uuid4
 
 import pytest
 from live_meeting_transcriber.application import finalize_service
+from live_meeting_transcriber.offline.whisperx_pipeline import WhisperxOfflineTranscriber
 from live_meeting_transcriber.utils.std_streams import subprocess_safe_std_streams
 
 
@@ -76,6 +77,8 @@ def test_finalize_offline_runs_pipeline_with_valid_std_fds(monkeypatch: pytest.M
         "live_meeting_transcriber.offline.whisperx_pipeline.run_whisperx_finalize",
         fake_pipeline,
     )
+    container = MagicMock()
+    container.offline_transcriber.return_value = WhisperxOfflineTranscriber(settings=MagicMock())
     monkeypatch.setattr(
         finalize_service,
         "_finalize_load_inputs",
@@ -89,7 +92,7 @@ def test_finalize_offline_runs_pipeline_with_valid_std_fds(monkeypatch: pytest.M
 
     asyncio.run(
         finalize_service.finalize_session_offline(
-            container=MagicMock(),
+            container=container,
             settings=MagicMock(),
             session_id=uuid4(),
         )

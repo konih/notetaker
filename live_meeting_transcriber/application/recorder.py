@@ -9,15 +9,6 @@ from uuid import UUID
 
 from live_meeting_transcriber.application.dual_path import transcriber_supports_dual_path
 from live_meeting_transcriber.application.silence import should_skip_silent_chunk
-from live_meeting_transcriber.audio.session_recording import (
-    append_chunk_with_timeline,
-    session_audio_dir,
-)
-from live_meeting_transcriber.audio.stereo import extract_mono_channel_wav, rms_mixdown_to_mono_wav
-from live_meeting_transcriber.audio.wav_level import (
-    peak_linear_from_wav_path,
-    rms_dbfs_from_wav_path,
-)
 from live_meeting_transcriber.domain.application_events import (
     ApplicationEvent,
     AudioChunkCaptured,
@@ -41,9 +32,12 @@ from live_meeting_transcriber.domain.exceptions import (
 from live_meeting_transcriber.domain.models import AudioChunk, TranscriptSegment
 from live_meeting_transcriber.domain.ports import (
     AudioCapture,
+    SessionAudioStore,
     TranscriptionProvider,
     TranscriptRepository,
+    WavAudioOps,
 )
+from live_meeting_transcriber.domain.session_audio import session_audio_dir
 from live_meeting_transcriber.observability.logging import get_logger
 from live_meeting_transcriber.utils.time import utc_now
 
@@ -71,6 +65,9 @@ class Recorder:
     data_dir: Path
     audio_stereo_mode: str
     transcription_provider: str
+    # Session-audio persistence and WAV toolkits behind ports (A9).
+    session_audio: SessionAudioStore
+    wav_ops: WavAudioOps
     # Silence skipping (F1). Conservative default: -70 dBFS RMS is far below quiet
     # speech (~-40 dBFS), so only true digital near-silence is skipped.
     silence_skip_enabled: bool = True
@@ -119,7 +116,7 @@ class Recorder:
 
         # Persist audio to the full-session WAV first so the meeting can still be
         # finalized offline even when live transcription is unavailable.
-        append_chunk_with_timeline(
+        self.session_audio.append_chunk_with_timeline(
             session_audio_root=session_audio_root,
             chunk_wav=chunk.path,
             sample_rate_hz=sample_rate_hz,
@@ -199,7 +196,7 @@ class Recorder:
         if not self.silence_skip_enabled:
             return False
         try:
-            rms_dbfs = rms_dbfs_from_wav_path(chunk.path)
+            rms_dbfs = self.wav_ops.rms_dbfs(chunk.path)
         except Exception:
             log.warning("silence_level_unreadable", chunk_id=str(chunk.id), path=str(chunk.path))
             return False
@@ -243,8 +240,12 @@ class Recorder:
         the detected speakers — unlike the mixdown path, which forces ``unknown``."""
         temp_paths: list[Path] = []
         try:
-            mic_path = extract_mono_channel_wav(chunk.path, 0, sample_rate_hz=sample_rate_hz)
-            sys_path = extract_mono_channel_wav(chunk.path, 1, sample_rate_hz=sample_rate_hz)
+            mic_path = self.wav_ops.extract_mono_channel(
+                chunk.path, 0, sample_rate_hz=sample_rate_hz
+            )
+            sys_path = self.wav_ops.extract_mono_channel(
+                chunk.path, 1, sample_rate_hz=sample_rate_hz
+            )
             temp_paths.extend([mic_path, sys_path])
             try:
                 segments = await self.transcriber.transcribe_stereo_chunk(  # type: ignore[attr-defined]
@@ -346,7 +347,7 @@ class Recorder:
         try:
             work_chunk = chunk
             if chunk.channels == 2:
-                mono_p = rms_mixdown_to_mono_wav(chunk.path, sample_rate_hz=sample_rate_hz)
+                mono_p = self.wav_ops.mixdown_to_mono(chunk.path, sample_rate_hz=sample_rate_hz)
                 temp_paths.append(mono_p)
                 work_chunk = chunk.model_copy(
                     update={
@@ -524,7 +525,7 @@ class Recorder:
                     AudioChunkCaptured(session_id=session_id, chunk_id=chunk.id, at=utc_now()),
                 )
                 try:
-                    peak = peak_linear_from_wav_path(chunk.path)
+                    peak = self.wav_ops.peak_linear(chunk.path)
                 except Exception:
                     peak = 0.0
                 _emit(

@@ -10,6 +10,9 @@ from uuid import uuid4
 import pytest
 from live_meeting_transcriber.application.container import Container
 from live_meeting_transcriber.application.video_import_service import VideoImportService
+from live_meeting_transcriber.audio.media_import import FfmpegMediaImporter
+from live_meeting_transcriber.audio.session_recording import FfmpegSessionAudioStore
+from live_meeting_transcriber.audio.wav_ops import FfmpegWavOps
 from live_meeting_transcriber.cli.main import app
 from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.models import AudioChunk, TranscriptSegment
@@ -23,6 +26,7 @@ from live_meeting_transcriber.storage.repositories import (
     SqliteTranscriptRepository,
 )
 from live_meeting_transcriber.storage.sqlite import open_connection
+from live_meeting_transcriber.video.tools import FfmpegSlideDetectionTools
 from typer.testing import CliRunner
 
 from tests.e2e.video_helpers import (
@@ -128,6 +132,10 @@ def test_cli_slides_preview_smoke(
     settings = video_import_settings(tmp_path)
     container = _container(tmp_path, settings)
     svc = VideoImportService(
+        media=FfmpegMediaImporter(),
+        wav_ops=FfmpegWavOps(),
+        session_audio=FfmpegSessionAudioStore(),
+        slide_tools=FfmpegSlideDetectionTools(),
         settings=settings,
         sessions=container.sessions,
         transcripts=container.transcripts,
@@ -169,6 +177,10 @@ def test_preview_threshold_changes_candidate_count(
     settings = video_import_settings(tmp_path)
     container = _container(tmp_path, settings)
     svc = VideoImportService(
+        media=FfmpegMediaImporter(),
+        wav_ops=FfmpegWavOps(),
+        session_audio=FfmpegSessionAudioStore(),
+        slide_tools=FfmpegSlideDetectionTools(),
         settings=settings,
         sessions=container.sessions,
         transcripts=container.transcripts,

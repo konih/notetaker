@@ -18,33 +18,14 @@ from live_meeting_transcriber.application.video_session_storage import (
     session_slides_manifest_path,
     write_source_media_manifest,
 )
-from live_meeting_transcriber.audio.media_import import (
-    MediaImportError,
-    extract_audio_to_wav,
-    probe_media_duration_seconds,
-)
-from live_meeting_transcriber.audio.media_source import (
-    MediaSourceError,
-    media_title_from_source,
-    resolve_media_source,
-)
-from live_meeting_transcriber.audio.session_recording import (
-    full_session_wav_path,
-    session_audio_dir,
-)
-from live_meeting_transcriber.audio.stereo import rms_mixdown_to_mono_wav
-from live_meeting_transcriber.audio.timeline import AudioTimelineEntry, append_timeline_entry
-from live_meeting_transcriber.audio.wav_segment import (
-    MIN_TRANSCRIPTION_CHUNK_SECONDS,
-    WavSegmentExtractionError,
-    extract_wav_time_range,
-    safe_wav_duration_seconds,
-    wav_is_transcribable,
-)
 from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.exceptions import (
     EmptyTranscriptionError,
+    MediaImportError,
+    MediaSourceError,
+    SlideDetectionError,
     TranscriptionProviderError,
+    WavSegmentExtractionError,
 )
 from live_meeting_transcriber.domain.models import (
     AudioChunk,
@@ -53,16 +34,21 @@ from live_meeting_transcriber.domain.models import (
     TranscriptSegment,
 )
 from live_meeting_transcriber.domain.ports import (
+    MediaImporter,
     MeetingSessionRepository,
+    SessionAudioStore,
+    SlideDetectionTools,
     TranscriptionProvider,
     TranscriptRepository,
+    WavAudioOps,
+)
+from live_meeting_transcriber.domain.session_audio import (
+    MIN_TRANSCRIPTION_CHUNK_SECONDS,
+    AudioTimelineEntry,
+    full_session_wav_path,
+    session_audio_dir,
 )
 from live_meeting_transcriber.observability.logging import get_logger
-from live_meeting_transcriber.video.slide_common import SlideDetectionError, extract_slide_frame
-from live_meeting_transcriber.video.strategies.factory import (
-    SlideStrategyName,
-    build_slide_strategy,
-)
 
 
 class VideoImportError(RuntimeError):
@@ -142,6 +128,11 @@ class VideoImportService:
     sessions: MeetingSessionRepository
     transcripts: TranscriptRepository
     transcriber: TranscriptionProvider
+    # Media/WAV/slide toolkits behind ports (A9); wired from the container.
+    media: MediaImporter
+    wav_ops: WavAudioOps
+    session_audio: SessionAudioStore
+    slide_tools: SlideDetectionTools
 
     async def import_video(
         self,
@@ -152,7 +143,7 @@ class VideoImportService:
         extract_slides: bool = True,
         accept_all_slides: bool = False,
         reject_all_slides: bool = False,
-        slide_strategy: SlideStrategyName | str | None = None,
+        slide_strategy: str | None = None,
         slide_params: SlideDetectionParams | None = None,
         on_segment: Callable[[TranscriptSegment], None] | None = None,
         on_progress: Callable[[VideoImportProgress], None] | None = None,
@@ -167,14 +158,12 @@ class VideoImportService:
 
         try:
             video_path = await asyncio.to_thread(
-                resolve_media_source,
-                source=source,
-                download_dir=download_dir,
+                self.media.resolve_source, source=source, download_dir=download_dir
             )
         except MediaSourceError as e:
             raise VideoImportError(str(e)) from e
 
-        session_title = (title or media_title_from_source(source, video_path)).strip()
+        session_title = (title or self.media.title_from_source(source, video_path)).strip()
         if not session_title:
             session_title = "Video"
 
@@ -190,9 +179,9 @@ class VideoImportService:
         implicit_chunk = chunk_seconds is None
 
         try:
-            duration = await asyncio.to_thread(probe_media_duration_seconds, video_path)
+            duration = await asyncio.to_thread(self.media.probe_duration_seconds, video_path)
             await asyncio.to_thread(
-                extract_audio_to_wav,
+                self.media.extract_audio_to_wav,
                 video_path=video_path,
                 dest_wav=full_wav,
                 sample_rate_hz=sample_rate,
@@ -201,13 +190,13 @@ class VideoImportService:
         except MediaImportError as e:
             raise VideoImportError(str(e)) from e
 
-        wav_duration = await asyncio.to_thread(safe_wav_duration_seconds, full_wav)
+        wav_duration = await asyncio.to_thread(self.wav_ops.duration_seconds, full_wav)
         if wav_duration <= 0:
             raise VideoImportError("extracted session audio has zero duration")
 
         timeline_duration = min(duration, wav_duration)
         started_at = session.started_at
-        append_timeline_entry(
+        self.session_audio.append_timeline_entry(
             audio_root,
             AudioTimelineEntry(
                 audio_start_sec=0.0,
@@ -335,7 +324,7 @@ class VideoImportService:
             chunk_path = chunk_dir / f"{chunk_id}.wav"
             try:
                 await asyncio.to_thread(
-                    extract_wav_time_range,
+                    self.wav_ops.extract_time_range,
                     src=full_wav,
                     dest=chunk_path,
                     start_seconds=offset,
@@ -356,11 +345,11 @@ class VideoImportService:
             temp_mono: Path | None = None
             if channels == 2:
                 temp_mono = await asyncio.to_thread(
-                    rms_mixdown_to_mono_wav, chunk_path, sample_rate_hz=sample_rate_hz
+                    self.wav_ops.mixdown_to_mono, chunk_path, sample_rate_hz=sample_rate_hz
                 )
                 work_path = temp_mono
 
-            if not wav_is_transcribable(work_path):
+            if not self.wav_ops.is_transcribable(work_path):
                 skipped_silent += 1
                 log.debug("skip_empty_chunk", offset=offset)
                 if temp_mono is not None:
@@ -444,7 +433,7 @@ class VideoImportService:
         session_started_at: datetime,
         accept_all: bool,
         reject_all: bool,
-        slide_strategy: SlideStrategyName | str | None,
+        slide_strategy: str | None,
         slide_params: SlideDetectionParams | None,
         prompt_fn: Callable[[str], str] | None,
         echo_fn: Callable[[str], None] | None,
@@ -453,7 +442,7 @@ class VideoImportService:
             self.settings.ensure_data_dir() / "imports" / "slide_previews" / str(session_id)
         )
         params = slide_params or self.settings.slide_detection_params()
-        strategy = build_slide_strategy(slide_strategy, settings=self.settings)
+        strategy = self.slide_tools.build_strategy(slide_strategy)
         try:
             candidates = await asyncio.to_thread(
                 strategy.detect,
@@ -486,7 +475,7 @@ class VideoImportService:
                 shutil.copy2(cand.preview_path, dest)
             else:
                 await asyncio.to_thread(
-                    extract_slide_frame,
+                    self.slide_tools.extract_frame,
                     video_path=video_path,
                     timestamp_seconds=cand.timestamp_seconds,
                     dest_png=dest,

@@ -4,11 +4,16 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from live_meeting_transcriber.audio.timeline import AudioTimelineEntry, append_timeline_entry
+from live_meeting_transcriber.audio.timeline import (
+    AudioTimelineEntry,
+    append_timeline_entry,
+    load_timeline,
+)
 from live_meeting_transcriber.audio.wav_segment import safe_wav_duration_seconds
 from live_meeting_transcriber.domain.session_audio import (
     full_session_wav_path,
@@ -16,6 +21,7 @@ from live_meeting_transcriber.domain.session_audio import (
 )
 
 __all__ = [
+    "FfmpegSessionAudioStore",
     "SessionAudioAppendError",
     "append_chunk_to_full_session_wav",
     "append_chunk_with_timeline",
@@ -124,3 +130,35 @@ def append_chunk_with_timeline(
             wall_ended_at=wall_ended_at,
         ),
     )
+
+
+@dataclass(frozen=True)
+class FfmpegSessionAudioStore:
+    """Session WAV + timeline persistence behind the ``SessionAudioStore`` port."""
+
+    def append_chunk_with_timeline(
+        self,
+        *,
+        session_audio_root: Path,
+        chunk_wav: Path,
+        sample_rate_hz: int,
+        wall_started_at: datetime,
+        wall_ended_at: datetime,
+        fallback_duration_seconds: float,
+        log: Any,
+    ) -> None:
+        append_chunk_with_timeline(
+            session_audio_root=session_audio_root,
+            chunk_wav=chunk_wav,
+            sample_rate_hz=sample_rate_hz,
+            wall_started_at=wall_started_at,
+            wall_ended_at=wall_ended_at,
+            fallback_duration_seconds=fallback_duration_seconds,
+            log=log,
+        )
+
+    def append_timeline_entry(self, session_audio_root: Path, entry: AudioTimelineEntry) -> None:
+        append_timeline_entry(session_audio_root, entry)
+
+    def load_timeline(self, session_audio_root: Path) -> list[AudioTimelineEntry]:
+        return load_timeline(session_audio_root)

@@ -490,6 +490,8 @@ class TuiController:
                 data_dir=self.settings.ensure_data_dir(),
                 audio_stereo_mode=self.settings.audio_stereo_mode,
                 transcription_provider=self.settings.transcription_provider,
+                session_audio=self.container.session_audio,
+                wav_ops=self.container.wav_ops,
                 silence_skip_enabled=self.settings.audio_silence_skip_enabled,
                 silence_threshold_dbfs=self.settings.audio_silence_threshold_dbfs,
             )

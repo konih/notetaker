@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import gc
 import wave
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -297,3 +298,32 @@ def run_whisperx_finalize(
     _empty_torch_cache(align_device)
     _empty_torch_cache(diarize_device)
     return out
+
+
+@dataclass(frozen=True)
+class WhisperxOfflineTranscriber:
+    """``OfflineTranscriber`` port implementation backed by :func:`run_whisperx_finalize`.
+
+    ``run_whisperx_finalize`` is looked up at call time (module global) so tests that
+    monkeypatch it keep working through the port.
+    """
+
+    settings: Settings
+
+    def transcribe_session(
+        self,
+        *,
+        session_id: UUID,
+        audio_wav: Path,
+        timeline: Sequence[AudioTimelineEntry],
+        session_started_at: datetime,
+        progress: Callable[[str], None] | None = None,
+    ) -> list[TranscriptSegment]:
+        return run_whisperx_finalize(
+            session_id=session_id,
+            audio_wav=audio_wav,
+            timeline=list(timeline),
+            session_started_at=session_started_at,
+            settings=self.settings,
+            progress=progress,
+        )

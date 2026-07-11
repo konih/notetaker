@@ -364,6 +364,8 @@ class SlidePreviewScreen(ModalScreen[None]):
         svc = SlidePreviewService(
             settings=self._container.settings,
             sessions=self._container.sessions,
+            media=self._container.media_importer,
+            slide_tools=self._container.slide_tools,
         )
         try:
             result = await svc.preview(
@@ -549,6 +551,8 @@ class SlidePreviewScreen(ModalScreen[None]):
         svc = SlidePreviewService(
             settings=self._container.settings,
             sessions=self._container.sessions,
+            media=self._container.media_importer,
+            slide_tools=self._container.slide_tools,
         )
         return await svc.apply(
             session_id=self._session_id,

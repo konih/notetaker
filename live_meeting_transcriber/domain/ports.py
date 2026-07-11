@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import builtins
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
+from datetime import datetime
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 from uuid import UUID
 
 from live_meeting_transcriber.domain.models import (
@@ -16,6 +17,7 @@ from live_meeting_transcriber.domain.models import (
     Summary,
     TranscriptSegment,
 )
+from live_meeting_transcriber.domain.session_audio import AudioTimelineEntry
 
 
 class AudioSource(Protocol):
@@ -178,3 +180,147 @@ class SlideDetectionStrategy(Protocol):
         params: SlideDetectionParams,
         preview_dir: Path | None = None,
     ) -> list[SlideCandidate]: ...
+
+
+@runtime_checkable
+class SessionAudioStore(Protocol):
+    """Persistence of the rolling ``full_session.wav`` + wall-clock timeline (A9/A4).
+
+    The path layout lives in :mod:`live_meeting_transcriber.domain.session_audio`;
+    this port owns the file IO (ffmpeg concat, JSONL timeline read/write).
+    """
+
+    def append_chunk_with_timeline(
+        self,
+        *,
+        session_audio_root: Path,
+        chunk_wav: Path,
+        sample_rate_hz: int,
+        wall_started_at: datetime,
+        wall_ended_at: datetime,
+        fallback_duration_seconds: float,
+        log: Any,
+    ) -> None: ...
+
+    def append_timeline_entry(
+        self, session_audio_root: Path, entry: AudioTimelineEntry
+    ) -> None: ...
+
+    def load_timeline(self, session_audio_root: Path) -> list[AudioTimelineEntry]: ...
+
+
+@runtime_checkable
+class WavAudioOps(Protocol):
+    """Local WAV inspection and transformation used by application services (A9/A4).
+
+    Implementations may raise :class:`~live_meeting_transcriber.domain.exceptions.WavSegmentExtractionError`
+    from :meth:`extract_time_range`.
+    """
+
+    def peak_linear(self, path: Path) -> float:
+        """Peak absolute sample normalized to 0..1; 0.0 for empty/unsupported files."""
+        ...
+
+    def rms_dbfs(self, path: Path) -> float:
+        """Overall RMS level in dBFS (<= 0.0); ``-inf`` for digital silence."""
+        ...
+
+    def duration_seconds(self, path: Path) -> float:
+        """WAV duration in seconds; 0.0 on missing or corrupt files."""
+        ...
+
+    def is_transcribable(self, path: Path) -> bool:
+        """Whether the file looks like non-empty audio worth sending to STT."""
+        ...
+
+    def mixdown_to_mono(self, path: Path, *, sample_rate_hz: int) -> Path:
+        """Average a stereo WAV down to a temporary mono WAV; returns the temp path."""
+        ...
+
+    def extract_mono_channel(self, path: Path, channel: int, *, sample_rate_hz: int) -> Path:
+        """Extract one channel (0 = left/mic, 1 = right/system) to a temp mono WAV."""
+        ...
+
+    def extract_time_range(
+        self,
+        *,
+        src: Path,
+        dest: Path,
+        start_seconds: float,
+        end_seconds: float,
+        sample_rate_hz: int,
+        channels: int,
+    ) -> None:
+        """Write ``dest`` as PCM WAV containing ``[start_seconds, end_seconds)`` of ``src``."""
+        ...
+
+
+@runtime_checkable
+class MediaImporter(Protocol):
+    """Resolve/download a video source and demux/probe its audio (A9).
+
+    Implementations raise the domain errors ``MediaSourceError`` / ``MediaImportError``.
+    """
+
+    def resolve_source(self, *, source: str, download_dir: Path) -> Path: ...
+
+    def title_from_source(self, source: str, video_path: Path) -> str: ...
+
+    def probe_duration_seconds(self, path: Path) -> float: ...
+
+    def extract_audio_to_wav(
+        self, *, video_path: Path, dest_wav: Path, sample_rate_hz: int, channels: int
+    ) -> Path: ...
+
+
+@runtime_checkable
+class SlideDetectionTools(Protocol):
+    """Build slide-detection strategies and extract single video frames (A9).
+
+    Implementations raise the domain error ``SlideDetectionError`` and may fall back
+    to their wiring-time settings when ``name`` is ``None``.
+    """
+
+    def build_strategy(self, name: str | None = None) -> SlideDetectionStrategy: ...
+
+    def extract_frame(
+        self, *, video_path: Path, timestamp_seconds: float, dest_png: Path
+    ) -> Path: ...
+
+
+@runtime_checkable
+class OfflineTranscriber(Protocol):
+    """Full-session offline ASR (+ optional diarization) over ``full_session.wav`` (A9)."""
+
+    def transcribe_session(
+        self,
+        *,
+        session_id: UUID,
+        audio_wav: Path,
+        timeline: Sequence[AudioTimelineEntry],
+        session_started_at: datetime,
+        progress: Callable[[str], None] | None = None,
+    ) -> list[TranscriptSegment]: ...
+
+
+@runtime_checkable
+class MeetingNoteRenderer(Protocol):
+    """Render the vault-flavoured meeting note (adapter owns template, naming, layout) (A9)."""
+
+    def note_path(self, session: MeetingSession) -> Path | None:
+        """Target note path, or ``None`` when the vault export is not configured."""
+        ...
+
+    def screenshots_dir(self, note_path: Path) -> Path:
+        """Default screenshots directory for images referenced from ``note_path``."""
+        ...
+
+    def render(
+        self,
+        *,
+        session: MeetingSession,
+        segments: list[TranscriptSegment],
+        summary: Summary | None,
+        speaker_display: dict[str, str] | None = None,
+        transcript_lines: list[str] | None = None,
+    ) -> str: ...

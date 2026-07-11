@@ -19,6 +19,8 @@ from uuid import uuid4
 
 import pytest
 from live_meeting_transcriber.application.recorder import Recorder
+from live_meeting_transcriber.audio.session_recording import FfmpegSessionAudioStore
+from live_meeting_transcriber.audio.wav_ops import FfmpegWavOps
 from live_meeting_transcriber.domain import application_events as ev
 from live_meeting_transcriber.domain.models import AudioChunk, TranscriptSegment
 from tests.e2e.video_helpers import ffmpeg_available
@@ -66,6 +68,8 @@ def _recorder(tmp_path: Path, audio: object, transcriber: object, **overrides: o
         data_dir=tmp_path,
         audio_stereo_mode="mixdown",
         transcription_provider="faster_whisper",
+        session_audio=FfmpegSessionAudioStore(),
+        wav_ops=FfmpegWavOps(),
     )
     kwargs.update(overrides)
     return Recorder(**kwargs)  # type: ignore[arg-type]

@@ -19,12 +19,16 @@ from pathlib import Path
 import pytest
 from live_meeting_transcriber.application import video_import_service as vis
 from live_meeting_transcriber.application.video_import_service import VideoImportService
+from live_meeting_transcriber.audio.media_import import FfmpegMediaImporter
+from live_meeting_transcriber.audio.session_recording import FfmpegSessionAudioStore
+from live_meeting_transcriber.audio.wav_ops import FfmpegWavOps
 from live_meeting_transcriber.domain.models import AudioChunk, TranscriptSegment
 from live_meeting_transcriber.storage.repositories import (
     SqliteMeetingSessionRepository,
     SqliteTranscriptRepository,
 )
 from live_meeting_transcriber.storage.sqlite import open_connection
+from live_meeting_transcriber.video.tools import FfmpegSlideDetectionTools
 from tests.e2e.video_helpers import ffmpeg_available, patch_data_dir, video_import_settings
 
 _FIXTURE = (
@@ -76,6 +80,10 @@ def test_transcribe_video_from_downloaded_url(
 
     conn = open_connection(settings.database_url)
     svc = VideoImportService(
+        media=FfmpegMediaImporter(),
+        wav_ops=FfmpegWavOps(),
+        session_audio=FfmpegSessionAudioStore(),
+        slide_tools=FfmpegSlideDetectionTools(),
         settings=settings,
         sessions=SqliteMeetingSessionRepository(conn),
         transcripts=SqliteTranscriptRepository(conn),

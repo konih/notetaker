@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from live_meeting_transcriber.audio.backend import build_audio_capture, build_audio_device_provider
+from live_meeting_transcriber.audio.media_import import FfmpegMediaImporter
+from live_meeting_transcriber.audio.session_recording import FfmpegSessionAudioStore
+from live_meeting_transcriber.audio.wav_ops import FfmpegWavOps
 from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.diarization.noop import NoopDiarizationProvider
 from live_meeting_transcriber.domain.ports import (
@@ -12,12 +15,17 @@ from live_meeting_transcriber.domain.ports import (
     DiarizationProvider,
     DiarizationRepository,
     KnownPeopleRepository,
+    MediaImporter,
     MeetingSessionRepository,
+    OfflineTranscriber,
+    SessionAudioStore,
     SessionSpeakerNameRepository,
+    SlideDetectionTools,
     SummarizationProvider,
     SummaryRepository,
     TranscriptionProvider,
     TranscriptRepository,
+    WavAudioOps,
 )
 from live_meeting_transcriber.observability.logging import get_logger
 from live_meeting_transcriber.storage.people_composite import CompositeKnownPeopleRepository
@@ -35,6 +43,7 @@ from live_meeting_transcriber.transcription.faster_whisper_transcriber import (
     FasterWhisperTranscriptionProvider,
 )
 from live_meeting_transcriber.transcription.openai_transcriber import OpenAITranscriptionProvider
+from live_meeting_transcriber.video.tools import FfmpegSlideDetectionTools
 
 
 class ProviderSelectionError(RuntimeError):
@@ -56,6 +65,19 @@ class Container:
     summaries: SummaryRepository
     people: KnownPeopleRepository
     session_speakers: SessionSpeakerNameRepository
+    # File/media toolkits behind ports (A9). Defaults are the real, stateless adapters so
+    # tests that hand-build a Container need not wire them explicitly.
+    session_audio: SessionAudioStore = field(default_factory=FfmpegSessionAudioStore)
+    wav_ops: WavAudioOps = field(default_factory=FfmpegWavOps)
+    media_importer: MediaImporter = field(default_factory=FfmpegMediaImporter)
+    slide_tools: SlideDetectionTools = field(default_factory=FfmpegSlideDetectionTools)
+
+    def offline_transcriber(self) -> OfflineTranscriber:
+        """WhisperX-backed ``OfflineTranscriber``; imported lazily so the optional
+        offline stack never loads during container construction."""
+        from live_meeting_transcriber.offline.whisperx_pipeline import WhisperxOfflineTranscriber
+
+        return WhisperxOfflineTranscriber(settings=self.settings)
 
     def close(self) -> None:
         try:
@@ -159,4 +181,5 @@ def build_container(settings: Settings) -> Container:
         summaries=summaries,
         people=people,
         session_speakers=session_speakers,
+        slide_tools=FfmpegSlideDetectionTools(settings=settings),
     )

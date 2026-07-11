@@ -16,14 +16,16 @@ from __future__ import annotations
 
 import asyncio
 import wave
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
-from live_meeting_transcriber.application import recorder as recorder_module
 from live_meeting_transcriber.application.recorder import Recorder
+from live_meeting_transcriber.audio.session_recording import FfmpegSessionAudioStore
+from live_meeting_transcriber.audio.wav_ops import FfmpegWavOps
 from live_meeting_transcriber.domain.application_events import (
     ApplicationEvent,
     DiarizationChunkCompleted,
@@ -47,6 +49,18 @@ def _write_silent_wav(
         w.writeframes(b"\x00\x00" * nframes * channels)
 
 
+@dataclass(frozen=True)
+class _StereoSplitFakeWavOps(FfmpegWavOps):
+    """Avoid ffmpeg: return real (silent) temp files for the split mono channels."""
+
+    tmp_path: Path
+
+    def extract_mono_channel(self, path: Path, channel: int, *, sample_rate_hz: int) -> Path:
+        p = self.tmp_path / f"mono_{channel}_{uuid4().hex}.wav"
+        _write_silent_wav(p, seconds=2.0, channels=1)
+        return p
+
+
 async def _run_one_stereo_chunk(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -63,13 +77,7 @@ async def _run_one_stereo_chunk(
     chunk_dir = tmp_path / "chunks"
     t0 = datetime(2026, 1, 1, 12, 0, 0)
 
-    # Avoid ffmpeg: return real (empty) temp files for the split mono channels.
-    def _fake_extract(source: Path, channel: int, *, sample_rate_hz: int) -> Path:
-        p = tmp_path / f"mono_{channel}_{uuid4().hex}.wav"
-        _write_silent_wav(p, seconds=2.0, channels=1)
-        return p
-
-    monkeypatch.setattr(recorder_module, "extract_mono_channel_wav", _fake_extract)
+    del monkeypatch  # port fake below replaces the old module-attribute patch
 
     class _Audio:
         def capture_chunk(self, **_kwargs: object) -> AudioChunk:
@@ -97,6 +105,8 @@ async def _run_one_stereo_chunk(
 
     transcripts = MagicMock()
     recorder = Recorder(
+        session_audio=FfmpegSessionAudioStore(),
+        wav_ops=_StereoSplitFakeWavOps(tmp_path=tmp_path),
         audio=_Audio(),
         transcriber=_StereoTranscriber(),
         transcripts=transcripts,

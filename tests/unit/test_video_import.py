@@ -16,11 +16,15 @@ from live_meeting_transcriber.application.video_import_service import (
     _effective_video_chunk_seconds,
     _planned_chunk_count,
 )
+from live_meeting_transcriber.audio.media_import import FfmpegMediaImporter
 from live_meeting_transcriber.audio.media_source import is_remote_url, media_title_from_source
+from live_meeting_transcriber.audio.session_recording import FfmpegSessionAudioStore
+from live_meeting_transcriber.audio.wav_ops import FfmpegWavOps
 from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.models import AudioChunk, SlideCandidate, TranscriptSegment
 from live_meeting_transcriber.transcription.openai_transcriber import OpenAITranscriptionError
 from live_meeting_transcriber.video.strategies.frame_diff import mean_absolute_difference
+from live_meeting_transcriber.video.tools import FfmpegSlideDetectionTools
 from tests.e2e.video_helpers import ffmpeg_available
 
 # T3: these tests split real WAV files with the ffmpeg binary (no way to mock the
@@ -57,6 +61,38 @@ class _RecordingTranscriber:
         )
 
 
+@dataclass(frozen=True)
+class _FakeMedia:
+    """``MediaImporter`` fake: resolves to a fixed file and writes silent WAV audio."""
+
+    video: Path
+    duration: float
+
+    def resolve_source(self, *, source: str, download_dir: Path) -> Path:
+        return self.video
+
+    def title_from_source(self, source: str, video_path: Path) -> str:
+        return video_path.stem
+
+    def probe_duration_seconds(self, path: Path) -> float:
+        return self.duration
+
+    def extract_audio_to_wav(
+        self, *, video_path: Path, dest_wav: Path, sample_rate_hz: int, channels: int
+    ) -> Path:
+        dest_wav.parent.mkdir(parents=True, exist_ok=True)
+        _write_silent_wav(dest_wav, seconds=self.duration)
+        return dest_wav
+
+
+@dataclass(frozen=True)
+class _NoTimelineSessionAudio(FfmpegSessionAudioStore):
+    """Session store whose timeline append is a no-op (tests do not read it back)."""
+
+    def append_timeline_entry(self, session_audio_root: Path, entry: object) -> None:
+        return None
+
+
 def test_effective_video_chunk_seconds_short_file() -> None:
     assert (
         _effective_video_chunk_seconds(30.0, configured_chunk_seconds=10, implicit_chunk=True)
@@ -86,6 +122,10 @@ async def test_transcribe_wav_in_chunks_single_request_for_short_video(tmp_path:
     chunk_dir = tmp_path / "chunks"
     transcriber = _RecordingTranscriber()
     svc = VideoImportService(
+        media=FfmpegMediaImporter(),
+        wav_ops=FfmpegWavOps(),
+        session_audio=FfmpegSessionAudioStore(),
+        slide_tools=FfmpegSlideDetectionTools(),
         settings=Settings(database_url=f"sqlite:///{tmp_path / 'app.db'}"),
         sessions=MagicMock(),
         transcripts=MagicMock(),
@@ -120,6 +160,10 @@ async def test_transcribe_wav_in_chunks_skips_sub_minimum_tail(tmp_path: Path) -
     chunk_dir = tmp_path / "chunks"
     transcriber = _RecordingTranscriber()
     svc = VideoImportService(
+        media=FfmpegMediaImporter(),
+        wav_ops=FfmpegWavOps(),
+        session_audio=FfmpegSessionAudioStore(),
+        slide_tools=FfmpegSlideDetectionTools(),
         settings=Settings(database_url=f"sqlite:///{tmp_path / 'app.db'}"),
         sessions=MagicMock(),
         transcripts=MagicMock(),
@@ -161,40 +205,19 @@ async def test_import_video_preview_only_skips_transcribe(
     sessions.create.return_value = session
 
     svc = VideoImportService(
+        media=_FakeMedia(video=video, duration=45.0),
+        wav_ops=FfmpegWavOps(),
+        session_audio=_NoTimelineSessionAudio(),
+        slide_tools=FfmpegSlideDetectionTools(),
         settings=Settings(database_url=f"sqlite:///{tmp_path / 'app.db'}"),
         sessions=sessions,
         transcripts=MagicMock(),
         transcriber=transcriber,
     )
 
-    def _resolve(*_a: object, **_k: object) -> Path:
-        return video
-
-    monkeypatch.setattr(
-        "live_meeting_transcriber.application.video_import_service.resolve_media_source",
-        _resolve,
-    )
-    monkeypatch.setattr(
-        "live_meeting_transcriber.application.video_import_service.probe_media_duration_seconds",
-        lambda _p: 45.0,
-    )
-
-    def _extract(*, video_path: Path, dest_wav: Path, sample_rate_hz: int, channels: int) -> None:
-        dest = dest_wav
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        _write_silent_wav(dest, seconds=45.0)
-
-    monkeypatch.setattr(
-        "live_meeting_transcriber.application.video_import_service.extract_audio_to_wav",
-        _extract,
-    )
     monkeypatch.setattr(
         "live_meeting_transcriber.application.video_import_service.write_source_media_manifest",
         lambda **_k: None,
-    )
-    monkeypatch.setattr(
-        "live_meeting_transcriber.application.video_import_service.append_timeline_entry",
-        lambda *_a, **_k: None,
     )
 
     result = await svc.import_video(
@@ -270,6 +293,10 @@ async def test_transcribe_wav_in_chunks_200s_processes_all_chunks(tmp_path: Path
     chunk_dir = tmp_path / "chunks"
     transcriber = _RecordingTranscriber()
     svc = VideoImportService(
+        media=FfmpegMediaImporter(),
+        wav_ops=FfmpegWavOps(),
+        session_audio=FfmpegSessionAudioStore(),
+        slide_tools=FfmpegSlideDetectionTools(),
         settings=Settings(database_url=f"sqlite:///{tmp_path / 'app.db'}"),
         sessions=MagicMock(),
         transcripts=MagicMock(),
@@ -323,6 +350,10 @@ async def test_transcribe_wav_in_chunks_api_failure_returns_partial_summary(
     chunk_dir = tmp_path / "chunks"
     transcriber = _FailingAfterFirstTranscriber()
     svc = VideoImportService(
+        media=FfmpegMediaImporter(),
+        wav_ops=FfmpegWavOps(),
+        session_audio=FfmpegSessionAudioStore(),
+        slide_tools=FfmpegSlideDetectionTools(),
         settings=Settings(database_url=f"sqlite:///{tmp_path / 'app.db'}"),
         sessions=MagicMock(),
         transcripts=MagicMock(),
@@ -372,40 +403,19 @@ async def test_import_video_raises_when_all_chunks_fail(
     sessions.create.return_value = session
 
     svc = VideoImportService(
+        media=_FakeMedia(video=video, duration=30.0),
+        wav_ops=FfmpegWavOps(),
+        session_audio=_NoTimelineSessionAudio(),
+        slide_tools=FfmpegSlideDetectionTools(),
         settings=Settings(database_url=f"sqlite:///{tmp_path / 'app.db'}"),
         sessions=sessions,
         transcripts=MagicMock(),
         transcriber=transcriber,
     )
 
-    def _resolve(*_a: object, **_k: object) -> Path:
-        return video
-
-    monkeypatch.setattr(
-        "live_meeting_transcriber.application.video_import_service.resolve_media_source",
-        _resolve,
-    )
-    monkeypatch.setattr(
-        "live_meeting_transcriber.application.video_import_service.probe_media_duration_seconds",
-        lambda _p: 30.0,
-    )
-
-    def _extract(*, video_path: Path, dest_wav: Path, sample_rate_hz: int, channels: int) -> None:
-        dest = dest_wav
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        _write_silent_wav(dest, seconds=30.0)
-
-    monkeypatch.setattr(
-        "live_meeting_transcriber.application.video_import_service.extract_audio_to_wav",
-        _extract,
-    )
     monkeypatch.setattr(
         "live_meeting_transcriber.application.video_import_service.write_source_media_manifest",
         lambda **_k: None,
-    )
-    monkeypatch.setattr(
-        "live_meeting_transcriber.application.video_import_service.append_timeline_entry",
-        lambda *_a, **_k: None,
     )
 
     from datetime import UTC, datetime
