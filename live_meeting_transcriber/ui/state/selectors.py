@@ -133,43 +133,76 @@ def select_errors_compact_summary(state: AppState) -> str | None:
     return "✓ No errors or warnings"
 
 
-def build_live_status_lines(state: AppState, now: datetime) -> list[str]:
-    """Rich-markup lines for the Live sidebar status block (pure, testable).
+def _kv(label: str, value: str, pad: int = 9) -> str:
+    """One aligned ``label value`` card line: bold label column, then the value."""
+    return f"[bold]{label:<{pad}}[/]{value}"
 
-    Extracted from ``TranscriberApp._render_status`` so the density rules (short
-    session id, compact labels) can be asserted without mounting the app (U8).
-    ``now`` is passed in so the elapsed line is deterministic in tests.
-    """
-    log_hint = (
-        state.log_file_path[:52] + "…" if len(state.log_file_path) > 55 else state.log_file_path
-    )
-    decayed_level = select_decayed_level(state, now)
-    peak_pct = f"{decayed_level * 100:.0f}%" if decayed_level is not None else "—"
+
+def build_session_card_lines(state: AppState, now: datetime) -> list[str]:
+    """Rich-markup lines for the Live sidebar *Session* card (pure, testable)."""
     lines = [
-        f"[bold]Session[/] {select_short_session_id(state)}",
-        f"[bold]Title[/] {state.session_title or '—'}",
-        f"[bold]Status[/] {select_status_line(state)}",
+        _kv("Session", select_short_session_id(state)),
+        _kv("Title", state.session_title or "—"),
+        _kv("Status", select_status_line(state)),
     ]
     elapsed = select_elapsed_label(state, now)
     if elapsed is not None:
-        lines.append(f"[bold]Elapsed[/] {elapsed}")
-    lines += [
-        f"[bold]Level[/] [{select_level_bar(state, now)}] {peak_pct} [dim](per chunk)[/]",
-        f"[bold]Chunk[/] {state.chunk_seconds}s",
-        f"[bold]Source[/] {state.audio_source or 'default monitor'} [dim](a: change)[/]",
-        f"[bold]Mic[/] {state.microphone_source or state.configured_microphone_source or ('—' if not state.audio_include_microphone else 'default')}",
-        f"[bold]Log[/] {log_hint or '—'}",
-        f"[bold]Sessions[/] {len(state.sessions_catalog)} in DB"
-        + (" (loading…)" if state.sessions_loading else ""),
-        f"[bold]Live speakers[/] {state.audio_stereo_mode} ({state.audio_channels}ch)"
-        + (
-            f" · heard: {', '.join(sorted(state.diarization_detected_speakers))}"
-            if state.diarization_detected_speakers
-            else ""
-        ),
-        f"[bold]Finalize[/] auto={state.finalize_on_session_stop} · HF={state.hf_token_configured}",
-    ]
+        lines.append(_kv("Elapsed", elapsed))
     return lines
+
+
+def build_audio_card_lines(state: AppState, now: datetime) -> list[str]:
+    """Rich-markup lines for the Live sidebar *Audio* card (pure, testable)."""
+    decayed_level = select_decayed_level(state, now)
+    peak_pct = f"{decayed_level * 100:.0f}%" if decayed_level is not None else "—"
+    mic = state.microphone_source or state.configured_microphone_source
+    if mic is None:
+        mic = "—" if not state.audio_include_microphone else "default"
+    return [
+        _kv("Level", f"[{select_level_bar(state, now)}] {peak_pct} [dim](per chunk)[/]"),
+        _kv("Chunk", f"{state.chunk_seconds}s"),
+        _kv("Source", f"{state.audio_source or 'default monitor'} [dim](a: change)[/]"),
+        _kv("Mic", mic),
+    ]
+
+
+def build_pipeline_card_lines(state: AppState) -> list[str]:
+    """Rich-markup lines for the Live sidebar *Pipeline* card (pure, testable)."""
+    log_hint = (
+        state.log_file_path[:52] + "…" if len(state.log_file_path) > 55 else state.log_file_path
+    )
+    heard = (
+        f" · heard: {', '.join(sorted(state.diarization_detected_speakers))}"
+        if state.diarization_detected_speakers
+        else ""
+    )
+    return [
+        _kv("Log", log_hint or "—"),
+        _kv(
+            "Sessions",
+            f"{len(state.sessions_catalog)} in DB"
+            + (" (loading…)" if state.sessions_loading else ""),
+        ),
+        _kv("Speakers", f"{state.audio_stereo_mode} ({state.audio_channels}ch){heard}"),
+        _kv(
+            "Finalize",
+            f"auto={state.finalize_on_session_stop} · HF={state.hf_token_configured}",
+        ),
+    ]
+
+
+def build_live_status_lines(state: AppState, now: datetime) -> list[str]:
+    """All Live-sidebar status lines: the three cards, in display order.
+
+    The redesigned sidebar renders the cards separately; this concatenation
+    preserves the original single-block contract (density rules, no full UUID —
+    U8) so the whole surface can still be asserted in one pass.
+    """
+    return [
+        *build_session_card_lines(state, now),
+        *build_audio_card_lines(state, now),
+        *build_pipeline_card_lines(state),
+    ]
 
 
 def select_status_line(state: AppState) -> str:

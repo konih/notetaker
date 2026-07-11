@@ -4,10 +4,11 @@ import functools
 from collections.abc import Callable
 from uuid import UUID
 
+from rich.text import Text
 from textual.app import ComposeResult
 from textual.binding import Binding
-from textual.containers import Horizontal, Vertical
-from textual.widgets import Button, DataTable, Static, TextArea
+from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.widgets import Button, ContentSwitcher, DataTable, Static, Tab, Tabs, TextArea
 
 from live_meeting_transcriber.application.cleanup_service import purge_session_artifacts
 from live_meeting_transcriber.application.container import Container
@@ -33,10 +34,9 @@ from live_meeting_transcriber.ui.tui.meeting_modals import (
 from live_meeting_transcriber.ui.tui.meeting_session_helpers import (
     count_preview_candidates,
     count_saved_slides,
-    format_meeting_row_title,
-    format_session_type_label,
     format_slide_detail_note,
     list_preview_candidate_timestamps,
+    meeting_row_cells,
     session_has_slide_source,
     session_is_video_import,
 )
@@ -50,6 +50,7 @@ from live_meeting_transcriber.ui.tui.people_suggesters import (
     CommaSeparatedPeopleSuggester,
     PeoplePrefixSuggester,
 )
+from live_meeting_transcriber.ui.tui.rendering import speaker_color
 from live_meeting_transcriber.ui.tui.slide_preview_screen import SlidePreviewScreen
 from live_meeting_transcriber.ui.tui.tab_complete_input import TabCompletableInput
 from live_meeting_transcriber.ui.tui.transcript_display import format_meeting_transcript_text
@@ -59,7 +60,7 @@ from live_meeting_transcriber.ui.tui.video_import_modal import (
     format_video_import_error,
     run_video_import,
 )
-from live_meeting_transcriber.utils.time import format_local_datetime, utc_now
+from live_meeting_transcriber.utils.time import utc_now
 
 # Canonical Summarize key (UX-OQ-3): sourced from the global footer catalog so every
 # inline hint on this tab renders the same key as the footer and the ? overlay (U12).
@@ -145,32 +146,60 @@ class MeetingBrowser(Vertical):
             yield DataTable(id="meeting-sessions-table", cursor_type="row", zebra_stripes=True)
             with Vertical(id="meeting-browser-detail"):
                 yield Static("No meeting selected.", id="meeting-detail-status")
-                yield TabCompletableInput(placeholder="Title", id="meeting-title", disabled=True)
-                yield Static("Notes", classes="dim")
-                yield TextArea(id="meeting-notes", disabled=True, language=None)
-                yield Static(f"AI summary ({_SUMMARIZE_KEY} to generate)", classes="dim")
-                yield TextArea(id="meeting-summary", disabled=True, language=None)
-                yield Static(
-                    "Attendees (comma-separated; Tab completes full name when suggested)",
-                    classes="dim",
+                yield Tabs(
+                    Tab("Overview", id="dt-overview"),
+                    Tab("Transcript", id="dt-transcript"),
+                    Tab("Summary", id="dt-summary"),
+                    id="detail-tabs",
                 )
-                yield TabCompletableInput(
-                    placeholder="Alice, Bob, …", id="meeting-attendees", disabled=True
-                )
-                yield Static(
-                    "Speaker labels → display names (Tab completes full name when suggested)",
-                    classes="dim",
-                )
-                yield Vertical(id="meeting-speaker-area")
-                yield Static(
-                    "Transcript (scrollable — place cursor on a line, ctrl+e to edit)",
-                    classes="dim",
-                )
-                yield TextArea(id="meeting-transcript", read_only=True, language=None)
+                with ContentSwitcher(initial="detail-overview", id="detail-switcher"):
+                    with VerticalScroll(id="detail-overview"):
+                        yield TabCompletableInput(
+                            placeholder="Title", id="meeting-title", disabled=True
+                        )
+                        yield Static("Notes", classes="dim")
+                        yield TextArea(id="meeting-notes", disabled=True, language=None)
+                        yield Static(
+                            "Attendees (comma-separated; Tab completes full name when suggested)",
+                            classes="dim",
+                        )
+                        yield TabCompletableInput(
+                            placeholder="Alice, Bob, …", id="meeting-attendees", disabled=True
+                        )
+                        yield Static(
+                            "Speaker labels → display names "
+                            "(Tab completes full name when suggested)",
+                            classes="dim",
+                        )
+                        yield Vertical(id="meeting-speaker-area")
+                    with Vertical(id="detail-transcript"):
+                        yield Static(
+                            "Transcript (scrollable — place cursor on a line, ctrl+e to edit)",
+                            classes="dim",
+                        )
+                        yield TextArea(id="meeting-transcript", read_only=True, language=None)
+                    with Vertical(id="detail-summary"):
+                        yield Static(f"AI summary ({_SUMMARIZE_KEY} to generate)", classes="dim")
+                        yield TextArea(id="meeting-summary", disabled=True, language=None)
+
+    def on_tabs_tab_activated(self, event: Tabs.TabActivated) -> None:
+        """Route the detail sub-tabs (Overview / Transcript / Summary) to their pane."""
+        if event.tabs.id != "detail-tabs" or event.tab is None:
+            return
+        pane = {
+            "dt-overview": "detail-overview",
+            "dt-transcript": "detail-transcript",
+            "dt-summary": "detail-summary",
+        }.get(event.tab.id or "")
+        if pane:
+            self.query_one("#detail-switcher", ContentSwitcher).current = pane
 
     def on_mount(self) -> None:
         st = self.query_one("#meeting-sessions-table", DataTable)
-        st.add_columns("Type", "Title", "Started")
+        st.add_columns(" ", "Title", "Started")
+        st.border_title = "meetings"
+        st.border_subtitle = "● live · ▶ video · ⏸ interrupted"
+        self.query_one("#meeting-browser-detail").border_title = "detail"
         attendees = self.query_one("#meeting-attendees", TabCompletableInput)
         attendees.suggester = self._comma_suggester
         self.refresh_session_list()
@@ -207,13 +236,17 @@ class MeetingBrowser(Vertical):
         )
         data_dir = self.container.settings.ensure_data_dir()
         active_session_id = self.store.get_state().current_session_id
+        now = utc_now()
         table.clear()
         for s in self.container.sessions.list():
             is_video = session_is_video_import(data_dir, s.id)
+            glyph, style, title, started = meeting_row_cells(
+                s, is_video=is_video, active_session_id=active_session_id, now=now
+            )
             table.add_row(
-                format_session_type_label(is_video=is_video),
-                format_meeting_row_title(s, active_session_id=active_session_id),
-                format_local_datetime(s.started_at),
+                Text(glyph, style=style),
+                title,
+                Text(started, style="dim"),
                 key=str(s.id),
             )
         if selected:
@@ -286,9 +319,12 @@ class MeetingBrowser(Vertical):
         await spk_area.remove_children()
         rows: list[Horizontal] = []
         for sk in self._speaker_keys:
+            chip = Text.assemble(
+                ("▍", speaker_color(sk)), (f"{sk} ", f"bold {speaker_color(sk)}"), ("→", "dim")
+            )
             rows.append(
                 Horizontal(
-                    Static(f"{sk} →", classes="spk-label"),
+                    Static(chip, classes="spk-label"),
                     TabCompletableInput(
                         value=name_map.get(sk, ""),
                         placeholder="Display name",

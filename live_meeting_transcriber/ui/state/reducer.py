@@ -21,6 +21,8 @@ _MAX_ERRORS = 40
 _MAX_WARNINGS = 30
 _MAX_NOTICES = 12
 _MAX_UI_LOG_LINES = 500
+# Sparkline source: one peak per chunk; 48 readings ≈ 8 minutes at the 10s default.
+_MAX_LEVEL_HISTORY = 48
 
 # Warn once after this many consecutive empty chunks (no speech detected) — a strong
 # hint that the input level is too low or the wrong audio device is selected.
@@ -108,6 +110,8 @@ def reduce(state: AppState, action: act.Action) -> AppState:
             "recording_started_at": action.at,
             "consecutive_empty_chunks": 0,
             "low_audio_warning_shown": False,
+            # Fresh sparkline per recording segment (resume included — history shows *now*).
+            "level_history": (),
             "diarization_status": DiarizationStatus.active
             if (
                 state.audio_channels >= 2 and state.audio_stereo_mode.strip().lower() == "dual_path"
@@ -333,7 +337,11 @@ def reduce(state: AppState, action: act.Action) -> AppState:
     if isinstance(action, act.AudioLevelUpdated):
         return _touch(
             state.model_copy(
-                update={"current_level_meter": action.level, "last_level_at": action.at}
+                update={
+                    "current_level_meter": action.level,
+                    "last_level_at": action.at,
+                    "level_history": (*state.level_history, action.level)[-_MAX_LEVEL_HISTORY:],
+                }
             ),
             action.at,
         )

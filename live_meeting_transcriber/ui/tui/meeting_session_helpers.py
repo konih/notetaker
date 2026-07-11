@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, tzinfo
 from pathlib import Path
 from uuid import UUID
 
@@ -13,6 +14,7 @@ from live_meeting_transcriber.application.video_session_storage import (
 )
 from live_meeting_transcriber.audio.session_recording import session_audio_dir
 from live_meeting_transcriber.domain.models import MeetingSession
+from live_meeting_transcriber.utils.time import to_local
 
 _VIDEO_EXTENSIONS = (".mp4", ".mkv", ".webm", ".mov", ".m4v")
 
@@ -96,22 +98,48 @@ def format_slide_detail_note(
     return ""
 
 
-def format_session_type_label(*, is_video: bool) -> str:
-    """Short label for the meetings table Type column."""
-    return "▶ Video" if is_video else "● Live"
+def format_started_cell(started_at: datetime, now: datetime, tz: tzinfo | None = None) -> str:
+    """Humanized Started cell for the meetings table.
 
-
-def format_meeting_row_title(
-    session: MeetingSession, *, active_session_id: UUID | None = None, max_len: int = 40
-) -> str:
-    """Title for the meetings table, marking *interrupted* meetings.
-
-    A meeting whose recording was interrupted (app crash / force-quit) never got ``ended_at`` set,
-    so it is stuck all-"unknown" until re-diarized. Flag it so the operator can find it and run
-    Speaker ID (Ctrl+D) — but never flag the session that is actively recording right now.
+    Recent meetings are what the operator scans for, so today/yesterday read as
+    words with the wall-clock time; older rows keep the full sortable date.
+    ``now`` is a parameter so tests own the clock.
     """
-    title = session.title
-    truncated = title[:max_len] + ("…" if len(title) > max_len else "")
+    local = to_local(started_at, tz)
+    local_now = to_local(now, tz)
+    if local.date() == local_now.date():
+        return f"today {local:%H:%M}"
+    if (local_now.date() - local.date()).days == 1:
+        return f"yesterday {local:%H:%M}"
+    return f"{local:%Y-%m-%d %H:%M}"
+
+
+def meeting_row_cells(
+    session: MeetingSession,
+    *,
+    is_video: bool,
+    active_session_id: UUID | None,
+    now: datetime,
+    tz: tzinfo | None = None,
+    max_title: int = 24,
+) -> tuple[str, str, str, str]:
+    """``(glyph, glyph_style, title, started)`` for one meetings-table row.
+
+    The session's state lives in a one-cell glyph column — ● live recording,
+    ▶ video import, ⏸ *interrupted* — so the title column stays scannable and
+    the Started column actually fits the table (the old ``⏸ interrupted ·``
+    title prefix pushed it out of view).
+
+    A meeting whose recording was interrupted (app crash / force-quit) never
+    got ``ended_at`` set, so it is stuck all-"unknown" until re-diarized. Flag
+    it so the operator can find it and run Speaker ID (Ctrl+D) — but never
+    flag the session that is actively recording right now.
+    """
     if session.ended_at is None and session.id != active_session_id:
-        return f"⏸ interrupted · {truncated}"
-    return truncated
+        glyph, style = "⏸", "yellow"
+    elif is_video:
+        glyph, style = "▶", "cyan"
+    else:
+        glyph, style = "●", "green"
+    title = session.title[:max_title] + ("…" if len(session.title) > max_title else "")
+    return glyph, style, title, format_started_cell(session.started_at, now, tz)
