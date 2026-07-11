@@ -1,4 +1,4 @@
-"""U21 — Pilot tests for the folder/file picker and the editable Settings screen."""
+"""U21/U15 — Pilot tests for the picker and the editable Settings screen (paths + scalars)."""
 
 from __future__ import annotations
 
@@ -19,7 +19,8 @@ from live_meeting_transcriber.ui.tui.app import (
     SettingsScreen,
     TranscriberApp,
 )
-from textual.widgets import Input, Static
+from live_meeting_transcriber.ui.tui.settings_view import build_settings_sections
+from textual.widgets import Input, Static, Switch
 
 
 def _app() -> TranscriberApp:
@@ -154,3 +155,119 @@ async def test_settings_screen_opens_editor() -> None:
         pilot.app.screen.action_edit()
         await pilot.pause()
         assert isinstance(pilot.app.screen, EditSettingsScreen)
+
+
+# --- U15: safe runtime scalar toggles -----------------------------------------------------
+
+
+async def test_edit_settings_scalar_widgets_show_current_values() -> None:
+    cfg = default_config_yaml_path()
+    cfg.parent.mkdir(parents=True, exist_ok=True)
+    cfg.write_text("keep_audio_chunks: true\naudio_chunk_seconds: 25\n", encoding="utf-8")
+
+    app = _app()
+    async with app.run_test(size=(120, 60)) as pilot:
+        await pilot.pause()
+        app.push_screen(EditSettingsScreen())
+        await pilot.pause()
+        screen = pilot.app.screen
+        assert isinstance(screen, EditSettingsScreen)
+        assert screen.query_one("#switch-keep_audio_chunks", Switch).value is True
+        assert screen.query_one("#switch-audio_silence_skip_enabled", Switch).value is True
+        assert screen.query_one("#input-audio_chunk_seconds", Input).value == "25"
+
+
+async def test_edit_settings_scalar_save_persists_to_yaml() -> None:
+    app = _app()
+    async with app.run_test(size=(120, 60)) as pilot:
+        await pilot.pause()
+        app.push_screen(EditSettingsScreen())
+        await pilot.pause()
+        screen = pilot.app.screen
+        assert isinstance(screen, EditSettingsScreen)
+        screen.query_one("#switch-keep_audio_chunks", Switch).value = True
+        screen.query_one("#input-audio_silence_threshold_dbfs", Input).value = "-55"
+        await screen.action_save()
+        await pilot.pause()
+
+    raw = yaml.safe_load(default_config_yaml_path().read_text(encoding="utf-8"))
+    assert raw["keep_audio_chunks"] is True
+    assert raw["audio_silence_threshold_dbfs"] == -55.0
+
+
+async def test_edit_settings_out_of_range_scalar_blocks_save() -> None:
+    app = _app()
+    async with app.run_test(size=(120, 60)) as pilot:
+        await pilot.pause()
+        app.push_screen(EditSettingsScreen())
+        await pilot.pause()
+        screen = pilot.app.screen
+        assert isinstance(screen, EditSettingsScreen)
+        screen.query_one("#input-audio_silence_threshold_dbfs", Input).value = "-200"
+        await screen.action_save()
+        await pilot.pause()
+        # still open, inline error shown, nothing written
+        assert isinstance(pilot.app.screen, EditSettingsScreen)
+        err = screen.query_one("#err-audio_silence_threshold_dbfs", Static)
+        assert str(err.content).strip()
+    assert not default_config_yaml_path().exists()
+
+
+async def test_edit_settings_unparseable_scalar_blocks_save() -> None:
+    app = _app()
+    async with app.run_test(size=(120, 60)) as pilot:
+        await pilot.pause()
+        app.push_screen(EditSettingsScreen())
+        await pilot.pause()
+        screen = pilot.app.screen
+        assert isinstance(screen, EditSettingsScreen)
+        screen.query_one("#input-audio_chunk_seconds", Input).value = "ten"
+        await screen.action_save()
+        await pilot.pause()
+        assert isinstance(pilot.app.screen, EditSettingsScreen)
+        err = screen.query_one("#err-audio_chunk_seconds", Static)
+        assert str(err.content).strip()
+    assert not default_config_yaml_path().exists()
+
+
+async def test_edit_settings_save_error_then_fix_saves() -> None:
+    app = _app()
+    async with app.run_test(size=(120, 60)) as pilot:
+        await pilot.pause()
+        app.push_screen(EditSettingsScreen())
+        await pilot.pause()
+        screen = pilot.app.screen
+        assert isinstance(screen, EditSettingsScreen)
+        field_input = screen.query_one("#input-audio_chunk_seconds", Input)
+        field_input.value = "0"
+        await screen.action_save()
+        await pilot.pause()
+        assert isinstance(pilot.app.screen, EditSettingsScreen)
+        assert str(screen.query_one("#err-audio_chunk_seconds", Static).content).strip()
+        field_input.value = "30"
+        await screen.action_save()
+        await pilot.pause()
+        # the fixed value saved and the editor dismissed itself
+        assert not isinstance(pilot.app.screen, EditSettingsScreen)
+
+    raw = yaml.safe_load(default_config_yaml_path().read_text(encoding="utf-8"))
+    assert raw["audio_chunk_seconds"] == 30
+
+
+async def test_edit_settings_scalar_save_refreshes_read_only_view() -> None:
+    app = _app()
+    async with app.run_test(size=(120, 60)) as pilot:
+        await pilot.pause()
+        assert app.store.get_state().finalize_on_session_stop is False
+        app.push_screen(EditSettingsScreen())
+        await pilot.pause()
+        screen = pilot.app.screen
+        assert isinstance(screen, EditSettingsScreen)
+        screen.query_one("#switch-finalize_on_session_stop", Switch).value = True
+        await screen.action_save()
+        await pilot.pause()
+
+        state = app.store.get_state()
+        assert state.finalize_on_session_stop is True
+        sections = dict(build_settings_sections(state))
+        assert "Label speakers after the meeting: on" in sections["Speaker labels"]

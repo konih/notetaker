@@ -8,9 +8,21 @@ truth** (U21); environment variables and `.env` files are still honoured for bac
 Settings live in a single human-readable YAML file at
 `$XDG_CONFIG_HOME/live-meeting-transcriber/config.yaml` (default:
 `~/.config/live-meeting-transcriber/config.yaml`). Editing settings **in-app** (Settings
-screen → `e: edit`) writes this file atomically; path fields (log file, Obsidian
-people/meetings/template/screenshots dirs, screenshots source) are set through a
-**folder/file picker** so you never hand-edit a path. Path changes apply on restart.
+screen → `e: edit`) writes this file atomically. Two groups are editable in-app:
+
+- **Runtime toggles** (U15) — a deliberately small, safe subset (note: a field set via an env var still wins over the saved `config.yaml` value on next launch — env > yaml precedence):
+  `FINALIZE_ON_SESSION_STOP`, `AUDIO_SILENCE_SKIP_ENABLED` and `KEEP_AUDIO_CHUNKS` as
+  switches, plus `AUDIO_SILENCE_THRESHOLD_DBFS` and `AUDIO_CHUNK_SECONDS` as validated
+  number inputs. Out-of-range or non-numeric values show an inline error and **nothing is
+  saved** until fixed (the same limits as the model: threshold `-120..0`, chunk `1..300`).
+- **Folders & files** (U21) — path fields (log file, Obsidian
+  people/meetings/template/screenshots dirs, screenshots source) set through a
+  **folder/file picker** so you never hand-edit a path.
+
+All in-app edits apply on **restart** — the running session keeps the configuration it
+started with — but the read-only Settings screen shows the saved values immediately.
+Everything else (providers, models, devices, video tuning, …) remains env/`config.yaml`/
+`.env`-only; there is intentionally no full in-app settings editor.
 
 The file is regenerated on each save — user-added comments are **not** preserved — and a
 header banner documents this. Secrets (`OPENAI_API_KEY`, `HF_TOKEN`) are intentionally
