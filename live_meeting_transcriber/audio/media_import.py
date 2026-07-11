@@ -6,9 +6,13 @@ import json
 import subprocess
 from pathlib import Path
 
+from live_meeting_transcriber.domain.exceptions import MediaImportError
 
-class MediaImportError(RuntimeError):
-    pass
+__all__ = [
+    "MediaImportError",
+    "extract_audio_to_wav",
+    "probe_media_duration_seconds",
+]
 
 
 def probe_media_duration_seconds(path: Path) -> float:

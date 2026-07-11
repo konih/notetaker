@@ -7,24 +7,25 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from uuid import UUID
 
 from live_meeting_transcriber.audio.timeline import AudioTimelineEntry, append_timeline_entry
 from live_meeting_transcriber.audio.wav_segment import safe_wav_duration_seconds
+from live_meeting_transcriber.domain.session_audio import (
+    full_session_wav_path,
+    session_audio_dir,
+)
+
+__all__ = [
+    "SessionAudioAppendError",
+    "append_chunk_to_full_session_wav",
+    "append_chunk_with_timeline",
+    "full_session_wav_path",
+    "session_audio_dir",
+]
 
 
 class SessionAudioAppendError(RuntimeError):
     pass
-
-
-def session_audio_dir(data_dir: Path, session_id: UUID) -> Path:
-    d = (data_dir / "sessions" / str(session_id)).resolve()
-    d.mkdir(parents=True, exist_ok=True)
-    return d
-
-
-def full_session_wav_path(session_audio_root: Path) -> Path:
-    return session_audio_root / "full_session.wav"
 
 
 def append_chunk_to_full_session_wav(

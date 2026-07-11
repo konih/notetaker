@@ -10,7 +10,7 @@ from live_meeting_transcriber.application.video_session_storage import (
     read_source_media_video_path,
     session_slides_dir,
 )
-from live_meeting_transcriber.audio.session_recording import full_session_wav_path
+from live_meeting_transcriber.domain.session_audio import full_session_wav_path
 
 
 @dataclass(frozen=True)

@@ -18,6 +18,7 @@ from live_meeting_transcriber.application.screenshot_export import (
     markdown_image_line,
     merge_transcript_lines_with_screenshots,
 )
+from live_meeting_transcriber.domain.meeting_naming import slug_title
 from live_meeting_transcriber.domain.models import MeetingSession, Summary, TranscriptSegment
 from live_meeting_transcriber.domain.speaker_display import format_transcript_speaker_label
 from live_meeting_transcriber.obsidian.vault_patterns import (
@@ -202,13 +203,11 @@ def render_meeting_note(
 
 def meeting_export_filename(session: MeetingSession) -> str:
     """Stable filename: ``YYYY-MM-DD Title.md`` when title is meaningful, else slug form."""
-    from live_meeting_transcriber.application.export_markdown import _slug_title
-
     day = session.started_at.date().isoformat()
     if not is_placeholder_meeting_title(session.title):
         safe = safe_obsidian_filename_title(session.title)
         return f"{day} {safe}.md"
-    slug = _slug_title(session.title, max_len=56)
+    slug = slug_title(session.title, max_len=56)
     return f"{day}_{slug}.md"
 
 

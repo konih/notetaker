@@ -7,13 +7,14 @@ from pathlib import Path
 from uuid import UUID
 
 from live_meeting_transcriber.application.container import Container
-from live_meeting_transcriber.audio.session_recording import (
+from live_meeting_transcriber.audio.timeline import load_timeline
+from live_meeting_transcriber.config.settings import Settings
+from live_meeting_transcriber.domain.models import MeetingSession, TranscriptSegment
+from live_meeting_transcriber.domain.session_audio import (
+    AudioTimelineEntry,
     full_session_wav_path,
     session_audio_dir,
 )
-from live_meeting_transcriber.audio.timeline import AudioTimelineEntry, load_timeline
-from live_meeting_transcriber.config.settings import Settings
-from live_meeting_transcriber.domain.models import MeetingSession, TranscriptSegment
 
 
 def _as_utc(dt: datetime) -> datetime:

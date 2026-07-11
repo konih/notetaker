@@ -3,20 +3,21 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
-from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
+from live_meeting_transcriber.domain.session_audio import (
+    AudioTimelineEntry,
+    map_audio_time_to_wall,
+)
 
-@dataclass(frozen=True)
-class AudioTimelineEntry:
-    """One appended chunk: audio interval in the rolling ``full_session.wav`` and its wall-clock span."""
-
-    audio_start_sec: float
-    audio_end_sec: float
-    wall_started_at: datetime
-    wall_ended_at: datetime
+__all__ = [
+    "AudioTimelineEntry",
+    "append_timeline_entry",
+    "load_timeline",
+    "map_audio_time_to_wall",
+    "timeline_file",
+]
 
 
 def timeline_file(session_audio_root: Path) -> Path:
@@ -55,23 +56,3 @@ def load_timeline(session_audio_root: Path) -> list[AudioTimelineEntry]:
             )
         )
     return out
-
-
-def map_audio_time_to_wall(entries: Sequence[AudioTimelineEntry], t_sec: float) -> datetime:
-    """Linearly map a position in the concatenated WAV timeline to wall time."""
-    if not entries:
-        raise ValueError("timeline is empty")
-    if t_sec <= entries[0].audio_start_sec:
-        return entries[0].wall_started_at
-    if t_sec >= entries[-1].audio_end_sec:
-        return entries[-1].wall_ended_at
-    for e in entries:
-        if t_sec < e.audio_end_sec - 1e-9:
-            dur_a = e.audio_end_sec - e.audio_start_sec
-            if dur_a <= 1e-9:
-                return e.wall_started_at
-            frac = (t_sec - e.audio_start_sec) / dur_a
-            frac = max(0.0, min(1.0, frac))
-            wall_delta = (e.wall_ended_at - e.wall_started_at).total_seconds() * frac
-            return e.wall_started_at + timedelta(seconds=wall_delta)
-    return entries[-1].wall_ended_at

@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from uuid import UUID
 
-from live_meeting_transcriber.audio.session_recording import session_audio_dir
+from live_meeting_transcriber.domain.session_audio import session_audio_dir
 
 
 class VideoSessionStorageError(RuntimeError):

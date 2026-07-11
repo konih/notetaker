@@ -5,6 +5,15 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
+from live_meeting_transcriber.domain.meeting_naming import is_placeholder_meeting_title
+
+__all__ = [
+    "VaultNamingHints",
+    "is_placeholder_meeting_title",
+    "load_vault_naming_hints",
+    "safe_obsidian_filename_title",
+]
+
 
 @dataclass(frozen=True)
 class VaultNamingHints:
@@ -63,7 +72,7 @@ def load_vault_naming_hints(meetings_dir: Path | None, *, max_files: int = 40) -
         except OSError:
             continue
         title = _title_from_note(path, text)
-        if title and not _looks_like_placeholder_title(title):
+        if title and not is_placeholder_meeting_title(title):
             titles.append(title)
         fm = _FRONTMATTER_RE.match(text)
         if fm:
@@ -79,22 +88,6 @@ def load_vault_naming_hints(meetings_dir: Path | None, *, max_files: int = 40) -
         common_tags=common_tags,
         uses_descriptive_filenames=uses_descriptive,
     )
-
-
-def _looks_like_placeholder_title(title: str) -> bool:
-    t = title.strip()
-    if not t:
-        return True
-    if re.match(r"^Meeting \d{4}-\d{2}-\d{2}", t, re.IGNORECASE):
-        return True
-    if re.match(r"^meeting-\d{4}-\d{2}-\d{2}", t, re.IGNORECASE):
-        return True
-    return t.lower() in {"meeting", "untitled", "new meeting"}
-
-
-def is_placeholder_meeting_title(title: str) -> bool:
-    """True when the session title looks auto-generated or unset."""
-    return _looks_like_placeholder_title(title)
 
 
 def safe_obsidian_filename_title(title: str, *, max_len: int = 96) -> str:

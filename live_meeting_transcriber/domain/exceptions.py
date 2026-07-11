@@ -1,5 +1,9 @@
 """Domain-level errors for cross-layer handling (no UI imports)."""
 
+from __future__ import annotations
+
+from pathlib import Path
+
 
 class EmptyTranscriptionError(Exception):
     """Transcription produced no usable text (silent chunk, very short clip, or provider quirk).
@@ -21,3 +25,27 @@ class TranscriptionProviderError(Exception):
     def __init__(self, *args: object, recoverable: bool = True) -> None:
         super().__init__(*args)
         self.recoverable = recoverable
+
+
+class MediaImportError(RuntimeError):
+    """Extracting audio / probing duration from a media file failed (ffmpeg/ffprobe)."""
+
+
+class MediaSourceError(RuntimeError):
+    """A video source (local path or URL) could not be resolved to a local file."""
+
+
+class WavSegmentExtractionError(RuntimeError):
+    """Cutting a time range out of a PCM WAV failed."""
+
+
+class SlideDetectionError(RuntimeError):
+    """Slide-transition detection or frame extraction failed."""
+
+
+class ExportCancelledError(Exception):
+    """Raised when the user declines to overwrite an existing export file."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        super().__init__(f"Export cancelled for {path}")

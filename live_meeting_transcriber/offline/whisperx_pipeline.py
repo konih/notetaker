@@ -17,9 +17,12 @@ from live_meeting_transcriber.audio.stereo import (
     read_stereo_pcm,
     you_remote_for_audio_interval,
 )
-from live_meeting_transcriber.audio.timeline import AudioTimelineEntry, map_audio_time_to_wall
 from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.models import ProviderMetadata, TranscriptSegment
+from live_meeting_transcriber.domain.session_audio import (
+    AudioTimelineEntry,
+    map_audio_time_to_wall,
+)
 from live_meeting_transcriber.observability.logging import get_logger
 
 
