@@ -45,6 +45,7 @@ EXPECTED_FIELD_ALIASES: dict[str, str] = {
     "finalize_on_session_stop": "FINALIZE_ON_SESSION_STOP",
     "offline_asr_engine": "OFFLINE_ASR_ENGINE",
     "mlx_whisper_model": "MLX_WHISPER_MODEL",
+    "mlx_silence_gate_dbfs": "MLX_SILENCE_GATE_DBFS",
     "whisperx_model": "WHISPERX_MODEL",
     "whisperx_device": "WHISPERX_DEVICE",
     "whisperx_torch_device": "WHISPERX_TORCH_DEVICE",

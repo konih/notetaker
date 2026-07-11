@@ -45,6 +45,35 @@ def rms_dbfs_from_wav_path(path: Path) -> float:
             return float("-inf")
         frames = w.readframes(nframes)
 
+    return _rms_dbfs_from_frames(frames, sampwidth)
+
+
+def rms_dbfs_window_from_wav_path(path: Path, start_seconds: float, end_seconds: float) -> float:
+    """RMS level in dBFS of ``[start_seconds, end_seconds)`` of a PCM WAV; ``-inf``
+    for digital silence, degenerate windows, or windows entirely past EOF.
+
+    Windows are clamped to the file, so a segment end that overshoots the recording
+    measures what exists. Input to the MLX hallucination-on-silence gate (F12).
+    Raises ``wave.Error``/``OSError`` on unreadable files; callers decide the
+    failure policy (the finalize gate fails open).
+    """
+    with wave.open(str(path), "rb") as w:
+        sampwidth = w.getsampwidth()
+        nframes = w.getnframes()
+        framerate = w.getframerate()
+        if nframes == 0 or sampwidth not in (1, 2, 4) or framerate <= 0:
+            return float("-inf")
+        start_frame = min(nframes, max(0, int(start_seconds * framerate)))
+        end_frame = min(nframes, max(0, int(end_seconds * framerate)))
+        if end_frame <= start_frame:
+            return float("-inf")
+        w.setpos(start_frame)
+        frames = w.readframes(end_frame - start_frame)
+
+    return _rms_dbfs_from_frames(frames, sampwidth)
+
+
+def _rms_dbfs_from_frames(frames: bytes, sampwidth: int) -> float:
     normalized: list[float]
     if sampwidth == 2:
         ints = struct.unpack(f"<{len(frames) // 2}h", frames)

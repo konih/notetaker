@@ -25,10 +25,12 @@ Adapter layer: imports config/domain only, never application/CLI/UI (A9 contract
 from __future__ import annotations
 
 import platform
+import wave
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, Literal
 
+from live_meeting_transcriber.audio.wav_level import rms_dbfs_window_from_wav_path
 from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.speaker_overlap import SpeakerTurn, assign_segment_speaker
 from live_meeting_transcriber.observability.logging import get_logger
@@ -119,7 +121,58 @@ def run_mlx_asr(
         condition_on_previous_text=False,
         verbose=None,
     )
+
+    # Hallucination-on-silence gate (F11 spike): mlx-whisper decodes without the
+    # baseline's external VAD and can invent text over silence. Anything decoded from a
+    # window quieter than the gate is dropped — there was nothing to transcribe there.
+    kept, dropped = drop_silent_window_segments(
+        list(result.get("segments") or []),
+        rms_for_window=_wav_window_rms_probe(audio_wav),
+        threshold_dbfs=settings.mlx_silence_gate_dbfs,
+    )
+    if dropped:
+        result["segments"] = kept
+        _step(
+            progress,
+            f"Transcribe cleanup: dropped {dropped} silent-window segment(s) "
+            f"(hallucination guard, < {settings.mlx_silence_gate_dbfs:.1f} dBFS).",
+        )
     return result
+
+
+def drop_silent_window_segments(
+    segments: list[dict[str, Any]],
+    *,
+    rms_for_window: Callable[[float, float], float],
+    threshold_dbfs: float,
+) -> tuple[list[dict[str, Any]], int]:
+    """Split ``segments`` into (kept, dropped-count) by their window's RMS energy.
+
+    Mirrors F1's conservatism: only a *strictly* quieter window drops (the boundary
+    keeps), and an unmeasurable window (NaN) keeps the segment — NaN comparisons are
+    false, so the gate fails open by construction.
+    """
+    kept: list[dict[str, Any]] = []
+    dropped = 0
+    for seg in segments:
+        rms = rms_for_window(float(seg.get("start", 0.0)), float(seg.get("end", 0.0)))
+        if rms < threshold_dbfs:
+            dropped += 1
+            continue
+        kept.append(seg)
+    return kept, dropped
+
+
+def _wav_window_rms_probe(audio_wav: Path) -> Callable[[float, float], float]:
+    """Window-RMS reader for ``audio_wav`` that returns NaN instead of raising."""
+
+    def probe(start_seconds: float, end_seconds: float) -> float:
+        try:
+            return rms_dbfs_window_from_wav_path(audio_wav, start_seconds, end_seconds)
+        except (OSError, wave.Error, EOFError):
+            return float("nan")
+
+    return probe
 
 
 def turns_from_diarization(diarize_segments: Any) -> list[SpeakerTurn]:
