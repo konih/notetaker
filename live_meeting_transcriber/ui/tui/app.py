@@ -1058,7 +1058,9 @@ class TranscriberApp(App[None]):
             _group(build_session_card_lines(state, now))
         )
         self.query_one("#status-audio", Static).update(_group(build_audio_card_lines(state, now)))
-        self.query_one("#status-pipeline", Static).update(_group(build_pipeline_card_lines(state)))
+        self.query_one("#status-pipeline", Static).update(
+            _group(build_pipeline_card_lines(state, utc_now()))
+        )
 
     def _render_errors(self, state: AppState) -> Panel | Text:
         # When there is nothing to report, collapse the bordered panel into a

@@ -18,6 +18,7 @@ from live_meeting_transcriber.domain.ports import (
     MediaImporter,
     MeetingSessionRepository,
     OfflineTranscriber,
+    ScreenCapture,
     SessionAudioStore,
     SessionSpeakerNameRepository,
     SlideDetectionTools,
@@ -28,6 +29,7 @@ from live_meeting_transcriber.domain.ports import (
     WavAudioOps,
 )
 from live_meeting_transcriber.observability.logging import get_logger
+from live_meeting_transcriber.screencap.cli import ScreencaptureCli
 from live_meeting_transcriber.storage.people_composite import CompositeKnownPeopleRepository
 from live_meeting_transcriber.storage.repositories import (
     SqliteDiarizationRepository,
@@ -71,6 +73,9 @@ class Container:
     wav_ops: WavAudioOps = field(default_factory=FfmpegWavOps)
     media_importer: MediaImporter = field(default_factory=FfmpegMediaImporter)
     slide_tools: SlideDetectionTools = field(default_factory=FfmpegSlideDetectionTools)
+    # Live screen capture (F6): the macOS screencapture CLI adapter; availability is
+    # probed at use time so non-macOS containers construct fine.
+    screen_capture: ScreenCapture = field(default_factory=ScreencaptureCli)
 
     def offline_transcriber(self) -> OfflineTranscriber:
         """WhisperX-backed ``OfflineTranscriber``; imported lazily so the optional

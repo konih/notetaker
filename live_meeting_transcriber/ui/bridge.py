@@ -64,6 +64,12 @@ def application_events_to_actions(event: ev.ApplicationEvent) -> tuple[act.Actio
         if clean:
             out.append(act.DiarizationSpeakersDetected(speakers=clean, at=event.at))
 
+    elif isinstance(event, ev.ScreenCaptureShotTaken):
+        out.append(act.ScreenCaptureShotObserved(shot_count=event.shot_count, at=event.at))
+
+    elif isinstance(event, ev.ScreenCaptureUnavailable):
+        out.append(act.WarningRaised(message=event.message, at=event.at))
+
     elif isinstance(event, ev.DiarizationFailed):
         out.append(act.WarningRaised(message=f"Diarization: {event.message}", at=event.at))
 

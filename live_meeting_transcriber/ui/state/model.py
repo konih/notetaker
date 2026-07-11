@@ -138,6 +138,13 @@ class AppState(BaseModel):
     notices: tuple[str, ...] = Field(default_factory=tuple)
     speaker_aliases: dict[str, str] = Field(default_factory=dict)
     diarization_detected_speakers: frozenset[str] = frozenset()
+    # Last time each detected speaker was heard (F6 richer speaker UX): fed by live
+    # transcript segments that carry a real speaker (dual-path YOU/REMOTE, resume loads).
+    speaker_last_active: dict[str, datetime] = Field(default_factory=dict)
+    # Live screen capture (F6): surfaced in the Pipeline card only when the operator
+    # opted in (privacy default-off) — shots counted per recording segment.
+    screen_capture_enabled: bool = False
+    screen_capture_shots: int = 0
     current_level_meter: float | None = None
     # Wall-clock time the current_level_meter peak was captured; drives the U13 decay so the
     # meter falls off between per-chunk updates instead of freezing on a stale peak. None when idle.

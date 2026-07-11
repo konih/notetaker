@@ -135,6 +135,6 @@ async def test_stop_recording_cancels_capture_task(tmp_path: Path) -> None:
 
     task = asyncio.create_task(forever())
     controller._capture_task = task
-    await controller.handle(act.RecordingStopRequested(at=_NOW), store)
+    await controller.handle(store, act.RecordingStopRequested(at=_NOW))
     assert task.cancelled() or task.done()
     assert controller._capture_task is None

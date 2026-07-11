@@ -206,6 +206,7 @@ def reduce(state: AppState, action: act.Action) -> AppState:
                     "diarization_status": DiarizationStatus.disabled,
                     "log_file_path": action.log_file_resolved,
                     "audio_include_microphone": action.audio_include_microphone,
+                    "screen_capture_enabled": action.screen_capture_enabled,
                 }
             ),
             action.at,
@@ -241,6 +242,8 @@ def reduce(state: AppState, action: act.Action) -> AppState:
             "chunks_processed": 0,
             # Fresh sparkline per recording segment (resume included — history shows *now*).
             "level_history": (),
+            # Fresh capture counter per recording segment (F6).
+            "screen_capture_shots": 0,
             "diarization_status": DiarizationStatus.active
             if (
                 state.audio_channels >= 2 and state.audio_stereo_mode.strip().lower() == "dual_path"
@@ -254,9 +257,17 @@ def reduce(state: AppState, action: act.Action) -> AppState:
                 for s in action.loaded_transcript_segments
                 if s.speaker and s.speaker not in ("unknown", "")
             )
+            last_active: dict[str, datetime] = {}
+            for seg in action.loaded_transcript_segments:
+                if seg.speaker and seg.speaker != "unknown":
+                    prev = last_active.get(seg.speaker)
+                    if prev is None or seg.ended_at > prev:
+                        last_active[seg.speaker] = seg.ended_at
+            updates["speaker_last_active"] = last_active
         else:
             updates["recent_transcript_segments"] = ()
             updates["diarization_detected_speakers"] = frozenset()
+            updates["speaker_last_active"] = {}
         return _touch(state.model_copy(update=updates), action.at)
 
     if isinstance(action, act.RecordingStopRequested):
@@ -326,14 +337,20 @@ def reduce(state: AppState, action: act.Action) -> AppState:
             speaker=action.speaker,
         )
         merged = (*state.recent_transcript_segments, line)[-_MAX_TRANSCRIPT_LINES:]
+        updates_seg: dict[str, object] = {
+            "recent_transcript_segments": merged,
+            "consecutive_empty_chunks": 0,
+        }
+        if action.speaker and action.speaker != "unknown":
+            updates_seg["speaker_last_active"] = {
+                **state.speaker_last_active,
+                action.speaker: action.ended_at,
+            }
+        return _touch(state.model_copy(update=updates_seg), action.at)
+
+    if isinstance(action, act.ScreenCaptureShotObserved):
         return _touch(
-            state.model_copy(
-                update={
-                    "recent_transcript_segments": merged,
-                    "consecutive_empty_chunks": 0,
-                }
-            ),
-            action.at,
+            state.model_copy(update={"screen_capture_shots": action.shot_count}), action.at
         )
 
     if isinstance(action, act.DiarizationSegmentReceived):
