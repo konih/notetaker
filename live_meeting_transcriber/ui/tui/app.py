@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import functools
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -28,6 +28,7 @@ from textual.widgets import (
     RichLog,
     Select,
     Static,
+    Switch,
     TabbedContent,
     TabPane,
     TextArea,
@@ -46,7 +47,10 @@ from live_meeting_transcriber.config.settings import (
     save_settings,
 )
 from live_meeting_transcriber.observability.logging import configure_logging
-from live_meeting_transcriber.ui.effects.controller import TuiController
+from live_meeting_transcriber.ui.effects.controller import (
+    TuiController,
+    settings_loaded_action,
+)
 from live_meeting_transcriber.ui.state import actions as act
 from live_meeting_transcriber.ui.state.model import (
     AppState,
@@ -86,10 +90,16 @@ from live_meeting_transcriber.ui.tui.people_suggesters import (
 from live_meeting_transcriber.ui.tui.rendering import transcript_segment_text
 from live_meeting_transcriber.ui.tui.settings_edit import (
     PATH_SETTING_SPECS,
+    SCALAR_SETTING_SPECS,
     PathKind,
+    ScalarValue,
     apply_path_edits,
+    apply_scalar_edits,
     current_path,
+    current_scalar,
+    parse_scalar_text,
     validate_path_selection,
+    validate_scalar_edits,
 )
 from live_meeting_transcriber.ui.tui.settings_view import build_settings_sections
 from live_meeting_transcriber.ui.tui.slide_preview_helpers import (
@@ -137,7 +147,7 @@ class SettingsScreen(ModalScreen[None]):
     """Read-only settings overview (values come from store only)."""
 
     BINDINGS = [
-        Binding("e", "edit", "Edit paths", show=True),
+        Binding("e", "edit", "Edit settings", show=True),
         Binding("escape", "close", "Close", show=True),
     ]
 
@@ -152,7 +162,7 @@ class SettingsScreen(ModalScreen[None]):
         yield Vertical(
             Static("Settings (read-only)", classes="settings-title"),
             Static("\n\n".join(blocks), id="settings-body"),
-            Static("e: edit folders/files   esc: close", classes="hint"),
+            Static("e: edit settings   esc: close", classes="hint"),
             classes="settings-dialog",
         )
 
@@ -238,11 +248,14 @@ class PathPickerScreen(ModalScreen[Path | None]):
 
 
 class EditSettingsScreen(ModalScreen[None]):
-    """Edit path-typed settings through a picker and save to the YAML store (U21).
+    """Edit safe runtime toggles and path-typed settings, saved to the YAML store (U21, U15).
 
-    Loads the currently resolved settings, lets the operator Browse/Clear each path field,
-    and on Save writes the full settings set to ``config.yaml`` via :func:`save_settings`.
-    Path changes take effect on restart (the running session keeps its loaded config).
+    Loads the currently resolved settings, lets the operator flip the approved scalar
+    toggles (switches for bools, validated inputs for numbers) and Browse/Clear each path
+    field, and on Save writes the full settings set to ``config.yaml`` via
+    :func:`save_settings`. Invalid numeric input is blocked with an inline error and
+    nothing is written. All changes take effect on restart (the running session keeps its
+    loaded config); the read-only Settings screen reflects the saved values immediately.
     """
 
     BINDINGS = [
@@ -261,9 +274,25 @@ class EditSettingsScreen(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         rows: list[Widget] = [
-            Static("Edit folders & files", classes="settings-title"),
+            Static("Edit settings", classes="settings-title"),
             Static("Changes are saved to config.yaml and apply after restart.", classes="hint"),
+            Static("[bold]Runtime toggles[/]", classes="settings-section"),
         ]
+        for scalar in SCALAR_SETTING_SPECS:
+            scalar_value = current_scalar(self._settings, scalar.field)
+            if scalar.kind == "bool":
+                rows.append(
+                    Horizontal(
+                        Switch(value=bool(scalar_value), id=f"switch-{scalar.field}"),
+                        Static(f"[bold]{scalar.label}[/] — {scalar.help}", classes="switch-label"),
+                        classes="settings-switch-row",
+                    )
+                )
+                continue
+            rows.append(Static(f"[bold]{scalar.label}[/] — {scalar.help}"))
+            rows.append(Input(value=str(scalar_value), id=f"input-{scalar.field}"))
+            rows.append(Static("", id=f"err-{scalar.field}", classes="settings-error"))
+        rows.append(Static("[bold]Folders & files[/]", classes="settings-section"))
         for spec in PATH_SETTING_SPECS:
             value = current_path(self._settings, spec.field)
             rows.append(Static(f"[bold]{spec.label}[/] — {spec.help}"))
@@ -315,13 +344,50 @@ class EditSettingsScreen(ModalScreen[None]):
             callback=_apply,
         )
 
+    def _scalar_edits_from_widgets(self) -> tuple[dict[str, ScalarValue], dict[str, str]]:
+        """Read every scalar widget; returns (edits, per-field parse errors)."""
+        edits: dict[str, ScalarValue] = {}
+        errors: dict[str, str] = {}
+        for spec in SCALAR_SETTING_SPECS:
+            if spec.kind == "bool":
+                edits[spec.field] = self.query_one(f"#switch-{spec.field}", Switch).value
+                continue
+            raw = self.query_one(f"#input-{spec.field}", Input).value
+            parsed = parse_scalar_text(spec.kind, raw)
+            if parsed is None:
+                errors[spec.field] = (
+                    "Enter a whole number" if spec.kind == "int" else "Enter a number"
+                )
+                continue
+            edits[spec.field] = parsed
+        return edits, errors
+
+    def _show_scalar_errors(self, errors: Mapping[str, str]) -> None:
+        """Update every inline error line (clearing lines without an error)."""
+        for spec in SCALAR_SETTING_SPECS:
+            if spec.kind == "bool":
+                continue
+            with contextlib.suppress(NoMatches):
+                self.query_one(f"#err-{spec.field}", Static).update(errors.get(spec.field, ""))
+
     async def action_save(self) -> None:
-        edited = apply_path_edits(self._settings, self._pending)
+        scalar_edits, errors = self._scalar_edits_from_widgets()
+        errors = {**validate_scalar_edits(self._settings, scalar_edits), **errors}
+        self._show_scalar_errors(errors)
+        if errors:
+            self.app.notify("Fix the highlighted values — nothing was saved.", severity="error")
+            return
+        edited = apply_scalar_edits(apply_path_edits(self._settings, self._pending), scalar_edits)
         try:
             path = save_settings(edited)
         except OSError as e:
             self.app.notify(f"Could not save settings: {e}", severity="error")
             return
+        app = self.app
+        if isinstance(app, TranscriberApp):
+            # Refresh the store so the read-only Settings screen shows the saved values;
+            # the running recorder/controller keep their startup config until restart.
+            app.store.dispatch(settings_loaded_action(edited, utc_now()))
         self.app.notify(f"Saved to {path}. Restart to apply.", severity="information")
         self.dismiss()
 
@@ -732,6 +798,11 @@ class TranscriberApp(App[None]):
         border-title-color: $accent;
     }
     .settings-title { text-style: bold; color: $accent; }
+    .settings-edit { overflow-y: auto; }
+    .settings-section { padding-top: 1; color: $secondary; }
+    .settings-error { color: $error; height: auto; }
+    .settings-switch-row { height: auto; }
+    .settings-switch-row .switch-label { width: 1fr; padding: 1 0 0 1; }
     .hint { padding-top: 1; text-style: dim; }
     .help-dialog {
         padding: 1 2; width: 76; height: 90%; max-height: 90%;

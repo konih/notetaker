@@ -243,11 +243,12 @@ async def test_edit_settings_save_error_then_fix_saves() -> None:
         await screen.action_save()
         await pilot.pause()
         assert isinstance(pilot.app.screen, EditSettingsScreen)
+        assert str(screen.query_one("#err-audio_chunk_seconds", Static).content).strip()
         field_input.value = "30"
         await screen.action_save()
         await pilot.pause()
-        # inline error cleared on the successful save
-        assert not str(screen.query_one("#err-audio_chunk_seconds", Static).content).strip()
+        # the fixed value saved and the editor dismissed itself
+        assert not isinstance(pilot.app.screen, EditSettingsScreen)
 
     raw = yaml.safe_load(default_config_yaml_path().read_text(encoding="utf-8"))
     assert raw["audio_chunk_seconds"] == 30

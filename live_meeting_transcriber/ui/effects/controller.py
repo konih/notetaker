@@ -62,7 +62,8 @@ def transcript_lines_for_session(
     )[-max_lines:]
 
 
-def _settings_loaded(settings: Settings, at: datetime) -> act.SettingsLoaded:
+def settings_loaded_action(settings: Settings, at: datetime) -> act.SettingsLoaded:
+    """Project ``Settings`` into the ``SettingsLoaded`` action (bootstrap + post-save refresh)."""
     return act.SettingsLoaded(
         transcription_provider=settings.transcription_provider,
         transcription_model=settings.effective_transcription_model_display(),
@@ -409,7 +410,7 @@ class TuiController:
 
     async def handle(self, store: Store, action: act.Action) -> None:
         if isinstance(action, act.AppStarted):
-            store.dispatch(_settings_loaded(self.settings, action.at))
+            store.dispatch(settings_loaded_action(self.settings, action.at))
             prefs = load_device_prefs()
             if prefs.monitor_source or prefs.microphone_source:
                 # Seed state from persisted selection (no save effect on plain dispatch).
