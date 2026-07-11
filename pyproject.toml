@@ -135,8 +135,11 @@ show_missing = true
 # floor conservatively BELOW the current baseline so it can only ratchet up — raise it as
 # T2 lands tests, never lower it. Do NOT jump to 90 here (that reddens CI at once, the
 # opposite of "incrementally").
-# Baseline: ~73% locally (with ffmpeg, e2e runs) but only ~70.5% in CI's `test` job, which
-# has NO ffmpeg so `tests/e2e` skip. 65 leaves headroom under that worst case + matrix
-# (3.12/3.13) variance, so the gate flags real regressions rather than false-redding on
-# the baseline. Enforced by `task check` and CI's test job (`--cov`).
-fail_under = 65
+# Ratchet history: 65 (T1, 2026-07-10, local ~73% / CI ~70.5%) → 68 (T6, 2026-07-11).
+# Baseline for 68: CI hermetic worst case measured 72.15% on 2026-07-11 (unit `test` job
+# has NO ffmpeg/torch, so tests/e2e + torch-gated tests skip; torch internals ≈2.2%
+# documented slack — see T2). Local runs ~81%. 68 sits ~4 pts under the CI worst case
+# + matrix (3.12/3.13) variance, so the gate flags real regressions rather than
+# false-redding on the baseline. Next rungs stay with T2 (75/80/85/90). Never lower.
+# Enforced by `task check` and CI's test job (`--cov`).
+fail_under = 68

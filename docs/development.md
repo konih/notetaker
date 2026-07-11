@@ -116,7 +116,7 @@ The drift-guard fails CI if any of these break — they lock in the current shap
 
 #### Coverage governance
 
-`pytest-cov` with `[tool.coverage.report] fail_under` (currently **65**), enforced by both
+`pytest-cov` with `[tool.coverage.report] fail_under` (currently **68**), enforced by both
 `task check` and CI's `test` job. The target is **90 %**, approached **incrementally**: the
 floor only ever ratchets **up** as tests land (never down). See the OQ-1 note in `pyproject.toml`.
 Per-package / risk-tier floors are a future refinement (needs a coverage plugin; tracked under T2).
