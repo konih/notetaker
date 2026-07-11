@@ -103,6 +103,11 @@ tasks:
       - uv run live-transcriber tui
 
   install:desktop:
-    desc: Install uv tool CLI, launch script, and XDG desktop entry
+    desc: Install uv tool CLI, launch script, and XDG desktop entry (Linux)
     cmds:
       - bash packaging/install-desktop.sh
+
+  install:macos:
+    desc: "macOS install: brew deps, uv tool CLI, config dir, doctor (add CLI_ARGS: -- --offline / --dry-run)"
+    cmds:
+      - bash packaging/install-macos.sh {{.CLI_ARGS}}

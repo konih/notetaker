@@ -7,7 +7,8 @@ truth** (U21); environment variables and `.env` files are still honoured for bac
 
 Settings live in a single human-readable YAML file at
 `$XDG_CONFIG_HOME/live-meeting-transcriber/config.yaml` (default:
-`~/.config/live-meeting-transcriber/config.yaml`). Editing settings **in-app** (Settings
+`~/.config/live-meeting-transcriber/config.yaml`; on macOS see
+[Where files live](#where-files-live-per-platform)). Editing settings **in-app** (Settings
 screen → `e: edit`) writes this file atomically. Two groups are editable in-app:
 
 - **Runtime toggles** (U15) — a deliberately small, safe subset (note: a field set via an env var still wins over the saved `config.yaml` value on next launch — env > yaml precedence):
@@ -46,10 +47,29 @@ Sources are resolved highest-priority first:
 
 `.env` files are read in order; **later files override earlier ones**:
 
-1. `$XDG_CONFIG_HOME/live-meeting-transcriber/.env` (default: `~/.config/live-meeting-transcriber/.env`)
+1. `.env` in the app config directory (default `~/.config/live-meeting-transcriber/.env`; `$XDG_CONFIG_HOME` wins when set; macOS: see below)
 2. `./.env` in the current working directory
 
 Only existing files are loaded. See [`install-desktop.md`](install-desktop.md) for first-run setup when using the desktop launcher.
+
+### Where files live (per platform)
+
+Run **`live-transcriber paths`** to print the resolved locations on your machine
+(`--config-dir` prints just the config directory, for scripts).
+
+| | Linux (XDG) | macOS — fresh install (F5) |
+|---|---|---|
+| Config (`config.yaml`, `.env`, device prefs) | `~/.config/live-meeting-transcriber/` | `~/Library/Application Support/live-meeting-transcriber/` |
+| Data (SQLite DB, logs, chunk audio) | `~/.local/share/live-meeting-transcriber/` | `~/Library/Application Support/live-meeting-transcriber/` |
+
+Rules, in order:
+
+1. An explicit `$XDG_CONFIG_HOME` always wins for the config directory (any platform).
+2. On macOS, an **existing** legacy XDG directory keeps winning — installs made before
+   the `~/Library` default keep their config and data exactly where they are; nothing is
+   migrated or stranded. Only fresh installs (no legacy directory) use
+   `~/Library/Application Support`.
+3. `DATABASE_URL` and `LOG_FILE` still override the data-dir defaults individually.
 
 ### Environment variables
 

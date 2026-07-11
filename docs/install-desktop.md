@@ -1,6 +1,8 @@
 ## Desktop install (Phase 0+1)
 
-Local desktop launcher for the Textual TUI on Linux (XDG). This is **not** a Snap/Flatpak/deb package yet — it installs the CLI via `uv tool`, a launch script, and a `.desktop` entry under your home directory.
+Local desktop launcher for the Textual TUI on Linux (XDG), plus the macOS installer
+(F5). This is **not** a Snap/Flatpak/deb/pkg yet — everything installs under your home
+directory: the CLI via `uv tool`, a launch script, and (Linux) a `.desktop` entry.
 
 ### Prerequisites
 
@@ -14,16 +16,49 @@ sudo apt install ffmpeg pulseaudio-utils
 # PipeWire: ensure pipewire-pulse or wireplumber provides pactl
 ```
 
-On macOS:
-
-```bash
-brew install ffmpeg
-# System audio capture needs a virtual loopback (e.g. BlackHole or Microsoft Teams Audio).
-```
+On macOS use the dedicated installer below — it handles ffmpeg (Homebrew) for you.
+System audio needs **no** loopback driver on macOS 14.4+ (driver-free Core Audio
+process tap; the tiny Swift helper compiles on first use and needs the Xcode command
+line tools: `xcode-select --install`).
 
 Optional extras (local STT, offline finalize) follow the same rules as the main README — pin Python 3.13 for PyTorch extras if needed.
 
-### One-shot install
+### One-shot install — macOS
+
+From the repository root:
+
+```bash
+task install:macos            # or: bash packaging/install-macos.sh
+task install:macos -- --offline   # also install whisperx/diarization/mlx extras
+task install:macos -- --dry-run   # preview every action without changing anything
+```
+
+This will:
+
+1. Verify **Homebrew** (required; the script never curl-pipes installers) and
+   `brew install` **ffmpeg** and **uv** only if missing
+2. Warn if the **Xcode command line tools** are absent (needed once, for the Core
+   Audio tap helper)
+3. Install `live-transcriber` globally with `uv tool install --python 3.13` (with
+   `--offline`: the `whisperx`, `diarization`, and `mlx` extras; `mlx` is
+   marker-guarded to Apple Silicon)
+4. Create the config directory (`live-transcriber paths --config-dir`; fresh installs:
+   `~/Library/Application Support/live-meeting-transcriber`, existing XDG installs keep
+   `~/.config/live-meeting-transcriber`)
+5. Run `live-transcriber doctor` so you immediately see what (if anything) is missing
+
+There is no `.desktop` entry on macOS — start the app from any terminal with
+`live-transcriber tui`.
+
+Uninstall (macOS):
+
+```bash
+uv tool uninstall live-meeting-transcriber
+# Config/data stay in ~/Library/Application Support/live-meeting-transcriber
+# (or the legacy XDG dirs) until you delete them yourself.
+```
+
+### One-shot install — Linux
 
 From the repository root:
 
@@ -51,12 +86,14 @@ Settings load from **environment variables** and from `.env` files in this order
 1. `$XDG_CONFIG_HOME/live-meeting-transcriber/.env` (default: `~/.config/live-meeting-transcriber/.env`)
 2. `./.env` in the current working directory (useful when developing in the repo)
 
-Create your config file:
+Create your config file (`live-transcriber paths --config-dir` prints the right
+directory for your platform and install):
 
 ```bash
-mkdir -p ~/.config/live-meeting-transcriber
-cp .env.example ~/.config/live-meeting-transcriber/.env
-# edit OPENAI_API_KEY, DATABASE_URL, etc.
+CONFIG_DIR="$(live-transcriber paths --config-dir)"
+mkdir -p "${CONFIG_DIR}"
+printf 'OPENAI_API_KEY=sk-...\n' > "${CONFIG_DIR}/.env"
+# see docs/configuration.md for all variables — or use the TUI Settings screen
 ```
 
 The launch script warns on first run if that file is missing; the TUI still starts so you can explore, but recording/transcription needs valid settings.

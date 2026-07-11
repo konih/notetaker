@@ -2,6 +2,12 @@
 # Install launch script, desktop entry, and uv tool for local desktop use.
 set -euo pipefail
 
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  echo "error: this script installs a Linux XDG desktop entry." >&2
+  echo "On macOS use: bash packaging/install-macos.sh (or: task install:macos)." >&2
+  exit 1
+fi
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INSTALL_BIN="${INSTALL_PREFIX:-${HOME}/.local}/bin"
 DESKTOP_DIR="${XDG_DATA_HOME:-${HOME}/.local/share}/applications"
