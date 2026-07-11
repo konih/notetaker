@@ -12,8 +12,8 @@ from uuid import UUID
 import pytest
 from live_meeting_transcriber.application.container import Container
 from live_meeting_transcriber.config.settings import Settings
-from live_meeting_transcriber.domain.models import TranscriptSegment
-from live_meeting_transcriber.domain.ports import AudioSource
+from live_meeting_transcriber.domain.models import AudioChunk, TranscriptSegment
+from live_meeting_transcriber.domain.ports import AudioSource, TranscriptionProvider
 from live_meeting_transcriber.storage.people_composite import CompositeKnownPeopleRepository
 from live_meeting_transcriber.storage.repositories import (
     SqliteDiarizationRepository,
@@ -75,14 +75,44 @@ class FakeRecorder:
         await asyncio.sleep(0)
 
 
-def build_e2e_container(tmp_path: Path, settings: Settings) -> Container:
+@dataclass(frozen=True)
+class FakeTranscriber:
+    """Deterministic stand-in for the STT provider (no network, no model download).
+
+    Default text embeds the chunk start so multi-chunk imports yield distinct segments;
+    pass ``text`` for a fixed marker string.
+    """
+
+    text: str | None = None
+
+    async def transcribe(self, *, chunk: AudioChunk) -> TranscriptSegment:
+        return TranscriptSegment(
+            session_id=chunk.session_id,
+            chunk_id=chunk.id,
+            started_at=chunk.started_at,
+            ended_at=chunk.ended_at,
+            text=self.text if self.text is not None else f"chunk at {chunk.started_at.isoformat()}",
+        )
+
+
+def build_e2e_container(
+    tmp_path: Path,
+    settings: Settings,
+    *,
+    transcriber: TranscriptionProvider | None = None,
+) -> Container:
+    """Real-SQLite container for CLI e2e: live repositories, fake providers.
+
+    ``transcriber`` defaults to ``None`` (record smokes patch the Recorder instead);
+    video-import e2e passes a :class:`FakeTranscriber`.
+    """
     conn = open_connection(settings.database_url)
     return Container(
         settings=settings,
         _conn=conn,
         devices=FakeDevices(),
         audio=None,  # type: ignore[arg-type]
-        transcriber=None,  # type: ignore[arg-type]
+        transcriber=transcriber,  # type: ignore[arg-type]
         summarizer=None,  # type: ignore[arg-type]
         diarizer=None,  # type: ignore[arg-type]
         diarization_segments=SqliteDiarizationRepository(conn),
