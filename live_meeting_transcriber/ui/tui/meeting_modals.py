@@ -78,11 +78,22 @@ class EditSegmentModal(ModalScreen[bool | None]):
 
 
 class SummaryContextModal(ModalScreen[str | None]):
-    """Optional one-off LLM guidance before summarization (not persisted)."""
+    """Optional one-off LLM guidance before summarization (not persisted).
+
+    U18 — state-driven actions: with an empty text box the modal offers a single
+    "Summarize" action (the "without context" twin is disabled — it would do the
+    same thing); once context text is present the primary relabels to
+    "Summarize with context" and the secondary becomes available. Dismisses with
+    the stripped context text ("" = no context) or ``None`` on cancel, so the
+    summarize callbacks in ``app.py`` / ``meeting_actions.py`` are unchanged.
+
+    Submit is bound to ``ctrl+s`` (the app-wide modal confirm chord) — the old
+    ``ctrl+enter`` never fires on terminals without the kitty keyboard protocol.
+    """
 
     BINDINGS = [
         Binding("escape", "cancel", "Cancel", show=True, priority=True),
-        Binding("ctrl+enter,ctrl+return", "submit", "Summarize", show=True, priority=True),
+        Binding("ctrl+s", "submit", "Summarize", show=True, priority=True),
     ]
 
     def __init__(self, initial: str = "") -> None:
@@ -94,13 +105,17 @@ class SummaryContextModal(ModalScreen[str | None]):
             Static("Optional context for summary", classes="settings-title"),
             Static(
                 "Add focus, audience, or topics for the AI. "
-                "Ctrl+Enter: summarize with text below · Esc: cancel — or use buttons.",
+                "Ctrl+S: summarize · Esc: cancel — or use the buttons below.",
                 classes="dim",
             ),
             TextArea(id="summary-context-area", language=None),
             Horizontal(
-                Button("Summarize", id="summary-with-context", variant="primary"),
-                Button("Summarize without context", id="summary-without-context"),
+                Button("Summarize", id="summary-submit", variant="primary"),
+                Button(
+                    "Summarize without context",
+                    id="summary-without-context",
+                    disabled=True,
+                ),
                 Button("Cancel", id="summary-cancel"),
             ),
             classes="settings-dialog",
@@ -111,6 +126,18 @@ class SummaryContextModal(ModalScreen[str | None]):
         if self._initial:
             area.text = self._initial
         area.focus()
+        self._sync_actions(area.text)
+
+    def on_text_area_changed(self, event: TextArea.Changed) -> None:
+        if event.text_area.id == "summary-context-area":
+            self._sync_actions(event.text_area.text)
+
+    def _sync_actions(self, text: str) -> None:
+        """Reflect context presence in the action row (U18)."""
+        has_context = bool(text.strip())
+        primary = self.query_one("#summary-submit", Button)
+        primary.label = "Summarize with context" if has_context else "Summarize"
+        self.query_one("#summary-without-context", Button).disabled = not has_context
 
     def action_submit(self) -> None:
         area = self.query_one("#summary-context-area", TextArea)
@@ -124,7 +151,7 @@ class SummaryContextModal(ModalScreen[str | None]):
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         bid = event.button.id or ""
-        if bid == "summary-with-context":
+        if bid == "summary-submit":
             self.action_submit()
         elif bid == "summary-without-context":
             self.action_submit_without_context()
