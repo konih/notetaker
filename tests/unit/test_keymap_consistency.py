@@ -40,8 +40,10 @@ from textual.widgets import Static, TabbedContent
 
 # Textual key names that terminals without the kitty keyboard protocol collapse
 # onto a differently-named key, so a Binding on them silently never fires.
-# ctrl+i→Tab is the alias that caused the Speaker ID P0.
-TERMINAL_ALIASED_KEYS = {"ctrl+i", "ctrl+m", "ctrl+h"}
+# ctrl+i→Tab is the alias that caused the Speaker ID P0; ctrl+enter/ctrl+return
+# are indistinguishable from Enter (U25 — same class), so a chord on them is dead
+# on standard terminals too.
+TERMINAL_ALIASED_KEYS = {"ctrl+i", "ctrl+m", "ctrl+h", "ctrl+enter", "ctrl+return"}
 
 
 def _pairs(bindings: object) -> list[tuple[str, str, str]]:
