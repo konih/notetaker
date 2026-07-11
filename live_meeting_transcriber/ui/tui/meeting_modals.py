@@ -29,7 +29,7 @@ class EditSegmentModal(ModalScreen[bool | None]):
 
     BINDINGS = [
         Binding("escape", "cancel", "Cancel", show=True, priority=True),
-        Binding("ctrl+enter,ctrl+return", "save", "Save", show=True, priority=True),
+        Binding("ctrl+s", "save", "Save", show=True, priority=True),
     ]
 
     def __init__(self, *, container: Container, segment: TranscriptSegment) -> None:
@@ -42,7 +42,7 @@ class EditSegmentModal(ModalScreen[bool | None]):
         yield Vertical(
             Static("Edit segment text", classes="settings-title"),
             Static(
-                "Ctrl+Enter: save · Esc: cancel — or use the buttons below.",
+                "Ctrl+S: save · Esc: cancel — or use the buttons below.",
                 classes="dim",
             ),
             TextArea(text=self._initial, id="segment-edit-area", language=None),

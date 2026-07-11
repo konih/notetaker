@@ -488,7 +488,7 @@ class NameSpeakersScreen(ModalScreen[None]):
 
     BINDINGS = [
         Binding("escape", "cancel", "Cancel", show=True, priority=True),
-        Binding("ctrl+enter,ctrl+return", "save", "Save", show=True, priority=True),
+        Binding("ctrl+s", "save", "Save", show=True, priority=True),
     ]
 
     def __init__(
@@ -506,7 +506,7 @@ class NameSpeakersScreen(ModalScreen[None]):
     def compose(self) -> ComposeResult:
         children: list[Static | TabCompletableInput | Horizontal] = [
             Static("Name speakers", classes="settings-title"),
-            Static("Ctrl+Enter: save   Esc: cancel", classes="dim"),
+            Static("Ctrl+S: save   Esc: cancel", classes="dim"),
         ]
         if self._detected_speakers:
             for key in self._detected_speakers:
