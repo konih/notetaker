@@ -24,13 +24,33 @@ task install
 
 ```bash
 task check        # ruff format check + ruff + mypy + unit tests (incl. the arch guard)
-task arch:check   # report hexagonal boundary violations (import-linter pilot; never fails)
+task arch:check   # check the hexagonal boundary contracts (import-linter; fails on violations)
 ```
 
-`task check` enforces the `domain-independence` import contract (the domain layer must not import
-outer layers). `task arch:check` prints the full boundary report — including the currently-broken
-application/adapter contracts — without failing, so known debt does not block work. See
-[`architecture-guardrails.md`](architecture-guardrails.md) for the ruleset and rollout plan.
+All three import contracts (`domain-independence`, `application-independent-of-adapters`,
+`adapters-do-not-import-upward`) are **blocking** since A9: a violation fails `task check`
+(via `tests/architecture/`), `task arch:check`, and CI. Depend on the ports in
+`domain/ports.py`; only `application/container.py` may import concrete adapters. See
+[`architecture-guardrails.md`](architecture-guardrails.md) for the ruleset and history.
+
+### Pre-commit hooks
+
+Pre-commit mirrors the `task check` gates (story C2) so drift is caught before push:
+
+```bash
+uv run pre-commit install   # installs BOTH hook stages (pre-commit + pre-push)
+```
+
+| Stage | Hooks | Cost |
+|-------|-------|------|
+| `pre-commit` (every commit) | `ruff format`, `ruff check --fix`, `mypy .` (whole tree, same strictness as `task check`), `lint-imports` (architecture contracts) | ~3 s warm (~20 s the first time while mypy builds its cache) |
+| `pre-push` | `pytest -m "not integration"` with the coverage floor — identical to the `task check` test gate | ~70 s |
+
+The pytest gate at `pre-push` (not per-commit) is the one deliberate subset decision — the
+tools and strictness are otherwise identical to `task check`. Hooks run via `uv run` on the
+project venv, so tool versions always match the `dev` extra instead of separately pinned
+pre-commit mirror repos. The parity itself is guarded by
+`tests/unit/test_precommit_parity.py`.
 
 ### Running locally
 
