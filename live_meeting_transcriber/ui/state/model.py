@@ -115,6 +115,11 @@ class AppState(BaseModel):
     # Set on RecordingStarted (resets on resume), cleared on stop/failure. None when idle.
     recording_started_at: datetime | None = None
     consecutive_empty_chunks: int = 0
+    # --- Per-chunk transcription progress (F8). True between a chunk entering the
+    # live transcriber and its completion (incl. empty/failed); the counter also
+    # advances on silence-skipped chunks so quiet stretches don't read as a stall.
+    chunk_processing: bool = False
+    chunks_processed: int = 0
     low_audio_warning_shown: bool = False
     last_updated_at: datetime | None = None
     settings_screen_open: bool = False

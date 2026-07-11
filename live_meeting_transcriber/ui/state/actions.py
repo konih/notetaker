@@ -332,6 +332,20 @@ class TranscriptionChunkEmptyObserved:
 
 
 @dataclass(frozen=True)
+class ChunkProcessingStarted:
+    """Live transcription began processing a captured audio chunk (F8)."""
+
+    at: datetime
+
+
+@dataclass(frozen=True)
+class ChunkProcessingFinished:
+    """The current chunk finished (transcribed, empty, failed, or skipped-silent) (F8)."""
+
+    at: datetime
+
+
+@dataclass(frozen=True)
 class AudioSourcesSelected:
     """User picked audio devices in the sources menu (persisted, applied next recording).
 
@@ -383,5 +397,7 @@ Action = (
     | DiarizationStatusChanged
     | AudioLevelUpdated
     | TranscriptionChunkEmptyObserved
+    | ChunkProcessingStarted
+    | ChunkProcessingFinished
     | AudioSourcesSelected
 )

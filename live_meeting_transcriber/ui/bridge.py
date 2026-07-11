@@ -22,17 +22,25 @@ def application_events_to_actions(event: ev.ApplicationEvent) -> tuple[act.Actio
     elif isinstance(event, ev.AudioChunkSkippedSilent):
         # Normal operation, not a fault: keep status active so quiet stretches don't
         # read as a stall, and feed the empty-chunk counter so sustained silence still
-        # surfaces the low-audio/misrouted-source hint.
+        # surfaces the low-audio/misrouted-source hint. The chunk still *happened*, so
+        # the F8 per-chunk counter advances too (silence must not look like a stall).
         out.append(act.TranscriptionChunkEmptyObserved(at=event.at))
+        out.append(act.ChunkProcessingFinished(at=event.at))
         out.append(act.TranscriptionStatusChanged(status=TranscriptionStatus.active, at=event.at))
 
-    elif isinstance(event, (ev.TranscriptionChunkStarted, ev.TranscriptionChunkCompleted)):
+    elif isinstance(event, ev.TranscriptionChunkStarted):
+        out.append(act.ChunkProcessingStarted(at=event.at))
+        out.append(act.TranscriptionStatusChanged(status=TranscriptionStatus.active, at=event.at))
+
+    elif isinstance(event, ev.TranscriptionChunkCompleted):
+        out.append(act.ChunkProcessingFinished(at=event.at))
         out.append(act.TranscriptionStatusChanged(status=TranscriptionStatus.active, at=event.at))
 
     elif isinstance(event, ev.TranscriptionChunkEmpty):
         # Not an error, but track it: repeated empties mean silent/misrouted audio and
         # the reducer surfaces a one-time hint. Keep transcription status active.
         out.append(act.TranscriptionChunkEmptyObserved(at=event.at))
+        out.append(act.ChunkProcessingFinished(at=event.at))
         out.append(act.TranscriptionStatusChanged(status=TranscriptionStatus.active, at=event.at))
 
     elif isinstance(event, ev.TranscriptionChunkFailed):
@@ -41,6 +49,7 @@ def application_events_to_actions(event: ev.ApplicationEvent) -> tuple[act.Actio
                 message=f"Transcription skipped for chunk: {event.message}", at=event.at
             )
         )
+        out.append(act.ChunkProcessingFinished(at=event.at))
         out.append(act.TranscriptionStatusChanged(status=TranscriptionStatus.active, at=event.at))
 
     elif isinstance(event, ev.TranscriptionUnavailable):

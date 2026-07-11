@@ -17,8 +17,10 @@ from rich.text import Text
 
 from live_meeting_transcriber.ui.state.model import AppState, RecordingStatus
 from live_meeting_transcriber.ui.state.selectors import (
+    FINALIZE_STAGES,
     select_decayed_level,
     select_elapsed_label,
+    select_finalize_stage_index,
 )
 from live_meeting_transcriber.ui.tui.theme import (
     ACCENT,
@@ -153,23 +155,40 @@ def _deck_truncate(text: str, limit: int = _DECK_TITLE_MAX) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
-def finalize_deck_markup(state: AppState) -> str | None:
-    """Deck segment for the offline Speaker ID / finalize queue (B7).
+def stage_bar_markup(index: int, total: int) -> str:
+    """Fixed-width stage-progress bar: one cell per pipeline stage (F8).
 
-    While a job runs: job title + current pipeline stage (+ backlog size).
-    After it ends: the outcome *persists* (styled by severity) until the next
-    job starts — a multi-minute background job must not vanish into a 3s toast
-    or the hidden Logs tab. Returns ``None`` when there is nothing to report.
+    Cell ``index`` (clamped) plus all earlier stages render filled — the current
+    stage counts as underway, so a fresh job already shows first-cell progress
+    instead of an empty, dead-looking track.
+    """
+    filled = max(1, min(total, index + 1))
+    return f"[{ACCENT}]{'▰' * filled}[/][dim]{'▱' * (total - filled)}[/]"
+
+
+def finalize_deck_markup(state: AppState) -> str | None:
+    """Deck segment for the offline Speaker ID / finalize queue (B7 + F8).
+
+    While a job runs: job title + stage-progress bar + current pipeline stage
+    (+ backlog size). After it ends: the outcome *persists* (styled by severity)
+    until the next job starts — a multi-minute background job must not vanish
+    into a 3s toast or the hidden Logs tab. Returns ``None`` when there is
+    nothing to report.
     """
     if state.finalize_active_session_id is not None:
         title = _deck_truncate(state.finalize_active_title or "meeting")
         stage = state.finalize_stage or "starting…"
+        bar = stage_bar_markup(
+            select_finalize_stage_index(state.finalize_stage), len(FINALIZE_STAGES)
+        )
         queued = (
             f" [dim](+{state.finalize_queued_count} queued)[/]"
             if state.finalize_queued_count > 0
             else ""
         )
-        return f"[{STATE_BUSY}]⚙ Speaker ID[/] {escape(title)}: [dim]{escape(stage)}[/]{queued}"
+        return (
+            f"[{STATE_BUSY}]⚙ Speaker ID[/] {escape(title)} {bar} [dim]{escape(stage)}[/]{queued}"
+        )
     if state.finalize_last_result:
         if state.finalize_last_result_level == "error":
             style, glyph = STATE_FAILED, "✖"
