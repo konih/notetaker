@@ -124,18 +124,25 @@ uv run live-transcriber tui
 **`r`** record, **`x`** stop, **`k`** summarize, **`w`** export, **`q`** quit — so it fits
 a standard terminal without clipping. Every other action stays one keystroke away and is
 listed in the **command palette** (**`Ctrl+P`**): **`t`** edit meeting, **`s`** settings,
-**`a`** audio sources, **`j`** jump to meeting, **`c`** ack errors, **`Ctrl+D`** speaker ID, and
+**`a`** audio sources, **`j`** jump to meeting, **`c`** ack errors, **`Ctrl+D`** Speaker ID /
+Retranscribe, and
 **`Ctrl+1/2/3`** to switch the Live/Meetings/Logs tabs. Press **`?`** any time to open the
 **keyboard-shortcut overlay** — a full, always-current list of the global and Meetings-tab
 shortcuts (it reads the live keymap, so it can't drift). The status sidebar shows the
 **log file path** after settings load.
 
-**Speaker ID / finalize feedback.** Running Speaker ID (**`Ctrl+D`**) — or the automatic
-finalize after a recording stops — shows up in the **status deck** (the top strip visible
-on every tab): the meeting name, the current pipeline stage (transcribe → align →
-diarize), and how many jobs are queued behind it. The outcome stays in the deck (and in
-the Live-tab notices + Logs tab) until the next job — including an explicit warning when
-speakers could **not** be labelled (missing `HF_TOKEN`). Quitting while a job runs
+**Speaker ID / Retranscribe feedback.** Speaker ID (**`Ctrl+D`**) is a **full
+retranscribe**: it re-runs WhisperX transcription + speaker diarization on the recorded
+session audio and replaces the meeting's transcript — use it both to label speakers and
+to redo a transcript from scratch. Running it — or the automatic finalize after a
+recording stops — shows up in the **status deck** (the top strip visible on every tab):
+the meeting name, the current pipeline stage (transcribe → align → diarize), and how many
+jobs are queued behind it. The Meetings tab additionally shows a **jobs panel** under the
+meetings list — every queued/running job with a live stage bar and elapsed time, plus the
+last few outcomes (with the reason when a job failed); it disappears when there is
+nothing to report. The outcome stays in the deck (and in the Live-tab notices + Logs tab)
+until the next job — including an explicit warning when speakers could **not** be
+labelled (missing `HF_TOKEN`). Quitting while a job runs
 **defers exit until the result is saved** (press **`q`** again to discard the result — exit may still take a moment while the compute thread winds down; a dropped
 job is re-queued on next launch).
 
