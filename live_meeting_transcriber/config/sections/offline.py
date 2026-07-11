@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 
@@ -11,6 +13,20 @@ class WhisperXSettings(BaseSettings):
 
     # After full-session WhisperX pass (see ``live-transcriber finalize``).
     finalize_on_session_stop: bool = Field(default=False, alias="FINALIZE_ON_SESSION_STOP")
+
+    # F12: engine for the offline finalize transcription. ``auto`` uses mlx-whisper on
+    # the Apple GPU when running on Apple Silicon with the ``mlx`` extra installed
+    # (installing the extra is the opt-in; F11 spike: ~7x faster than cpu/int8), else
+    # WhisperX/CTranslate2. Explicit values win; an explicit ``mlx`` that cannot run on
+    # this machine degrades to the WhisperX path with a logged warning (never an error).
+    offline_asr_engine: Literal["auto", "whisperx", "mlx"] = Field(
+        default="auto", alias="OFFLINE_ASR_ENGINE"
+    )
+    # Hugging Face repo of the MLX-converted Whisper checkpoint (~1.6 GB, downloaded on
+    # first use like the WhisperX models).
+    mlx_whisper_model: str = Field(
+        default="mlx-community/whisper-large-v3-turbo", alias="MLX_WHISPER_MODEL"
+    )
 
     whisperx_model: str = Field(default="large-v3-turbo", alias="WHISPERX_MODEL")
     whisperx_device: str | None = Field(default=None, alias="WHISPERX_DEVICE")

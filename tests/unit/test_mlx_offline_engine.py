@@ -55,9 +55,7 @@ def test_offline_asr_engine_rejects_unknown_values() -> None:
 
 
 # --- engine resolution (pure, injected probes) ----------------------------------
-def _resolve(
-    engine: str, *, platform: tuple[str, str], importable: bool
-) -> tuple[str, str | None]:
+def _resolve(engine: str, *, platform: tuple[str, str], importable: bool) -> tuple[str, str | None]:
     return mlx_asr.resolve_offline_asr_engine(
         _settings(offline_asr_engine=engine),
         mlx_importable=lambda: importable,
@@ -116,9 +114,7 @@ def test_turns_from_diarization_accepts_dataframe_like() -> None:
 
 
 def test_turns_from_diarization_accepts_mappings() -> None:
-    turns = mlx_asr.turns_from_diarization(
-        [{"start": 1.0, "end": 2.0, "speaker": "SPEAKER_03"}]
-    )
+    turns = mlx_asr.turns_from_diarization([{"start": 1.0, "end": 2.0, "speaker": "SPEAKER_03"}])
     assert turns == [SpeakerTurn(start=1.0, end=2.0, speaker="SPEAKER_03")]
 
 
@@ -157,9 +153,7 @@ def _install_fake_mlx(monkeypatch: pytest.MonkeyPatch, calls: list[dict[str, Any
     monkeypatch.setitem(sys.modules, "mlx_whisper", m)
 
 
-def _install_fake_whisperx(
-    monkeypatch: pytest.MonkeyPatch, *, allow_asr: bool
-) -> dict[str, Any]:
+def _install_fake_whisperx(monkeypatch: pytest.MonkeyPatch, *, allow_asr: bool) -> dict[str, Any]:
     """Fake whisperx: diarization always available; ASR entry points optional."""
     seen: dict[str, Any] = {"asr_calls": 0, "assign_calls": 0}
     wx: Any = ModuleType("whisperx")
@@ -259,9 +253,7 @@ def test_mlx_engine_transcribes_and_assigns_speakers_by_overlap(
     assert any("MLX pass complete" in m for m in progress)
 
 
-def test_auto_uses_mlx_when_available(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_auto_uses_mlx_when_available(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     calls: list[dict[str, Any]] = []
     _install_fake_mlx(monkeypatch, calls)
     _install_fake_whisperx(monkeypatch, allow_asr=False)

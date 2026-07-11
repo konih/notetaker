@@ -1,4 +1,11 @@
-"""Full-session WhisperX ASR + alignment + pyannote, with stereo YOU/REMOTE labeling."""
+"""Full-session offline ASR + pyannote diarization, with stereo YOU/REMOTE labeling.
+
+Two ASR engines run behind the same entry point (F12): the WhisperX/CTranslate2 path
+(+ wav2vec2 alignment + ``assign_word_speakers``) and the MLX Apple-GPU path
+(mlx-whisper word timestamps + pure overlap speaker assignment). Engine selection and
+everything MLX-specific live in :mod:`live_meeting_transcriber.offline.mlx_asr`;
+diarization, stereo labeling, and the wall-clock mapping are shared.
+"""
 
 from __future__ import annotations
 
@@ -26,6 +33,12 @@ from live_meeting_transcriber.domain.session_audio import (
     map_audio_time_to_wall,
 )
 from live_meeting_transcriber.observability.logging import get_logger
+from live_meeting_transcriber.offline.mlx_asr import (
+    apply_overlap_speaker_assignment,
+    resolve_offline_asr_engine,
+    run_mlx_asr,
+    turns_from_diarization,
+)
 
 
 def _wav_is_stereo(path: Path) -> bool:
@@ -193,13 +206,24 @@ def run_whisperx_finalize(
     settings: Settings,
     progress: Callable[[str], None] | None = None,
 ) -> list[TranscriptSegment]:
-    """Run WhisperX on ``full_session.wav`` and return new transcript segments (wall-clock times)."""
-    import whisperx
-
+    """Run the offline ASR engine on ``full_session.wav`` and return new transcript segments
+    (wall-clock times). The engine (WhisperX/CTranslate2 or MLX) is resolved from
+    ``OFFLINE_ASR_ENGINE``; an explicit ``mlx`` that cannot run here degrades to the
+    WhisperX path with a warning instead of erroring (B3: an ImportError would mark the
+    session unrecoverable over a mere engine preference)."""
     if not audio_wav.is_file():
         raise FileNotFoundError(str(audio_wav))
 
-    _progress_step(progress, "Loading full-session WAV into memory…")
+    engine, engine_warning = resolve_offline_asr_engine(settings)
+    if engine_warning is not None:
+        get_logger(component="whisperx_finalize").warning(
+            "offline_asr_engine_fallback", message=engine_warning
+        )
+        _progress_step(progress, engine_warning)
+
+    # Device/compute resolution below is CTranslate2/torch-specific; the MLX branch
+    # bypasses it for ASR (MLX owns its GPU placement), but diarization still uses
+    # ``diarize_device`` on both paths.
     device = _resolve_asr_device(settings)
     compute_type = _resolve_compute_type(settings, device)
     align_device = _resolve_torch_device(settings, device)
@@ -207,25 +231,38 @@ def run_whisperx_finalize(
     language = settings.whisperx_language
     whisper_lang = None if language in (None, "", "auto") else language
 
-    audio = whisperx.load_audio(str(audio_wav))
+    audio: Any
+    if engine == "mlx":
+        result: dict[str, Any] = run_mlx_asr(
+            audio_wav=audio_wav, settings=settings, progress=progress
+        )
+        n_raw = len(result.get("segments") or [])
+        _progress_step(progress, f"Transcribe done ({n_raw} raw segment(s)); unloading model…")
+        # Diarization loads the WAV itself from the path (whisperx accepts str audio).
+        audio = str(audio_wav)
+    else:
+        import whisperx
 
-    _progress_step(
-        progress,
-        f"Loading Whisper model {settings.whisperx_model!r} on {device!r} (compute={compute_type!r})…",
-    )
-    model = whisperx.load_model(
-        settings.whisperx_model,
-        device,
-        compute_type=compute_type,
-        language=whisper_lang,
-    )
-    _progress_step(progress, "Transcribing (this can take several minutes)…")
-    result: dict[str, Any] = model.transcribe(
-        audio, batch_size=settings.whisperx_batch_size, language=whisper_lang
-    )
-    n_raw = len(result.get("segments") or [])
-    _progress_step(progress, f"Transcribe done ({n_raw} raw segment(s)); unloading model…")
-    del model
+        _progress_step(progress, "Loading full-session WAV into memory…")
+        audio = whisperx.load_audio(str(audio_wav))
+
+        _progress_step(
+            progress,
+            f"Loading Whisper model {settings.whisperx_model!r} on {device!r} (compute={compute_type!r})…",
+        )
+        model = whisperx.load_model(
+            settings.whisperx_model,
+            device,
+            compute_type=compute_type,
+            language=whisper_lang,
+        )
+        _progress_step(progress, "Transcribing (this can take several minutes)…")
+        result = model.transcribe(
+            audio, batch_size=settings.whisperx_batch_size, language=whisper_lang
+        )
+        n_raw = len(result.get("segments") or [])
+        _progress_step(progress, f"Transcribe done ({n_raw} raw segment(s)); unloading model…")
+        del model
     gc.collect()
     _empty_torch_cache(device)
     _empty_torch_cache(align_device)
@@ -234,11 +271,15 @@ def run_whisperx_finalize(
 
     detected_language = str(result.get("language") or whisper_lang or "en")
 
-    if not settings.whisperx_skip_alignment:
+    # MLX word timestamps come from the decoder itself; wav2vec2 forced alignment is a
+    # WhisperX-path stage only.
+    if engine != "mlx" and not settings.whisperx_skip_alignment:
         _progress_step(
             progress,
             f"Loading alignment model for language={detected_language!r} on {align_device!r}…",
         )
+        import whisperx
+
         model_a, metadata = whisperx.load_align_model(
             language_code=detected_language,
             device=align_device,
@@ -292,8 +333,14 @@ def run_whisperx_finalize(
             and not _diarize_device_is_explicit(settings),
             progress=progress,
         )
-        _progress_step(progress, "Assigning speakers to words…")
-        result = whisperx.assign_word_speakers(diarize_segments, result)
+        if engine == "mlx":
+            _progress_step(progress, "Assigning speakers to words (overlap)…")
+            apply_overlap_speaker_assignment(result, turns_from_diarization(diarize_segments))
+        else:
+            import whisperx
+
+            _progress_step(progress, "Assigning speakers to words…")
+            result = whisperx.assign_word_speakers(diarize_segments, result)
         _progress_step(progress, "Diarization finished.")
         gc.collect()
         _empty_torch_cache(diarize_device)
@@ -302,7 +349,8 @@ def run_whisperx_finalize(
     else:
         _progress_step(progress, "Skipping diarization (no HF_TOKEN).")
 
-    # Large float32 array; stereo labeling reads the WAV from disk again.
+    # Large float32 array on the WhisperX path (a mere path string on the MLX path);
+    # stereo labeling reads the WAV from disk again.
     del audio
     gc.collect()
     _empty_torch_cache(device)
@@ -312,6 +360,11 @@ def run_whisperx_finalize(
     max_audio_t = 0.0
     for seg in result.get("segments", []):
         max_audio_t = max(max_audio_t, float(seg.get("end", 0.0)))
+
+    if engine == "mlx":
+        provider_name, model_name = "mlx-whisper", settings.mlx_whisper_model
+    else:
+        provider_name, model_name = "whisperx", settings.whisperx_model
 
     stereo_pcm = read_stereo_pcm(audio_wav) if _wav_is_stereo(audio_wav) else None
     raw_spans_for_ratio: list[LabeledSpan] = []
@@ -367,14 +420,15 @@ def run_whisperx_finalize(
                 text=text,
                 speaker=speaker_str,
                 metadata=ProviderMetadata(
-                    provider="whisperx",
-                    model=settings.whisperx_model,
+                    provider=provider_name,
+                    model=model_name,
                     extra={"language": detected_language, "offline_finalize": True},
                 ),
             )
         )
 
-    _progress_step(progress, f"WhisperX pass complete ({len(out)} segment(s)).")
+    engine_label = "MLX" if engine == "mlx" else "WhisperX"
+    _progress_step(progress, f"{engine_label} pass complete ({len(out)} segment(s)).")
     gc.collect()
     _empty_torch_cache(device)
     _empty_torch_cache(align_device)

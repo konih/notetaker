@@ -17,7 +17,7 @@ MODEL = "mlx-community/whisper-large-v3-turbo"
 def main() -> None:
     wav, out_path = sys.argv[1], sys.argv[2]
 
-    import mlx_whisper  # type: ignore[import-not-found]
+    import mlx_whisper
 
     # Pass 1 includes model download/load + MLX graph compile; pass 2 is the warm number.
     t0 = time.perf_counter()

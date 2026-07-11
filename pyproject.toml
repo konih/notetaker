@@ -35,6 +35,12 @@ whisperx = [
   "torch>=2.1; python_full_version < '3.14'",
   "torchaudio>=2.1; python_full_version < '3.14'",
 ]
+# Apple-Silicon-only GPU transcription for offline finalize (F12). The environment
+# markers make this extra a no-op on every other platform (mlx has no Linux/CUDA wheels),
+# mirroring the torch `python_full_version` guard above.
+mlx = [
+  "mlx-whisper>=0.4.3; platform_system == 'Darwin' and platform_machine == 'arm64' and python_full_version < '3.14'",
+]
 dev = [
   "pytest>=8.0",
   "pytest-asyncio>=0.23",
@@ -117,7 +123,7 @@ init_typed = true
 warn_required_dynamic_aliases = true
 
 [[tool.mypy.overrides]]
-module = ["textual.*", "faster_whisper.*", "whisperx.*"]
+module = ["textual.*", "faster_whisper.*", "whisperx.*", "mlx_whisper.*"]
 ignore_missing_imports = true
 
 [tool.coverage.run]
