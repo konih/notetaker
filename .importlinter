@@ -1,18 +1,15 @@
-# Import Linter — hexagonal architecture guardrail (pilot, story A10).
+# Import Linter — hexagonal architecture guardrail (A10 pilot, promoted by A9).
 #
-# STATUS: PILOT / REPORT-ONLY. Only the `domain-independence` contract is enforced
-# (blocking) — via tests/architecture/test_import_contracts.py and CI. The other
-# contracts document known boundary debt and are expected to FAIL today; they run in
-# `task arch:check` (non-blocking) so we can watch the inventory shrink without blocking
-# merges. See docs/architecture-guardrails.md for the rollout plan and violation
-# inventory, and story A9 for the upgrade-to-blocking follow-up.
+# STATUS: ENFORCED. All three contracts are blocking — they run in
+# tests/architecture/test_import_contracts.py (part of `task check` and the CI unit
+# job), in `task arch:check`, and in the CI arch job. Do not add ignore_imports
+# entries to silence new violations; invert the dependency through a port instead.
+# See docs/architecture-guardrails.md.
 
 [importlinter]
 root_package = live_meeting_transcriber
 
-# --- Enforced (blocking) -----------------------------------------------------------
 # The innermost invariant: the domain layer must not know about any outer layer.
-# This holds today and is gated in the test suite + CI.
 [importlinter:contract:domain-independence]
 name = Domain layer imports nothing from application, adapters, UI or CLI
 type = forbidden
@@ -33,10 +30,9 @@ forbidden_modules =
     live_meeting_transcriber.offline
     live_meeting_transcriber.observability
 
-# --- Report-only (known debt; expected to fail) ------------------------------------
-# The application layer should depend on domain + ports only, never concrete adapters.
+# The application layer depends on domain + ports only, never concrete adapters.
 # The composition root (container.py) is the one legitimate place that wires adapters,
-# so its imports are ignored. Remaining violations are the A4/A2 refactor backlog.
+# so its imports are ignored.
 [importlinter:contract:application-independent-of-adapters]
 name = Application layer depends on domain + ports, not concrete adapters
 type = forbidden
@@ -55,8 +51,7 @@ forbidden_modules =
 ignore_imports =
     live_meeting_transcriber.application.container -> live_meeting_transcriber.**
 
-# Adapters must not reach back up into application / CLI / UI. Today `obsidian` breaks
-# this (imports application export helpers) — captured for the A-epic backlog.
+# Adapters must not reach back up into application / CLI / UI.
 [importlinter:contract:adapters-do-not-import-upward]
 name = Adapters do not import application, CLI or UI
 type = forbidden
