@@ -129,7 +129,7 @@ async def test_silent_chunk_is_not_transcribed_but_loud_chunk_is(tmp_path: Path)
     assert skips[0].rms_dbfs < -70.0
 
     # Skipped audio still landed in the full-session WAV (finalize needs it) …
-    full = tmp_path / "session_audio" / str(sid) / "full_session.wav"
+    full = tmp_path / "sessions" / str(sid) / "full_session.wav"
     assert full.exists()
     with wave.open(str(full), "rb") as w:
         assert w.getnframes() >= 16000  # silent chunk (8000) + first loud chunk (8000)
@@ -209,9 +209,7 @@ async def test_dual_path_silent_stereo_chunk_is_skipped(tmp_path: Path) -> None:
         if isinstance(e, ev.AudioChunkSkippedSilent):
             skipped.set()
 
-    recorder = _recorder(
-        tmp_path, _Audio(), _DualTranscriber(), audio_stereo_mode="dual_path"
-    )
+    recorder = _recorder(tmp_path, _Audio(), _DualTranscriber(), audio_stereo_mode="dual_path")
 
     async def _run() -> None:
         await recorder.record_forever(

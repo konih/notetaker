@@ -19,6 +19,13 @@ def application_events_to_actions(event: ev.ApplicationEvent) -> tuple[act.Actio
     elif isinstance(event, ev.AudioChunkLevelMeasured):
         out.append(act.AudioLevelUpdated(level=event.peak_linear, at=event.at))
 
+    elif isinstance(event, ev.AudioChunkSkippedSilent):
+        # Normal operation, not a fault: keep status active so quiet stretches don't
+        # read as a stall, and feed the empty-chunk counter so sustained silence still
+        # surfaces the low-audio/misrouted-source hint.
+        out.append(act.TranscriptionChunkEmptyObserved(at=event.at))
+        out.append(act.TranscriptionStatusChanged(status=TranscriptionStatus.active, at=event.at))
+
     elif isinstance(event, (ev.TranscriptionChunkStarted, ev.TranscriptionChunkCompleted)):
         out.append(act.TranscriptionStatusChanged(status=TranscriptionStatus.active, at=event.at))
 

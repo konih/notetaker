@@ -64,6 +64,9 @@ async def test_recorder_live_chunk_sets_unknown_speaker_without_diarization(tmp_
         data_dir=tmp_path,
         audio_stereo_mode="mixdown",
         transcription_provider="openai",
+        # These tests use digital-silence WAVs as stand-ins for speech; disable
+        # the F1 silence skip so the chunks still reach the transcriber.
+        silence_skip_enabled=False,
     )
 
     done = asyncio.Event()

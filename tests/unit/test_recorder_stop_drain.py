@@ -66,6 +66,9 @@ async def test_stop_drains_inflight_transcription(tmp_path: Path) -> None:
         data_dir=tmp_path,
         audio_stereo_mode="mixdown",
         transcription_provider="openai",
+        # These tests use digital-silence WAVs as stand-ins for speech; disable
+        # the F1 silence skip so the chunks still reach the transcriber.
+        silence_skip_enabled=False,
     )
 
     run_task = asyncio.create_task(

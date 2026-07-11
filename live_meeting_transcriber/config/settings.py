@@ -130,6 +130,13 @@ class Settings(BaseSettings):
         default="mixdown", alias="AUDIO_STEREO_MODE"
     )
     keep_audio_chunks: bool = Field(default=False, alias="KEEP_AUDIO_CHUNKS")
+    # Silence skipping (F1): don't send near-silent chunks to the transcriber. The
+    # default threshold is deliberately far below quiet speech (~-40 dBFS RMS) so only
+    # true digital near-silence is skipped; audio always lands in full_session.wav.
+    audio_silence_skip_enabled: bool = Field(default=True, alias="AUDIO_SILENCE_SKIP_ENABLED")
+    audio_silence_threshold_dbfs: float = Field(
+        default=-70.0, alias="AUDIO_SILENCE_THRESHOLD_DBFS", ge=-120.0, le=0.0
+    )
     audio_include_microphone: bool = Field(default=True, alias="AUDIO_INCLUDE_MICROPHONE")
     audio_microphone_source: str | None = Field(default=None, alias="AUDIO_MICROPHONE_SOURCE")
     # macOS system-audio capture strategy. ``auto`` (default) uses the driver-free Core Audio
