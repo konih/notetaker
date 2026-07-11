@@ -245,13 +245,6 @@ class SessionsScreenClosed:
 
 
 @dataclass(frozen=True)
-class SessionTitleCommitRequested:
-    session_id: UUID
-    new_title: str
-    at: datetime
-
-
-@dataclass(frozen=True)
 class SessionDetailsCommitRequested:
     """Persist title/notes/attendees for a session (used to edit the current live meeting)."""
 
@@ -338,7 +331,6 @@ Action = (
     | SessionsListLoaded
     | SessionsScreenOpened
     | SessionsScreenClosed
-    | SessionTitleCommitRequested
     | SessionDetailsCommitRequested
     | SessionTitleUpdated
     | TranscriptionStatusChanged
