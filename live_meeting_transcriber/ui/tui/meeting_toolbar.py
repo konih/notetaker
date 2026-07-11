@@ -28,6 +28,9 @@ class ToolbarAction:
     action: str
     variant: str = "default"
     primary: bool = False
+    # Hover tooltip (F10): lets a width-budgeted short label carry an honest,
+    # longer explanation (e.g. that Speaker ID is a full retranscribe).
+    tooltip: str | None = None
 
 
 # Ordered as they should appear. ``continue-record`` and ``slide-preview`` stay
@@ -56,12 +59,19 @@ MEETING_TOOLBAR_ACTIONS: tuple[ToolbarAction, ...] = (
     # which terminals collapse onto Tab (0x09) so the binding never fired — leaving the
     # buried overflow menu as the sole path. A visible button makes finalizing a past
     # meeting reachable with a click, independent of the keyboard.
+    # The label stays short for the 120-col primary-row budget; the tooltip (and
+    # the canonical "Speaker ID / Retranscribe" binding label) make its
+    # full-retranscribe behaviour visible (F10, OQ-F10-2: one action, one name).
     ToolbarAction(
         "meeting-btn-speaker-id",
         "Speaker ID",
         "action_finalize_selected_speakers",
         "success",
         primary=True,
+        tooltip=(
+            "Full retranscribe: re-runs WhisperX transcription + speaker "
+            "diarization and replaces this meeting's transcript."
+        ),
     ),
     ToolbarAction("meeting-btn-delete", "Delete", "action_delete_meeting", "error", primary=True),
     ToolbarAction("meeting-btn-edit-line", "Edit line", "action_edit_segment"),

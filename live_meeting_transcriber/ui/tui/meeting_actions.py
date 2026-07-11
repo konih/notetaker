@@ -53,6 +53,14 @@ from live_meeting_transcriber.utils.time import utc_now
 if TYPE_CHECKING:
     from live_meeting_transcriber.ui.tui.meeting_browser import MeetingBrowser
 
+# One start notice for every Speaker ID trigger path (F10): it must say that the
+# action retranscribes the whole meeting — the transcript is replaced, not merely
+# annotated with speaker labels.
+SPEAKER_ID_STARTED_NOTICE = (
+    "Speaker ID / Retranscribe queued (WhisperX) — retranscribes the whole meeting "
+    "and replaces its transcript. Progress: status deck + jobs panel."
+)
+
 
 async def import_video(browser: MeetingBrowser) -> None:
     await browser.app.push_screen(
@@ -170,9 +178,7 @@ async def finalize_selected_speakers(browser: MeetingBrowser) -> None:
         browser.app.notify("Select a meeting first.", severity="warning")
         return
     sid = browser._selected_session_id
-    browser.app.notify(
-        "Running speaker ID (WhisperX) — this may take a while…", severity="information"
-    )
+    browser.app.notify(SPEAKER_ID_STARTED_NOTICE, severity="information")
     await browser.store.dispatch_with_effects(
         act.FinalizeSessionRequested(session_id=sid, at=utc_now())
     )

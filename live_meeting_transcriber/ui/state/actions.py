@@ -249,6 +249,19 @@ class FinalizeSessionFailed:
 
 
 @dataclass(frozen=True)
+class FinalizeQueueBacklogDropped:
+    """Queued-but-unstarted finalize jobs were dropped at quit time (F10).
+
+    ``wait_finalize_idle`` drains the backlog before waiting on the in-flight
+    job; without this action the deck's "+N queued" counter and the jobs
+    panel's queued rows would go stale for the rest of the (deferred) shutdown.
+    """
+
+    session_ids: tuple[UUID, ...]
+    at: datetime
+
+
+@dataclass(frozen=True)
 class DetailReloadAcknowledged:
     """Meetings tab consumed ``pending_meeting_detail_reload``."""
 
@@ -384,6 +397,7 @@ Action = (
     | FinalizeProgressUpdated
     | FinalizeSessionSucceeded
     | FinalizeSessionFailed
+    | FinalizeQueueBacklogDropped
     | DetailReloadAcknowledged
     | SettingsScreenOpened
     | SettingsScreenClosed

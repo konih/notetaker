@@ -6,6 +6,7 @@ from uuid import UUID
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.css.query import NoMatches
 from textual.message import Message
 from textual.widgets import (
     Button,
@@ -20,7 +21,8 @@ from textual.widgets import (
 
 from live_meeting_transcriber.application.container import Container
 from live_meeting_transcriber.domain.models import TranscriptSegment
-from live_meeting_transcriber.ui.state.model import AppState
+from live_meeting_transcriber.ui.state.model import AppState, FinalizeJobStatus
+from live_meeting_transcriber.ui.state.selectors import build_finalize_jobs_lines
 from live_meeting_transcriber.ui.state.store import Store
 from live_meeting_transcriber.ui.tui import meeting_actions, meeting_detail
 from live_meeting_transcriber.ui.tui.meeting_toolbar import (
@@ -33,6 +35,7 @@ from live_meeting_transcriber.ui.tui.people_suggesters import (
     PeoplePrefixSuggester,
 )
 from live_meeting_transcriber.ui.tui.tab_complete_input import TabCompletableInput
+from live_meeting_transcriber.utils.time import utc_now
 
 # Canonical Summarize key and the summary-editor placeholder renderer live in
 # meeting_detail (A5); aliased here because compose() renders the key hint and
@@ -80,7 +83,16 @@ class MeetingBrowser(Vertical):
         Binding("ctrl+e", "edit_segment", "Edit line", show=True, priority=True),
         # ctrl+d, not ctrl+i: terminals collapse ctrl+i onto Tab (0x09), so the old
         # binding never fired and Speaker ID was unrunnable from the keyboard here.
-        Binding("ctrl+d", "finalize_selected_speakers", "Speaker ID", show=True, priority=True),
+        # Label matches the global footer catalog ("Speaker ID / Retranscribe",
+        # F10/U12 shared-key rule): one canonical action whose full-retranscribe
+        # behaviour is visible wherever the binding is surfaced.
+        Binding(
+            "ctrl+d",
+            "finalize_selected_speakers",
+            "Speaker ID / Retranscribe",
+            show=True,
+            priority=True,
+        ),
         Binding("i", "show_session_media", "Media files", show=False, priority=True),
         Binding("p", "slide_preview", "Slide preview", show=False, priority=True),
         Binding("ctrl+v", "import_video", "Import video", show=True, priority=True),
@@ -119,7 +131,10 @@ class MeetingBrowser(Vertical):
         )
         with Horizontal(id="meeting-toolbar"):
             for action in primary_toolbar_actions():
-                yield Button(action.label, id=action.button_id, variant=action.variant)  # type: ignore[arg-type]
+                button = Button(action.label, id=action.button_id, variant=action.variant)  # type: ignore[arg-type]
+                if action.tooltip:
+                    button.tooltip = action.tooltip
+                yield button
             yield Button("More…", id=MORE_BUTTON_ID)
         with Horizontal(id="meeting-browser-split"):
             with Vertical(id="meeting-list-pane"):
@@ -128,6 +143,9 @@ class MeetingBrowser(Vertical):
                     id="meeting-filter",
                 )
                 yield DataTable(id="meeting-sessions-table", cursor_type="row", zebra_stripes=True)
+                # F10: persistent Speaker ID / Retranscribe jobs panel — rendered
+                # from AppState.finalize_jobs; zero rows when there is no activity.
+                yield Static("", id="finalize-jobs-panel")
             with Vertical(id="meeting-browser-detail"):
                 yield Static("No meeting selected.", id="meeting-detail-status")
                 yield Tabs(
@@ -191,6 +209,11 @@ class MeetingBrowser(Vertical):
         self.query_one("#meeting-btn-slide-preview", Button).disabled = True
         if st.row_count > 0:
             st.move_cursor(row=0)
+        self.query_one("#finalize-jobs-panel", Static).border_title = "speaker id / retranscribe"
+        # Tick the running/queued rows' elapsed clocks between store updates
+        # (WhisperX stage messages can be minutes apart).
+        self.set_interval(1.0, self._tick_jobs_panel)
+        self._render_jobs_panel(self.store.get_state())
         self._unsub = self.store.subscribe(self._on_store)
 
     def on_unmount(self) -> None:
@@ -198,6 +221,7 @@ class MeetingBrowser(Vertical):
             self._unsub()
 
     def _on_store(self, state: AppState) -> None:
+        self._render_jobs_panel(state)
         key = tuple(r.id for r in state.sessions_catalog)
         if key != self._last_catalog_key:
             self._last_catalog_key = key
@@ -210,6 +234,25 @@ class MeetingBrowser(Vertical):
                 await self._load_detail(pending)
 
             self.run_worker(_reload(), exclusive=True)
+
+    def _render_jobs_panel(self, state: AppState) -> None:
+        """Render the F10 jobs panel from state; hidden when there are no rows."""
+        try:
+            panel = self.query_one("#finalize-jobs-panel", Static)
+        except NoMatches:
+            return  # teardown / not mounted yet
+        lines = build_finalize_jobs_lines(state, utc_now())
+        panel.display = bool(lines)
+        if lines:
+            panel.update("\n".join(lines))
+
+    def _tick_jobs_panel(self) -> None:
+        state = self.store.get_state()
+        if any(
+            j.status in (FinalizeJobStatus.running, FinalizeJobStatus.queued)
+            for j in state.finalize_jobs
+        ):
+            self._render_jobs_panel(state)
 
     def refresh_session_list(self, *, preserve_selection: bool = False) -> None:
         meeting_detail.refresh_session_list(self, preserve_selection=preserve_selection)

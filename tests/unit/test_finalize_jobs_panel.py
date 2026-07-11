@@ -457,7 +457,7 @@ def test_meetings_binding_carries_the_same_retranscribe_label() -> None:
     footer = next(a for a in FOOTER_ACTIONS if a.action == "finalize_speakers")
     for b in finalize:
         # Same key + same label in both regions (U12 shared-key rule).
-        assert b.key == footer.key
+        assert getattr(b, "key", "") == footer.key
         assert str(getattr(b, "description", "")) == footer.label
 
 

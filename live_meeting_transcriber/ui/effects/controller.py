@@ -172,7 +172,7 @@ class TuiController:
         dropped (no compute lost); startup recovery / ``finalize-pending`` picks
         them up next launch.
         """
-        dropped = 0
+        dropped_ids: list[UUID] = []
         while True:
             try:
                 sid = self._finalize_queue.get_nowait()
@@ -180,13 +180,18 @@ class TuiController:
                 break
             self._finalize_queued.discard(sid)
             self._finalize_queue.task_done()
-            dropped += 1
-        if dropped:
+            dropped_ids.append(sid)
+        if dropped_ids:
+            # Clear the queued rows + the deck's "+N queued" counter right away
+            # (F10) — they would otherwise stay stale for the whole deferred wait.
+            self.store.dispatch(
+                act.FinalizeQueueBacklogDropped(session_ids=tuple(dropped_ids), at=utc_now())
+            )
             self.store.dispatch(
                 act.UiLogLineAdded(
                     level="warning",
                     message=(
-                        f"Dropped {dropped} queued Speaker ID job(s) at quit — "
+                        f"Dropped {len(dropped_ids)} queued Speaker ID job(s) at quit — "
                         "they are re-queued on next launch (or run finalize-pending)."
                     ),
                     at=utc_now(),
