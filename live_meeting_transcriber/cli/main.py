@@ -29,6 +29,9 @@ from live_meeting_transcriber.cli.commands import (
     finalize as finalize_cmd,
 )
 from live_meeting_transcriber.cli.commands import (
+    paths as paths_cmd,
+)
+from live_meeting_transcriber.cli.commands import (
     recording as recording_cmd,
 )
 from live_meeting_transcriber.cli.commands import (
@@ -54,6 +57,11 @@ app.add_typer(slides_app, name="slides")
 @app.callback(invoke_without_command=True)
 def _main_callback(ctx: typer.Context) -> None:
     settings = load_settings()
+    # ``paths`` is pure output consumed by scripts (the macOS installer captures
+    # ``paths --config-dir``): skip logging setup so stdout stays machine-readable
+    # (structlog's console renderer writes the ``logging_configured`` event to stdout).
+    if ctx.invoked_subcommand == "paths":
+        return
     log_path = settings.resolved_log_file() if settings.log_enable_file else None
     configure_logging(
         settings.log_level,
@@ -107,6 +115,7 @@ app.command()(sessions_cmd.export)
 app.command("finalize")(finalize_cmd.finalize_session)
 app.command("finalize-pending")(finalize_cmd.finalize_pending)
 app.command("doctor")(finalize_cmd.doctor)
+app.command("paths")(paths_cmd.paths)
 app.command("speakers")(sessions_cmd.list_speakers)
 app.command("transcribe-video")(video_cmd.transcribe_video)
 app.command()(cleanup_cmd.cleanup)

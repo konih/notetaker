@@ -64,7 +64,9 @@ class TestConfigDir:
     def test_non_darwin_unchanged(self, monkeypatch: pytest.MonkeyPatch, fake_home: Path) -> None:
         _set_platform(monkeypatch, darwin=False)
         monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
-        assert paths.app_config_dir() == (fake_home / ".config" / "live-meeting-transcriber").resolve()
+        assert (
+            paths.app_config_dir() == (fake_home / ".config" / "live-meeting-transcriber").resolve()
+        )
 
 
 class TestDataDir:
