@@ -141,6 +141,37 @@ def check_device(settings: Settings) -> CheckResult:
     return CheckResult("Device / compute", True, detail)
 
 
+def check_offline_asr_engine(
+    settings: Settings,
+    *,
+    mlx_importable: Callable[[], bool] | None = None,
+    platform_probe: Callable[[], tuple[str, str]] | None = None,
+) -> CheckResult:
+    """Report which finalize ASR engine will run (F12) and flag a degraded explicit choice.
+
+    ``OFFLINE_ASR_ENGINE=mlx`` on a machine that cannot run MLX still finalizes (it
+    falls back to the WhisperX path), but the operator asked for something they are
+    not getting — surface that up-front instead of deep in a finalize log.
+    """
+    from live_meeting_transcriber.offline.mlx_asr import resolve_offline_asr_engine
+
+    engine, warning = resolve_offline_asr_engine(
+        settings, mlx_importable=mlx_importable, platform_probe=platform_probe
+    )
+    name = "Offline ASR engine"
+    if warning is not None:
+        return CheckResult(
+            name,
+            False,
+            f"{warning} Finalize keeps working on the WhisperX engine meanwhile.",
+            "uv sync --extra mlx (Apple Silicon Mac required), or set OFFLINE_ASR_ENGINE=auto",
+        )
+    detail = f"finalize will use {engine!r} (OFFLINE_ASR_ENGINE={settings.offline_asr_engine!r})"
+    if engine == "mlx":
+        detail += f" — mlx-whisper on the Apple GPU, model {settings.mlx_whisper_model!r}"
+    return CheckResult(name, True, detail)
+
+
 # --- orchestration -----------------------------------------------------------
 def _hf_probes() -> tuple[Callable[[str], object], Callable[[str, str], object]] | None:
     """Return (whoami, model_info) backed by huggingface_hub, or None if it is absent."""
@@ -179,4 +210,5 @@ def run_diarization_checks(settings: Settings) -> list[CheckResult]:
 
     if extras.ok:
         results.append(check_device(settings))
+    results.append(check_offline_asr_engine(settings))
     return results
