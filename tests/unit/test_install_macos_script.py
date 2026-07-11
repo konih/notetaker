@@ -121,6 +121,7 @@ def _without_tool(env: dict[str, str], tool: str) -> dict[str, str]:
 
 
 def test_requires_homebrew(shim_env: dict[str, str]) -> None:
+    os.remove(Path(shim_env["PATH"].split(":", 1)[0]) / "brew")
     env = _without_tool(shim_env, "brew")
     result = _run(["--dry-run"], env)
     assert result.returncode != 0
