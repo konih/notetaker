@@ -64,7 +64,15 @@ Then, for **offline finalize / Speaker ID** to label speakers:
 2. Create a **read** token at <https://huggingface.co/settings/tokens> and set `HF_TOKEN` in `.env` (or your shell env).
 3. Run **`live-transcriber doctor`** (or `task diarization:doctor`) to verify everything — it checks the extras, ffmpeg, token auth (missing vs invalid), gated-model access, and the resolved device, printing a fix for the first thing missing.
 
-The first finalize downloads ~1 GB+ of weights (Whisper checkpoint + alignment + pyannote). On **Apple Silicon** the ASR runs on **CPU** automatically (WhisperX's CTranslate2 backend has no Metal/MPS support) — no configuration needed.
+The first finalize downloads ~1 GB+ of weights (Whisper checkpoint + alignment + pyannote).
+
+Optional **Apple-Silicon GPU transcription** for finalize (macOS arm64 only; the extra is a no-op elsewhere):
+
+```bash
+uv sync --extra mlx
+```
+
+With the extra installed, finalize transcribes on the Apple GPU via [mlx-whisper](https://pypi.org/project/mlx-whisper/) automatically (`OFFLINE_ASR_ENGINE=auto`) — measured **~7x faster** than the CPU path at the same model size, with speaker attribution matching the WhisperX path at 97.7% word-level agreement (see `docs/spikes/2026-07-11-f11-apple-silicon-asr.md`). Diarization stays on pyannote (auto-MPS). Without the extra, the WhisperX ASR runs on **CPU** on Apple Silicon (its CTranslate2 backend has no Metal/MPS support) — no configuration needed either way; `live-transcriber doctor` shows which engine will run. See `OFFLINE_ASR_ENGINE` / `MLX_WHISPER_MODEL` / `MLX_SILENCE_GATE_DBFS` in [docs/configuration.md](docs/configuration.md).
 
 Optional **inline slide thumbnails in the TUI** ([textual-image](https://github.com/darrenburns/textual-image)):
 
