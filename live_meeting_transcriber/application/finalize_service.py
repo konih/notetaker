@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
@@ -11,6 +13,7 @@ from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.models import MeetingSession, TranscriptSegment
 from live_meeting_transcriber.domain.session_audio import (
     AudioTimelineEntry,
+    finalize_unrecoverable_marker_path,
     full_session_wav_path,
     session_audio_dir,
 )
@@ -75,9 +78,85 @@ def find_unfinalized_sessions(
     return out
 
 
-def _has_full_session_wav(data_dir: Path, session_id: UUID) -> bool:
+def _session_dir_no_mkdir(data_dir: Path, session_id: UUID) -> Path:
     # Build the path directly (do not use ``session_audio_dir`` — it mkdirs as a side effect).
-    return full_session_wav_path(data_dir / "sessions" / str(session_id)).is_file()
+    return data_dir / "sessions" / str(session_id)
+
+
+def _has_full_session_wav(data_dir: Path, session_id: UUID) -> bool:
+    return full_session_wav_path(_session_dir_no_mkdir(data_dir, session_id)).is_file()
+
+
+@dataclass(frozen=True)
+class FinalizeUnrecoverableMarker:
+    """Durable "finalize failed unrecoverably — stop auto-retrying" record (B3).
+
+    A plain JSON sidecar next to the session's ``full_session.wav`` so an operator
+    can ``cat`` or delete it by hand. Startup recovery skips marked sessions; the
+    explicit ``finalize-pending`` CLI ignores it (explicit intent beats the marker);
+    any later successful finalize clears it.
+    """
+
+    cause: str
+    error: str
+    marked_at: str
+
+
+def classify_unrecoverable_finalize_error(exc: BaseException, *, session_ended: bool) -> str | None:
+    """Human-readable cause when retrying finalize at launch cannot help, else ``None``.
+
+    Deliberately conservative: auth/licence problems (invalid HF token, gated
+    pyannote model), network blips and OOM all reach the finalize failure handler
+    as generic exceptions, and misclassifying a transient failure would silently
+    disable startup recovery. Those stay retryable — ``live-transcriber doctor``
+    (F9) diagnoses them. Only two failures provably cannot heal by retrying:
+
+    - the whisperx extra is not importable (nothing installs it by itself);
+    - an *ended* session's recording is gone (it will not reappear). While still
+      recording, a missing WAV just means no chunk has been flushed yet.
+    """
+    if isinstance(exc, ImportError):
+        return "the whisperx extra is not installed (uv sync --extra whisperx)"
+    if isinstance(exc, FileNotFoundError) and session_ended:
+        return "the recorded audio (full_session.wav) is missing"
+    return None
+
+
+def read_finalize_unrecoverable_marker(
+    *, data_dir: Path, session_id: UUID
+) -> FinalizeUnrecoverableMarker | None:
+    """The session's won't-auto-retry marker, or ``None`` when absent *or corrupt*.
+
+    A mangled marker fails open (treated as unmarked): the worst case is one more
+    retry per launch, whereas failing closed could disable recovery forever.
+    """
+    path = finalize_unrecoverable_marker_path(_session_dir_no_mkdir(data_dir, session_id))
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        return FinalizeUnrecoverableMarker(
+            cause=str(raw["cause"]),
+            error=str(raw.get("error", "")),
+            marked_at=str(raw.get("marked_at", "")),
+        )
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
+def mark_finalize_unrecoverable(
+    *, data_dir: Path, session_id: UUID, cause: str, error: str
+) -> None:
+    root = _session_dir_no_mkdir(data_dir, session_id)
+    root.mkdir(parents=True, exist_ok=True)
+    payload = {"cause": cause, "error": error, "marked_at": datetime.now(UTC).isoformat()}
+    finalize_unrecoverable_marker_path(root).write_text(
+        json.dumps(payload, indent=2) + "\n", encoding="utf-8"
+    )
+
+
+def clear_finalize_unrecoverable_marker(*, data_dir: Path, session_id: UUID) -> None:
+    finalize_unrecoverable_marker_path(_session_dir_no_mkdir(data_dir, session_id)).unlink(
+        missing_ok=True
+    )
 
 
 def session_speakers_are_all_unknown(*, container: Container, session_id: UUID) -> bool:
@@ -128,7 +207,10 @@ def finalize_session_sync(*, container: Container, settings: Settings, session_i
         timeline=timeline,
         session_started_at=session_started_at,
     )
-    return _finalize_persist_segments(container=container, session_id=session_id, segments=segments)
+    n = _finalize_persist_segments(container=container, session_id=session_id, segments=segments)
+    # Finalize worked — the cause behind any won't-auto-retry marker is gone (B3).
+    clear_finalize_unrecoverable_marker(data_dir=settings.ensure_data_dir(), session_id=session_id)
+    return n
 
 
 async def finalize_session_offline(
@@ -163,4 +245,7 @@ async def finalize_session_offline(
             )
 
     segments = await asyncio.to_thread(_run)
-    return _finalize_persist_segments(container=container, session_id=session_id, segments=segments)
+    n = _finalize_persist_segments(container=container, session_id=session_id, segments=segments)
+    # Finalize worked — the cause behind any won't-auto-retry marker is gone (B3).
+    clear_finalize_unrecoverable_marker(data_dir=settings.ensure_data_dir(), session_id=session_id)
+    return n

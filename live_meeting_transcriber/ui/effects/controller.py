@@ -233,6 +233,7 @@ class TuiController:
             return
         from live_meeting_transcriber.application.finalize_service import (
             find_unfinalized_sessions,
+            read_finalize_unrecoverable_marker,
         )
 
         cutoff = utc_now() - timedelta(hours=24)
@@ -240,8 +241,59 @@ class TuiController:
             pending = find_unfinalized_sessions(container=self.container, ended_after=cutoff)
         except Exception:
             return
+        data_dir = self.settings.ensure_data_dir()
+        skipped = 0
         for session in pending:
+            # A previous launch failed *unrecoverably* for this session (e.g. the
+            # whisperx extra is not installed) — retrying every launch can only
+            # produce the same error line again (B3). Success clears the marker.
+            if read_finalize_unrecoverable_marker(data_dir=data_dir, session_id=session.id):
+                skipped += 1
+                continue
             self._enqueue_finalize(session.id)
+        if skipped:
+            store.dispatch(
+                act.UiLogLineAdded(
+                    level="info",
+                    message=(
+                        f"Startup recovery skipped {skipped} meeting(s) marked won't-auto-retry "
+                        "after an unrecoverable Speaker ID failure — fix the cause "
+                        "(check: live-transcriber doctor), then run finalize-pending."
+                    ),
+                    at=utc_now(),
+                )
+            )
+
+    def _mark_finalize_unrecoverable(self, session_id: UUID, exc: Exception) -> str:
+        """Persist the won't-auto-retry marker when a finalize failure can't heal (B3).
+
+        Returns the suffix for the user-visible failure message ("" when the failure
+        stays retryable). Marker IO must never break the failure path itself.
+        """
+        from live_meeting_transcriber.application.finalize_service import (
+            classify_unrecoverable_finalize_error,
+            mark_finalize_unrecoverable,
+        )
+
+        try:
+            session = self.container.sessions.get(session_id)
+            ended = getattr(session, "ended_at", None) is not None
+            cause = classify_unrecoverable_finalize_error(exc, session_ended=ended)
+            if cause is None:
+                return ""
+            mark_finalize_unrecoverable(
+                data_dir=self.settings.ensure_data_dir(),
+                session_id=session_id,
+                cause=cause,
+                error=f"{type(exc).__name__}: {exc}",
+            )
+        except Exception:
+            _log.exception("finalize_unrecoverable_marker_write_failed", session_id=str(session_id))
+            return ""
+        return (
+            " Won't auto-retry at launch — fix the cause (check: live-transcriber doctor), "
+            "then run finalize-pending."
+        )
 
     async def _run_finalize_for_session(self, store: Store, session_id: UUID) -> None:
         from live_meeting_transcriber.application.finalize_service import finalize_session_offline
@@ -271,19 +323,22 @@ class TuiController:
                 progress=_progress,
             )
         except ImportError as e:
+            wont_retry = self._mark_finalize_unrecoverable(session_id, e)
             store.dispatch(
                 act.FinalizeSessionFailed(
                     session_id=session_id,
-                    message=f"Speaker ID / finalize skipped: install whisperx extra ({e}).",
+                    message=f"Speaker ID / finalize skipped: install whisperx extra ({e})."
+                    + wont_retry,
                     at=utc_now(),
                 )
             )
             return
         except FileNotFoundError as e:
+            wont_retry = self._mark_finalize_unrecoverable(session_id, e)
             store.dispatch(
                 act.FinalizeSessionFailed(
                     session_id=session_id,
-                    message=f"No recorded audio for finalize yet: {e}",
+                    message=f"No recorded audio for finalize yet: {e}" + wont_retry,
                     at=utc_now(),
                 )
             )

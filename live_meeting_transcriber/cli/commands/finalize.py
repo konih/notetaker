@@ -10,6 +10,7 @@ from rich.progress import BarColumn, Progress, TextColumn, TimeElapsedColumn
 from live_meeting_transcriber.application.finalize_service import (
     finalize_session_sync,
     find_unfinalized_sessions,
+    read_finalize_unrecoverable_marker,
     session_speakers_are_all_unknown,
 )
 from live_meeting_transcriber.cli.deps import get_container
@@ -61,9 +62,8 @@ def finalize_pending(
     or interrupted-with-a-surviving-recording) and re-runs finalize for each.
     """
     c = get_container(ctx)
-    pending = find_unfinalized_sessions(
-        container=c, include_interrupted=True, data_dir=c.settings.ensure_data_dir()
-    )
+    data_dir = c.settings.ensure_data_dir()
+    pending = find_unfinalized_sessions(container=c, include_interrupted=True, data_dir=data_dir)
     if not pending:
         typer.echo("No pending sessions found (nothing to finalize).")
         return
@@ -71,6 +71,17 @@ def finalize_pending(
     typer.echo(f"Found {len(pending)} session(s) never diarized:")
     for session in pending:
         typer.echo(f"  {session.id}  {session.started_at.isoformat()}  {session.title}")
+    # Startup recovery skips sessions marked won't-auto-retry after an unrecoverable
+    # failure (B3); an explicit CLI run is the operator saying "try again", so the
+    # marker is deliberately ignored here — a success clears it.
+    marked = [
+        s for s in pending if read_finalize_unrecoverable_marker(data_dir=data_dir, session_id=s.id)
+    ]
+    if marked:
+        typer.echo(
+            f"{len(marked)} of these are marked won't-auto-retry after an unrecoverable "
+            "failure — retrying anyway (explicit run)."
+        )
     if dry_run:
         typer.echo("Dry run: not running WhisperX.")
         return

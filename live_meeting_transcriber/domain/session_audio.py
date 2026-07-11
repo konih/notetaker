@@ -41,6 +41,13 @@ def full_session_wav_path(session_audio_root: Path) -> Path:
     return session_audio_root / "full_session.wav"
 
 
+def finalize_unrecoverable_marker_path(session_audio_root: Path) -> Path:
+    """Sidecar written when finalize failed *unrecoverably* (B3): startup recovery
+    stops re-enqueuing the session until a later successful finalize clears it.
+    Pure path math — reading/writing the marker is application-layer work."""
+    return session_audio_root / "finalize_unrecoverable.json"
+
+
 def map_audio_time_to_wall(entries: Sequence[AudioTimelineEntry], t_sec: float) -> datetime:
     """Linearly map a position in the concatenated WAV timeline to wall time."""
     if not entries:
