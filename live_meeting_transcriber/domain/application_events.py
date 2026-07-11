@@ -55,6 +55,20 @@ class AudioChunkLevelMeasured:
 
 
 @dataclass(frozen=True)
+class AudioChunkSkippedSilent:
+    """Chunk fell below the silence threshold; live transcription was skipped (F1).
+
+    The chunk's audio is still appended to ``full_session.wav`` beforehand, so
+    offline finalize/diarization always see the complete session audio.
+    """
+
+    session_id: UUID
+    chunk_id: UUID
+    rms_dbfs: float
+    at: datetime
+
+
+@dataclass(frozen=True)
 class TranscriptionChunkStarted:
     session_id: UUID
     chunk_id: UUID
@@ -149,6 +163,7 @@ ApplicationEvent = (
     | RecordingLoopEntered
     | AudioChunkCaptured
     | AudioChunkLevelMeasured
+    | AudioChunkSkippedSilent
     | TranscriptionChunkStarted
     | TranscriptionChunkCompleted
     | TranscriptionChunkEmpty

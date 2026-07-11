@@ -2,22 +2,27 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 from uuid import UUID
 
 from live_meeting_transcriber.application.dual_path import transcriber_supports_dual_path
+from live_meeting_transcriber.application.silence import should_skip_silent_chunk
 from live_meeting_transcriber.audio.session_recording import (
     append_chunk_with_timeline,
     session_audio_dir,
 )
 from live_meeting_transcriber.audio.stereo import extract_mono_channel_wav, rms_mixdown_to_mono_wav
-from live_meeting_transcriber.audio.wav_level import peak_linear_from_wav_path
+from live_meeting_transcriber.audio.wav_level import (
+    peak_linear_from_wav_path,
+    rms_dbfs_from_wav_path,
+)
 from live_meeting_transcriber.domain.application_events import (
     ApplicationEvent,
     AudioChunkCaptured,
     AudioChunkLevelMeasured,
+    AudioChunkSkippedSilent,
     DiarizationChunkCompleted,
     RecordingFailed,
     RecordingLoopEntered,
@@ -66,6 +71,13 @@ class Recorder:
     data_dir: Path
     audio_stereo_mode: str
     transcription_provider: str
+    # Silence skipping (F1). Conservative default: -70 dBFS RMS is far below quiet
+    # speech (~-40 dBFS), so only true digital near-silence is skipped.
+    silence_skip_enabled: bool = True
+    silence_threshold_dbfs: float = -70.0
+    # Per-session running count of skipped chunks (observability only). The dataclass
+    # is frozen; mutating the dict's contents is fine.
+    _silence_skipped_counts: dict[UUID, int] = field(default_factory=dict)
 
     async def _skip_transcription_chunk(
         self,
@@ -123,6 +135,15 @@ class Recorder:
             await asyncio.sleep(0)
             return
 
+        if self._skip_if_silent(
+            session_id=session_id,
+            chunk=chunk,
+            on_application_event=on_application_event,
+            log=log,
+        ):
+            await asyncio.sleep(0)
+            return
+
         log.info("transcription_started", chunk_id=str(chunk.id))
         _emit(
             on_application_event,
@@ -160,6 +181,52 @@ class Recorder:
             )
 
         await asyncio.sleep(0)
+
+    def _skip_if_silent(
+        self,
+        *,
+        session_id: UUID,
+        chunk: AudioChunk,
+        on_application_event: Callable[[ApplicationEvent], None] | None,
+        log: Any,
+    ) -> bool:
+        """Skip live transcription of a near-silent chunk (F1); True when skipped.
+
+        Runs after the chunk was appended to ``full_session.wav``, so finalize and
+        diarization always see the complete session audio. Fails open: if the level
+        cannot be measured, the chunk is transcribed normally.
+        """
+        if not self.silence_skip_enabled:
+            return False
+        try:
+            rms_dbfs = rms_dbfs_from_wav_path(chunk.path)
+        except Exception:
+            log.warning("silence_level_unreadable", chunk_id=str(chunk.id), path=str(chunk.path))
+            return False
+        if not should_skip_silent_chunk(
+            enabled=True, rms_dbfs=rms_dbfs, threshold_dbfs=self.silence_threshold_dbfs
+        ):
+            return False
+        counts = self._silence_skipped_counts
+        counts[session_id] = counts.get(session_id, 0) + 1
+        log.info(
+            "silent_chunk_skipped",
+            chunk_id=str(chunk.id),
+            rms_dbfs=round(rms_dbfs, 1) if rms_dbfs != float("-inf") else "-inf",
+            threshold_dbfs=self.silence_threshold_dbfs,
+            skipped_total=counts[session_id],
+        )
+        _emit(
+            on_application_event,
+            AudioChunkSkippedSilent(
+                session_id=session_id,
+                chunk_id=chunk.id,
+                rms_dbfs=rms_dbfs,
+                at=utc_now(),
+            ),
+        )
+        self._discard_chunk_audio(chunk, log)
+        return True
 
     async def _transcribe_dual_path(
         self,

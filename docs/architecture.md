@@ -47,9 +47,14 @@ Phase 1 uses robust Linux tooling:
 - Transcribe each chunk and append timestamped `TranscriptSegment`s
 - By default, **monitor + microphone** are mixed with ffmpeg `amix` (two `-f pulse` inputs) so transcripts include your voice as well as meeting playback.
 
+Near-silent chunks are **not** sent to the transcriber (F1): after a chunk is appended to
+`full_session.wav`, the recorder measures its RMS level (`audio/wav_level.py`) and skips live
+transcription when it falls below `AUDIO_SILENCE_THRESHOLD_DBFS` (pure decision in
+`application/silence.py`; see [`docs/configuration.md`](configuration.md)). Offline finalize
+still sees the complete session audio.
+
 TODOs:
 - Real-time low-latency streaming
-- Better VAD (voice activity detection) to skip silent chunks
 
 ### Video import and slide detection
 

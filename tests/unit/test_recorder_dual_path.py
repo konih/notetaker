@@ -105,6 +105,9 @@ async def _run_one_stereo_chunk(
         data_dir=tmp_path,
         audio_stereo_mode="dual_path",
         transcription_provider="faster_whisper",
+        # These tests use digital-silence WAVs as stand-ins for speech; disable
+        # the F1 silence skip so the chunks still reach the transcriber.
+        silence_skip_enabled=False,
     )
 
     events: list[ApplicationEvent] = []

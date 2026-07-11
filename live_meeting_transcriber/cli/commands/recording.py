@@ -89,6 +89,8 @@ def record(
         data_dir=c.settings.ensure_data_dir(),
         audio_stereo_mode=c.settings.audio_stereo_mode,
         transcription_provider=c.settings.transcription_provider,
+        silence_skip_enabled=c.settings.audio_silence_skip_enabled,
+        silence_threshold_dbfs=c.settings.audio_silence_threshold_dbfs,
     )
 
     async def _run() -> None:
