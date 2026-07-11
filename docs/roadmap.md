@@ -26,7 +26,7 @@ Shipped on `main` (see [`docs/configuration.md`](configuration.md) and [`docs/ar
 
 ### Phase 2
 
-- speaker diarization polish (live record screen capture, richer TUI speaker UX)
+- speaker diarization polish — shipped (F6): opt-in live record screen capture (macOS, privacy default-off) + per-speaker last-heard ages in the Live sidebar
 - better realtime streaming / incremental transcription
 - session search and filtering — shipped: CLI `sessions --search` (F2), Meetings-tab filter with date tokens (U17), fuzzy jump-to-meeting picker (U11)
 - improved summaries (templates, metadata) — partial: structured summary + Obsidian export

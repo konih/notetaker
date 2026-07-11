@@ -126,9 +126,13 @@ def doctor() -> None:
         all_ok,
         run_diarization_checks,
     )
+    from live_meeting_transcriber.diagnostics.screen_capture_doctor import (
+        check_live_screen_capture,
+    )
 
     settings = load_settings()
     results = run_diarization_checks(settings)
+    results.append(check_live_screen_capture(settings))
     for r in results:
         typer.echo(f"[{'OK  ' if r.ok else 'FAIL'}] {r.name}: {r.detail}")
         if not r.ok and r.remediation:

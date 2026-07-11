@@ -9,11 +9,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from typer.testing import CliRunner
-
+import pytest
 from live_meeting_transcriber.cli.main import app
 from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.diagnostics.screen_capture_doctor import check_live_screen_capture
+from typer.testing import CliRunner
 
 
 class _Screen:
@@ -55,7 +55,7 @@ def test_enabled_and_available_reminds_about_tcc_grant() -> None:
     assert "Screen Recording" in result.detail  # human TCC grant cannot be auto-verified
 
 
-def test_doctor_cli_includes_screen_capture_line(monkeypatch) -> None:
+def test_doctor_cli_includes_screen_capture_line(monkeypatch: pytest.MonkeyPatch) -> None:
     import live_meeting_transcriber.diagnostics.diarization_doctor as doc
 
     monkeypatch.setattr(doc, "run_diarization_checks", lambda settings: [])
