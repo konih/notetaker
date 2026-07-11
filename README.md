@@ -136,7 +136,7 @@ on every tab): the meeting name, the current pipeline stage (transcribe → alig
 diarize), and how many jobs are queued behind it. The outcome stays in the deck (and in
 the Live-tab notices + Logs tab) until the next job — including an explicit warning when
 speakers could **not** be labelled (missing `HF_TOKEN`). Quitting while a job runs
-**defers exit until the result is saved** (press **`q`** again to force-quit; a dropped
+**defers exit until the result is saved** (press **`q`** again to discard the result — exit may still take a moment while the compute thread winds down; a dropped
 job is re-queued on next launch).
 
 **Browsing meetings.** The **Meetings tab is the single home** for browsing and managing

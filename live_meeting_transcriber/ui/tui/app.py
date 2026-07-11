@@ -1289,7 +1289,8 @@ class TranscriberApp(App[None]):
             self._quit_after_finalize = True
             msg = (
                 "Speaker ID / finalize is still running — quitting once it saves. "
-                "Press q again to force-quit (the job re-runs on next launch)."
+                "Press q again to discard the result and quit (the job re-runs on next launch; "
+                "exit may still take a moment while the compute thread winds down)."
             )
             self.notify(msg, severity="warning", timeout=12)
             self.store.dispatch(act.NoticeRaised(message=msg, at=utc_now()))
