@@ -12,8 +12,8 @@ from live_meeting_transcriber.application.video_session_storage import (
     read_source_media_video_path,
     session_slides_dir,
 )
-from live_meeting_transcriber.audio.session_recording import session_audio_dir
 from live_meeting_transcriber.domain.models import MeetingSession
+from live_meeting_transcriber.domain.session_audio import session_audio_dir
 from live_meeting_transcriber.utils.time import to_local
 
 _VIDEO_EXTENSIONS = (".mp4", ".mkv", ".webm", ".mov", ".m4v")
