@@ -95,6 +95,9 @@ def test_cli_slides_preview_smoke(
     monkeypatch.setattr("live_meeting_transcriber.cli.main.load_settings", lambda: settings)
     monkeypatch.setattr("live_meeting_transcriber.cli.main.build_container", lambda _s: container)
 
+    sessions_before = len(container.sessions.list())
+    segments_before = len(container.transcripts.list_by_session(result.session_id))
+
     cli = CliRunner().invoke(
         app,
         [
@@ -108,6 +111,11 @@ def test_cli_slides_preview_smoke(
     )
     assert cli.exit_code == 0, cli.stdout + cli.stderr
     assert "Candidates: 3" in cli.stdout
+
+    # Persisted-state depth (T4) + performance NFR (AGENTS.md): preview re-runs slide
+    # *detection* only — it must not re-transcribe, append segments, or create sessions.
+    assert len(container.sessions.list()) == sessions_before
+    assert len(container.transcripts.list_by_session(result.session_id)) == segments_before
 
 
 @pytest.mark.skipif(

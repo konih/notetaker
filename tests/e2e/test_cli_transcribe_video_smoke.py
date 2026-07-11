@@ -97,7 +97,22 @@ def test_cli_transcribe_video_smoke_e2e(
 
     sessions = container.sessions.list()
     assert len(sessions) == 1
-    assert sessions[0].title == "CLI E2E Slides"
+    session = sessions[0]
+    assert session.title == "CLI E2E Slides"
+
+    # Persisted-state depth (T4): the CLI path must leave the same durable state the
+    # service-level test proves — transcript rows plus slide/audio artifacts on disk —
+    # not just a "Session:" line on stdout.
+    segments = container.transcripts.list_by_session(session.id)
+    assert len(segments) >= 1, "transcribe-video must persist transcript segments"
+
+    session_dir = tmp_path / "sessions" / str(session.id)
+    slide_pngs = list((session_dir / "slides").glob("slide_*.png"))
+    assert len(slide_pngs) == 3, "the 3 detected slides must be saved as PNGs"
+    assert (session_dir / "slides" / "slides.json").is_file()
+    assert (session_dir / "full_session.wav").is_file(), (
+        "the extracted session audio must survive for later finalize/diarization"
+    )
 
 
 @pytest.mark.skipif(
