@@ -7,12 +7,8 @@ from unittest.mock import MagicMock
 
 import yaml
 from live_meeting_transcriber.config.settings import (
-    Settings,
     default_config_yaml_path,
 )
-from live_meeting_transcriber.ui.effects.controller import TuiController
-from live_meeting_transcriber.ui.state.model import initial_app_state
-from live_meeting_transcriber.ui.state.store import Store
 from live_meeting_transcriber.ui.tui.app import (
     EditSettingsScreen,
     PathPickerScreen,
@@ -22,14 +18,13 @@ from live_meeting_transcriber.ui.tui.app import (
 from live_meeting_transcriber.ui.tui.settings_view import build_settings_sections
 from textual.widgets import Input, Static, Switch
 
+from tests.unit.conftest import make_tui_app
+
 
 def _app() -> TranscriberApp:
     container = MagicMock()
     container.sessions.list.return_value = []
-    store = Store(state=initial_app_state())
-    controller = TuiController(store=store, container=container, settings=Settings())
-    store.register_effects(controller.handle)
-    return TranscriberApp(store=store, container=container, controller=controller)
+    return make_tui_app(container)
 
 
 async def test_picker_select_existing_dir_dismisses_with_resolved_path(tmp_path: Path) -> None:

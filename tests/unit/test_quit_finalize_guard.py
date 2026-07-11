@@ -24,7 +24,6 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
 import pytest
@@ -32,23 +31,11 @@ from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.models import MeetingSession
 from live_meeting_transcriber.ui.effects.controller import TuiController
 from live_meeting_transcriber.ui.state import actions as act
-from live_meeting_transcriber.ui.state.model import initial_app_state
 from live_meeting_transcriber.ui.state.store import Store
-from live_meeting_transcriber.ui.tui.app import TranscriberApp
+
+from tests.unit.conftest import make_mock_tui_container, make_tui_harness
 
 _FINALIZE_PATCH = "live_meeting_transcriber.application.finalize_service.finalize_session_offline"
-
-
-def _mock_container(tmp_path: Path, session: MeetingSession) -> MagicMock:
-    container = MagicMock()
-    container.sessions.list.return_value = [session]
-    container.sessions.get.return_value = session
-    container.summaries.get_by_session.return_value = None
-    container.transcripts.list_by_session.return_value = []
-    container.session_speakers.get_map.return_value = {}
-    container.settings.ensure_data_dir.return_value = tmp_path
-    container.devices.list_sources.return_value = [object()]
-    return container
 
 
 async def _cancel(task: asyncio.Task[None] | None) -> None:
@@ -71,7 +58,7 @@ async def test_wait_finalize_idle_finishes_inflight_and_drops_pending(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     session = MeetingSession(title="in flight")
-    container = _mock_container(tmp_path, session)
+    container = make_mock_tui_container(tmp_path, [session])
     store = Store()
     controller = TuiController(store=store, container=container, settings=Settings())
 
@@ -109,7 +96,7 @@ async def test_wait_finalize_idle_finishes_inflight_and_drops_pending(
 @pytest.mark.asyncio
 async def test_wait_finalize_idle_returns_immediately_when_idle(tmp_path: Path) -> None:
     session = MeetingSession(title="idle")
-    container = _mock_container(tmp_path, session)
+    container = make_mock_tui_container(tmp_path, [session])
     controller = TuiController(store=Store(), container=container, settings=Settings())
     assert not controller.finalize_busy
     await asyncio.wait_for(controller.wait_finalize_idle(), timeout=1.0)
@@ -120,23 +107,12 @@ async def test_wait_finalize_idle_returns_immediately_when_idle(tmp_path: Path) 
 # --------------------------------------------------------------------------
 
 
-def _make_app(container: MagicMock) -> tuple[TranscriberApp, Store, TuiController]:
-    store = Store(state=initial_app_state())
-    controller = TuiController(store=store, container=container, settings=Settings())
-    store.register_effects(controller.handle)
-    return (
-        TranscriberApp(store=store, container=container, controller=controller),
-        store,
-        controller,
-    )
-
-
 async def test_quit_waits_for_inflight_finalize_to_persist(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     session = MeetingSession(id=uuid4(), title="Long meeting")
-    container = _mock_container(tmp_path, session)
-    app, store, controller = _make_app(container)
+    container = make_mock_tui_container(tmp_path, [session])
+    app, store, controller = make_tui_harness(container)
 
     release = asyncio.Event()
     completed: list[UUID] = []
@@ -182,8 +158,8 @@ async def test_second_quit_press_force_quits_immediately(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     session = MeetingSession(id=uuid4(), title="Long meeting")
-    container = _mock_container(tmp_path, session)
-    app, store, controller = _make_app(container)
+    container = make_mock_tui_container(tmp_path, [session])
+    app, store, controller = make_tui_harness(container)
 
     release = asyncio.Event()
 
@@ -220,8 +196,8 @@ async def test_quit_exits_promptly_when_no_finalize_running(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     session = MeetingSession(id=uuid4(), title="Quiet")
-    container = _mock_container(tmp_path, session)
-    app, _store, _controller = _make_app(container)
+    container = make_mock_tui_container(tmp_path, [session])
+    app, _store, _controller = make_tui_harness(container)
 
     exits: list[bool] = []
     monkeypatch.setattr(app, "exit", lambda *a, **k: exits.append(True))

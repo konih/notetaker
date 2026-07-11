@@ -10,17 +10,14 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import MagicMock
 from uuid import uuid4
 
-from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.models import MeetingSession
-from live_meeting_transcriber.ui.effects.controller import TuiController
-from live_meeting_transcriber.ui.state.model import initial_app_state
-from live_meeting_transcriber.ui.state.store import Store
 from live_meeting_transcriber.ui.tui.app import TranscriberApp
 from live_meeting_transcriber.ui.tui.meeting_browser import MeetingBrowser
 from textual.widgets import DataTable, Input, Static, TabbedContent
+
+from tests.unit.conftest import make_mock_tui_container, make_tui_app
 
 WEEKLY_ID = uuid4()
 DESIGN_ID = uuid4()
@@ -41,26 +38,6 @@ def _sessions() -> list[MeetingSession]:
     ]
 
 
-def _container(tmp_path: Path) -> MagicMock:
-    sessions = _sessions()
-    c = MagicMock()
-    c.sessions.list.side_effect = lambda: list(sessions)
-    c.sessions.get.side_effect = lambda sid: next((s for s in sessions if s.id == sid), None)
-    c.summaries.get_by_session.return_value = None
-    c.transcripts.list_by_session.return_value = []
-    c.session_speakers.get_map.return_value = {}
-    c.settings.ensure_data_dir.return_value = tmp_path
-    c.devices.list_sources.return_value = [object()]
-    return c
-
-
-def _app(container: MagicMock) -> TranscriberApp:
-    store = Store(state=initial_app_state())
-    controller = TuiController(store=store, container=container, settings=Settings())
-    store.register_effects(controller.handle)
-    return TranscriberApp(store=store, container=container, controller=controller)
-
-
 async def _browser(app: TranscriberApp, pilot) -> MeetingBrowser:  # type: ignore[no-untyped-def]
     app.query_one(TabbedContent).active = "tab-meetings"
     await pilot.pause()
@@ -75,7 +52,7 @@ async def _set_filter(browser: MeetingBrowser, pilot, value: str) -> None:  # ty
 
 
 async def test_filter_input_exists_above_the_meetings_table(tmp_path: Path) -> None:
-    app = _app(_container(tmp_path))
+    app = make_tui_app(make_mock_tui_container(tmp_path, _sessions()))
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
         browser = await _browser(app, pilot)
@@ -83,7 +60,7 @@ async def test_filter_input_exists_above_the_meetings_table(tmp_path: Path) -> N
 
 
 async def test_typing_narrows_the_table_by_title(tmp_path: Path) -> None:
-    app = _app(_container(tmp_path))
+    app = make_tui_app(make_mock_tui_container(tmp_path, _sessions()))
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
         browser = await _browser(app, pilot)
@@ -94,7 +71,7 @@ async def test_typing_narrows_the_table_by_title(tmp_path: Path) -> None:
 
 
 async def test_date_token_filters_by_started_date(tmp_path: Path) -> None:
-    app = _app(_container(tmp_path))
+    app = make_tui_app(make_mock_tui_container(tmp_path, _sessions()))
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
         browser = await _browser(app, pilot)
@@ -104,7 +81,7 @@ async def test_date_token_filters_by_started_date(tmp_path: Path) -> None:
 
 
 async def test_slash_focuses_the_filter_from_the_table(tmp_path: Path) -> None:
-    app = _app(_container(tmp_path))
+    app = make_tui_app(make_mock_tui_container(tmp_path, _sessions()))
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
         browser = await _browser(app, pilot)
@@ -116,7 +93,7 @@ async def test_slash_focuses_the_filter_from_the_table(tmp_path: Path) -> None:
 
 
 async def test_empty_result_state_is_explicit_and_actionable(tmp_path: Path) -> None:
-    app = _app(_container(tmp_path))
+    app = make_tui_app(make_mock_tui_container(tmp_path, _sessions()))
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
         browser = await _browser(app, pilot)
@@ -130,7 +107,7 @@ async def test_empty_result_state_is_explicit_and_actionable(tmp_path: Path) -> 
 
 
 async def test_escape_clears_the_filter_and_returns_focus_to_the_table(tmp_path: Path) -> None:
-    app = _app(_container(tmp_path))
+    app = make_tui_app(make_mock_tui_container(tmp_path, _sessions()))
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
         browser = await _browser(app, pilot)
@@ -148,7 +125,7 @@ async def test_escape_clears_the_filter_and_returns_focus_to_the_table(tmp_path:
 
 
 async def test_selection_and_detail_stay_in_sync_when_filtered_out(tmp_path: Path) -> None:
-    app = _app(_container(tmp_path))
+    app = make_tui_app(make_mock_tui_container(tmp_path, _sessions()))
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
         browser = await _browser(app, pilot)

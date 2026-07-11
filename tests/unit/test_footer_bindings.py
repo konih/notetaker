@@ -11,10 +11,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from live_meeting_transcriber.config.settings import Settings
-from live_meeting_transcriber.ui.effects.controller import TuiController
-from live_meeting_transcriber.ui.state.model import initial_app_state
-from live_meeting_transcriber.ui.state.store import Store
 from live_meeting_transcriber.ui.tui.app import TranscriberApp
 from live_meeting_transcriber.ui.tui.footer_bindings import (
     FOOTER_ACTIONS,
@@ -26,6 +22,8 @@ from textual.binding import Binding
 from textual.widgets import Footer, TabbedContent
 from textual.widgets._footer import FooterKey
 
+from tests.unit.conftest import make_tui_app
+
 # Standard-terminal target width the footer must fit within (stricter than the
 # 120-col checks earlier stories used).
 STANDARD_WIDTH = 80
@@ -35,10 +33,7 @@ def _make_app() -> TranscriberApp:
     container = MagicMock()
     container.sessions.list.return_value = []
     container.settings.ensure_data_dir.return_value = None
-    store = Store(state=initial_app_state())
-    controller = TuiController(store=store, container=container, settings=Settings())
-    store.register_effects(controller.handle)
-    return TranscriberApp(store=store, container=container, controller=controller)
+    return make_tui_app(container)
 
 
 # --- pure catalog invariants -------------------------------------------------

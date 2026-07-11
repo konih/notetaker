@@ -23,25 +23,25 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
 import pytest
 from live_meeting_transcriber.application.container import Container
-from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.models import MeetingSession, TranscriptSegment
-from live_meeting_transcriber.storage.repositories import (
-    SqliteDiarizationRepository,
-    SqliteMeetingSessionRepository,
-    SqliteTranscriptRepository,
-)
-from live_meeting_transcriber.storage.sqlite import open_connection
 from live_meeting_transcriber.ui.effects.controller import TuiController
 from live_meeting_transcriber.ui.state import actions as act
 from live_meeting_transcriber.ui.state.model import initial_app_state
 from live_meeting_transcriber.ui.state.reducer import reduce
 from live_meeting_transcriber.ui.state.store import Store
 from live_meeting_transcriber.ui.tui.rendering import build_deck_markup
+
+from tests.unit.conftest import (
+    build_sqlite_container,
+    make_mock_tui_container,
+    make_tui_harness,
+    spy_dispatch,
+    sqlite_test_settings,
+)
 
 
 def _t() -> datetime:
@@ -209,30 +209,6 @@ def test_deck_is_quiet_when_no_finalize_activity() -> None:
 # --------------------------------------------------------------------------
 
 
-def _settings(tmp_path: Path) -> Settings:
-    db = tmp_path / "feedback_test.sqlite3"
-    return Settings(database_url=f"sqlite:////{db}")
-
-
-def _container(settings: Settings) -> Container:
-    conn = open_connection(settings.database_url)
-    return Container(
-        settings=settings,
-        _conn=conn,
-        devices=None,  # type: ignore[arg-type]
-        audio=None,  # type: ignore[arg-type]
-        transcriber=None,  # type: ignore[arg-type]
-        summarizer=None,  # type: ignore[arg-type]
-        diarizer=None,  # type: ignore[arg-type]
-        diarization_segments=SqliteDiarizationRepository(conn),
-        sessions=SqliteMeetingSessionRepository(conn),
-        transcripts=SqliteTranscriptRepository(conn),
-        summaries=None,  # type: ignore[arg-type]
-        people=None,  # type: ignore[arg-type]
-        session_speakers=None,  # type: ignore[arg-type]
-    )
-
-
 def _seed_session(container: Container, *, title: str, speaker: str) -> UUID:
     session = MeetingSession(title=title)
     container.sessions.create(session)
@@ -246,18 +222,6 @@ def _seed_session(container: Container, *, title: str, speaker: str) -> UUID:
         )
     )
     return session.id
-
-
-def _spy_dispatch(store: Store) -> list[act.Action]:
-    dispatched: list[act.Action] = []
-    original = store.dispatch
-
-    def spy(action: act.Action) -> None:
-        dispatched.append(action)
-        original(action)
-
-    store.dispatch = spy  # type: ignore[method-assign]
-    return dispatched
 
 
 async def _cancel(task: asyncio.Task[None] | None) -> None:
@@ -274,12 +238,12 @@ async def _cancel(task: asyncio.Task[None] | None) -> None:
 async def test_controller_emits_queued_started_progress_succeeded(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    settings = _settings(tmp_path)
-    container = _container(settings)
+    settings = sqlite_test_settings(tmp_path)
+    container = build_sqlite_container(settings)
     sid = _seed_session(container, title="Team weekly", speaker="unknown")
     store = Store()
     controller = TuiController(store=store, container=container, settings=settings)
-    dispatched = _spy_dispatch(store)
+    dispatched = spy_dispatch(store)
 
     async def fake_finalize_offline(*, progress: object = None, **kwargs: object) -> int:
         assert callable(progress), "TUI must wire the progress callback"
@@ -317,12 +281,12 @@ async def test_controller_emits_queued_started_progress_succeeded(
 async def test_controller_success_reports_labelled_speakers(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    settings = _settings(tmp_path)
-    container = _container(settings)
+    settings = sqlite_test_settings(tmp_path)
+    container = build_sqlite_container(settings)
     sid = _seed_session(container, title="Labelled", speaker="unknown")
     store = Store()
     controller = TuiController(store=store, container=container, settings=settings)
-    dispatched = _spy_dispatch(store)
+    dispatched = spy_dispatch(store)
 
     async def fake_finalize_offline(*, session_id: UUID, **kwargs: object) -> int:
         container.transcripts.append(
@@ -358,12 +322,12 @@ async def test_controller_success_reports_labelled_speakers(
 async def test_controller_failure_emits_finalize_failed_pointing_at_logs(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    settings = _settings(tmp_path)
-    container = _container(settings)
+    settings = sqlite_test_settings(tmp_path)
+    container = build_sqlite_container(settings)
     sid = _seed_session(container, title="Broken", speaker="unknown")
     store = Store()
     controller = TuiController(store=store, container=container, settings=settings)
-    dispatched = _spy_dispatch(store)
+    dispatched = spy_dispatch(store)
 
     async def fake_finalize_offline(**kwargs: object) -> int:
         raise RuntimeError("bad value(s) in fds_to_keep")
@@ -394,8 +358,8 @@ async def test_controller_duplicate_enqueue_tells_the_user(
     # Pressing Speaker ID for a meeting that is already queued/running was a
     # silent no-op — exactly what the operator hit when startup recovery had
     # already queued the same session. It must say so now.
-    settings = _settings(tmp_path)
-    container = _container(settings)
+    settings = sqlite_test_settings(tmp_path)
+    container = build_sqlite_container(settings)
     sid = _seed_session(container, title="Dup", speaker="unknown")
     store = Store()
     controller = TuiController(store=store, container=container, settings=settings)
@@ -413,7 +377,7 @@ async def test_controller_duplicate_enqueue_tells_the_user(
 
     try:
         controller._enqueue_finalize(sid)
-        dispatched = _spy_dispatch(store)
+        dispatched = spy_dispatch(store)
         controller._enqueue_finalize(sid)  # duplicate while queued/running
         assert any(
             isinstance(a, act.NoticeRaised) and "already" in a.message.lower() for a in dispatched
@@ -428,30 +392,14 @@ async def test_controller_duplicate_enqueue_tells_the_user(
 # --------------------------------------------------------------------------
 
 
-def _mock_container(tmp_path: Path, session: MeetingSession) -> MagicMock:
-    container = MagicMock()
-    container.sessions.list.return_value = [session]
-    container.sessions.get.return_value = session
-    container.summaries.get_by_session.return_value = None
-    container.transcripts.list_by_session.return_value = []
-    container.session_speakers.get_map.return_value = {}
-    container.settings.ensure_data_dir.return_value = tmp_path
-    container.devices.list_sources.return_value = [object()]
-    return container
-
-
 async def test_deck_widget_shows_finalize_progress_and_completion_without_quit(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    from live_meeting_transcriber.ui.tui.app import TranscriberApp
     from textual.widgets import Static
 
     session = MeetingSession(id=uuid4(), title="Ops review")
-    container = _mock_container(tmp_path, session)
-    store = Store(state=initial_app_state())
-    controller = TuiController(store=store, container=container, settings=Settings())
-    store.register_effects(controller.handle)
-    app = TranscriberApp(store=store, container=container, controller=controller)
+    container = make_mock_tui_container(tmp_path, [session])
+    app, store, controller = make_tui_harness(container)
 
     release = asyncio.Event()
 

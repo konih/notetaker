@@ -3,13 +3,13 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 from uuid import uuid4
 
-from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.models import MeetingSession
-from live_meeting_transcriber.ui.effects.controller import TuiController
 from live_meeting_transcriber.ui.state.model import initial_app_state
 from live_meeting_transcriber.ui.state.store import Store
 from live_meeting_transcriber.ui.tui.app import NameSpeakersScreen, TranscriberApp
 from live_meeting_transcriber.ui.tui.tab_complete_input import TabCompletableInput
+
+from tests.unit.conftest import make_tui_app
 
 
 def _app_with_live_session(
@@ -25,19 +25,15 @@ def _app_with_live_session(
     container.sessions.update_details.return_value = existing.model_copy(
         update={"title": "Weekly standup", "notes": "Agenda", "attendees": ["Alice", "Bob"]}
     )
-    store = Store(
-        state=initial_app_state().model_copy(
-            update={
-                "current_session_id": sid,
-                "session_title": "Meeting 2026-07-08",
-                "diarization_detected_speakers": detected_speakers,
-                "speaker_aliases": speaker_aliases or {},
-            }
-        )
+    app = make_tui_app(
+        container,
+        state_updates={
+            "current_session_id": sid,
+            "session_title": "Meeting 2026-07-08",
+            "diarization_detected_speakers": detected_speakers,
+            "speaker_aliases": speaker_aliases or {},
+        },
     )
-    controller = TuiController(store=store, container=container, settings=Settings())
-    store.register_effects(controller.handle)
-    app = TranscriberApp(store=store, container=container, controller=controller)
     return app, container
 
 

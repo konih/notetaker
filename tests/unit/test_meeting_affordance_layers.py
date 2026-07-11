@@ -20,14 +20,9 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from unittest.mock import MagicMock
 from uuid import uuid4
 
-from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.models import MeetingSession
-from live_meeting_transcriber.ui.effects.controller import TuiController
-from live_meeting_transcriber.ui.state.model import initial_app_state
-from live_meeting_transcriber.ui.state.store import Store
 from live_meeting_transcriber.ui.tui.app import TranscriberApp
 from live_meeting_transcriber.ui.tui.footer_bindings import FOOTER_ACTIONS
 from live_meeting_transcriber.ui.tui.help_overlay import build_help_sections
@@ -39,29 +34,12 @@ from live_meeting_transcriber.ui.tui.meeting_toolbar import (
 from textual.binding import Binding
 from textual.widgets import Static, TabbedContent
 
+from tests.unit.conftest import make_mock_tui_container, make_tui_app
+
 
 def _plain(markup: str) -> str:
     """Strip console markup tags so hints can be matched as plain text."""
     return re.sub(r"\[/?[^\[\]]*\]", "", markup)
-
-
-def _make_app(container: MagicMock) -> TranscriberApp:
-    store = Store(state=initial_app_state())
-    controller = TuiController(store=store, container=container, settings=Settings())
-    store.register_effects(controller.handle)
-    return TranscriberApp(store=store, container=container, controller=controller)
-
-
-def _mock_container(tmp_path: Path, session: MeetingSession) -> MagicMock:
-    container = MagicMock()
-    container.sessions.list.return_value = [session]
-    container.sessions.get.return_value = session
-    container.summaries.get_by_session.return_value = None
-    container.transcripts.list_by_session.return_value = []
-    container.session_speakers.get_map.return_value = {}
-    container.settings.ensure_data_dir.return_value = tmp_path
-    container.devices.list_sources.return_value = [object()]
-    return container
 
 
 async def _meetings_header_plain(app: TranscriberApp, pilot) -> str:  # type: ignore[no-untyped-def]
@@ -82,7 +60,7 @@ async def test_header_no_longer_duplicates_action_hints(tmp_path: Path) -> None:
     every one of them.
     """
     session = MeetingSession(id=uuid4(), title="Weekly sync")
-    app = _make_app(_mock_container(tmp_path, session))
+    app = make_tui_app(make_mock_tui_container(tmp_path, [session]))
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
         header = await _meetings_header_plain(app, pilot)
@@ -104,7 +82,7 @@ async def test_header_is_single_line_even_at_80_cols(tmp_path: Path) -> None:
     second line of clutter on top of the toolbar.
     """
     session = MeetingSession(id=uuid4(), title="Weekly sync")
-    app = _make_app(_mock_container(tmp_path, session))
+    app = make_tui_app(make_mock_tui_container(tmp_path, [session]))
     async with app.run_test(size=(80, 40)) as pilot:
         await pilot.pause()
         app.query_one(TabbedContent).active = "tab-meetings"

@@ -15,18 +15,15 @@ from the Meetings tab without the CLI.
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock
 from uuid import uuid4
 
-from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.models import MeetingSession
-from live_meeting_transcriber.ui.effects.controller import TuiController
-from live_meeting_transcriber.ui.state.model import initial_app_state
-from live_meeting_transcriber.ui.state.store import Store
 from live_meeting_transcriber.ui.tui.app import TranscriberApp
 from live_meeting_transcriber.ui.tui.meeting_browser import MeetingBrowser
 from live_meeting_transcriber.ui.tui.meeting_toolbar import primary_toolbar_actions
 from textual.widgets import TabbedContent
+
+from tests.unit.conftest import make_mock_tui_container, make_tui_app
 
 # Keys that terminals collapse onto a differently-named key (no kitty protocol),
 # so a Binding on them silently never fires. ctrl+i→Tab is the one that bit us.
@@ -71,28 +68,9 @@ def test_speaker_id_is_a_visible_toolbar_button() -> None:
 # --- real Pilot: the shortcut fires and Tab does not -----------------------
 
 
-def _make_app(container: MagicMock) -> TranscriberApp:
-    store = Store(state=initial_app_state())
-    controller = TuiController(store=store, container=container, settings=Settings())
-    store.register_effects(controller.handle)
-    return TranscriberApp(store=store, container=container, controller=controller)
-
-
-def _mock_container(tmp_path: Path, session: MeetingSession) -> MagicMock:
-    container = MagicMock()
-    container.sessions.list.return_value = [session]
-    container.sessions.get.return_value = session
-    container.summaries.get_by_session.return_value = None
-    container.transcripts.list_by_session.return_value = []
-    container.session_speakers.get_map.return_value = {}
-    container.settings.ensure_data_dir.return_value = tmp_path
-    container.devices.list_sources.return_value = [object()]
-    return container
-
-
 async def test_speaker_id_shortcut_reaches_finalize_and_tab_does_not(tmp_path: Path) -> None:
     session = MeetingSession(id=uuid4(), title="Past meeting")
-    app = _make_app(_mock_container(tmp_path, session))
+    app = make_tui_app(make_mock_tui_container(tmp_path, [session]))
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
         app.query_one(TabbedContent).active = "tab-meetings"
