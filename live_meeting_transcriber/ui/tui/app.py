@@ -33,13 +33,13 @@ from textual.widgets import (
     TextArea,
 )
 
-from live_meeting_transcriber.application.cleanup_service import purge_session_artifacts
 from live_meeting_transcriber.application.container import (
     Container,
     ProviderSelectionError,
     build_container,
 )
 from live_meeting_transcriber.application.dual_path import dual_path_downgrade_reason
+from live_meeting_transcriber.application.session_search import fuzzy_match
 from live_meeting_transcriber.config.settings import (
     Settings,
     load_settings,
@@ -48,7 +48,12 @@ from live_meeting_transcriber.config.settings import (
 from live_meeting_transcriber.observability.logging import configure_logging
 from live_meeting_transcriber.ui.effects.controller import TuiController
 from live_meeting_transcriber.ui.state import actions as act
-from live_meeting_transcriber.ui.state.model import AppState, RecordingStatus, TranscriptLineState
+from live_meeting_transcriber.ui.state.model import (
+    AppState,
+    RecordingStatus,
+    SessionRowState,
+    TranscriptLineState,
+)
 from live_meeting_transcriber.ui.state.selectors import (
     build_audio_card_lines,
     build_pipeline_card_lines,
@@ -71,7 +76,6 @@ from live_meeting_transcriber.ui.tui.footer_bindings import (
 )
 from live_meeting_transcriber.ui.tui.meeting_browser import MeetingBrowser
 from live_meeting_transcriber.ui.tui.meeting_modals import (
-    ConfirmDeleteMeetingModal,
     ConfirmOverwriteExportModal,
     SummaryContextModal,
 )
@@ -406,43 +410,6 @@ class AudioSourcesScreen(ModalScreen[None]):
         self.dismiss()
 
 
-class EditSessionTitleScreen(ModalScreen[None]):
-    """Rename a stored session (SQLite)."""
-
-    BINDINGS = [Binding("escape", "cancel", "Cancel", show=True)]
-
-    def __init__(self, session_id: str, current_title: str) -> None:
-        super().__init__()
-        self.session_id = session_id
-        self.current_title = current_title
-
-    def compose(self) -> ComposeResult:
-        yield Vertical(
-            Static("Edit session title", classes="settings-title"),
-            Static("Enter: save   Esc: cancel"),
-            Input(value=self.current_title, id="title-input"),
-            classes="settings-dialog",
-        )
-
-    async def on_input_submitted(self, event: Input.Submitted) -> None:
-        app = self.app
-        assert isinstance(app, TranscriberApp)
-        title = event.value.strip()
-        if not title:
-            return
-        await app.store.dispatch_with_effects(
-            act.SessionTitleCommitRequested(
-                session_id=UUID(self.session_id),
-                new_title=title,
-                at=utc_now(),
-            )
-        )
-        self.dismiss()
-
-    def action_cancel(self) -> None:
-        self.dismiss()
-
-
 class NameSpeakersScreen(ModalScreen[None]):
     """Name detected speakers for the current live meeting.
 
@@ -550,30 +517,31 @@ class NameSpeakersScreen(ModalScreen[None]):
 
 
 class SessionsScreen(ModalScreen[None]):
-    """Browse and rename sessions from the local database."""
+    """Fuzzy "jump to meeting" picker (U11, UX-OQ-1).
+
+    The Meetings tab is the single canonical browsing/management surface; this modal only
+    finds a meeting fast and jumps there. ``c: copy id`` stays — the picker is the one
+    place a session UUID is retrievable by keyboard (U7).
+    """
 
     BINDINGS = [
         Binding("escape", "close", "Close", show=True),
-        Binding("r", "refresh", "Refresh", show=True),
-        Binding("e", "edit_title", "Edit title", show=True),
         Binding("c", "copy_id", "Copy ID", show=True),
-        Binding("d", "delete_selected", "Delete", show=True, priority=True),
     ]
 
     def __init__(self) -> None:
         super().__init__()
         self._row_ids: list[str] = []
+        self._filter = ""
         self._unsub: Callable[[], None] | None = None
 
     def compose(self) -> ComposeResult:
         yield Vertical(
-            Static("Sessions (local SQLite)", classes="settings-title"),
+            Static("Jump to meeting", classes="settings-title"),
+            Input(placeholder="Type to filter (fuzzy)…", id="sessions-filter"),
             DataTable(id="sessions-table", cursor_type="row", zebra_stripes=True),
             Static("", id="sessions-empty", classes="dim"),
-            Static(
-                "r: refresh   e: rename   c: copy id   d: delete selected   esc: close",
-                classes="hint",
-            ),
+            Static("enter: open in Meetings   c: copy id   esc: close", classes="hint"),
             classes="settings-dialog",
         )
 
@@ -584,16 +552,34 @@ class SessionsScreen(ModalScreen[None]):
         table.add_columns("Title", "Started", "Ended")
         self._unsub = app.store.subscribe(self._on_store)
         self._on_store(app.store.get_state())
+        self.query_one("#sessions-filter", Input).focus()
 
     def on_unmount(self) -> None:
         if self._unsub is not None:
             self._unsub()
 
+    def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id != "sessions-filter":
+            return
+        self._filter = event.value
+        app = self.app
+        assert isinstance(app, TranscriberApp)
+        self._on_store(app.store.get_state())
+
+    def _visible_rows(self, state: AppState) -> list[SessionRowState]:
+        q = self._filter.strip().lower()
+        if not q:
+            return list(state.sessions_catalog)
+        matched = [r for r in state.sessions_catalog if fuzzy_match(q, r.title)]
+        # Substring hits above looser subsequence hits; stable within each group.
+        matched.sort(key=lambda r: 0 if q in r.title.lower() else 1)
+        return matched
+
     def _on_store(self, state: AppState) -> None:
         table = self.query_one("#sessions-table", DataTable)
         table.clear()
         self._row_ids.clear()
-        for row in state.sessions_catalog:
+        for row in self._visible_rows(state):
             self._row_ids.append(row.id)
             ended = format_local_datetime(row.ended_at) if row.ended_at else "—"
             table.add_row(
@@ -602,9 +588,15 @@ class SessionsScreen(ModalScreen[None]):
                 ended,
                 key=row.id,
             )
-        # First-run/empty state: guide the user instead of showing an empty grid (U10).
+        # First-run/empty state: guide the user instead of showing an empty grid (U10);
+        # a filter that matches nothing says so explicitly (U11).
         empty = self.query_one("#sessions-empty", Static)
-        empty.update(SESSIONS_EMPTY_HINT if not state.sessions_catalog else "")
+        if not state.sessions_catalog:
+            empty.update(SESSIONS_EMPTY_HINT)
+        elif not self._row_ids:
+            empty.update(f"No meeting matches “{self._filter.strip()}”.")
+        else:
+            empty.update("")
 
     def _selected_row_id(self) -> str | None:
         table = self.query_one("#sessions-table", DataTable)
@@ -621,70 +613,26 @@ class SessionsScreen(ModalScreen[None]):
         self.app.copy_to_clipboard(sid)
         self.app.notify(f"Copied session ID: {sid}")
 
-    async def action_refresh(self) -> None:
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        if event.input.id != "sessions-filter":
+            return
+        # Enter in the filter jumps to the best (first visible) match.
+        if self._row_ids:
+            self._jump(self._row_ids[0])
+
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        if event.control.id != "sessions-table" or event.row_key.value is None:
+            return
+        self._jump(event.row_key.value)
+
+    def _jump(self, sid: str) -> None:
+        """Close the picker and open the meeting in the single home (Meetings tab)."""
         app = self.app
         assert isinstance(app, TranscriberApp)
-        await app.store.dispatch_with_effects(act.SessionsRefreshRequested(at=utc_now()))
-
-    async def action_edit_title(self) -> None:
-        table = self.query_one("#sessions-table", DataTable)
-        coord = table.cursor_coordinate
-        if coord is None or coord.row < 0 or coord.row >= len(self._row_ids):
-            return
-        sid = self._row_ids[coord.row]
-        app = self.app
-        assert isinstance(app, TranscriberApp)
-        row = next((r for r in app.store.get_state().sessions_catalog if r.id == sid), None)
-        if row is None:
-            return
-        self.app.push_screen(EditSessionTitleScreen(sid, row.title))
-
-    async def action_delete_selected(self) -> None:
-        table = self.query_one("#sessions-table", DataTable)
-        coord = table.cursor_coordinate
-        if coord is None or coord.row < 0 or coord.row >= len(self._row_ids):
-            self.app.notify("Select a session row first.", severity="warning")
-            return
-        sid_str = self._row_ids[coord.row]
-        sid = UUID(sid_str)
-        app = self.app
-        assert isinstance(app, TranscriberApp)
-        st = app.store.get_state()
-        if st.current_session_id == sid and st.recording_status in (
-            RecordingStatus.starting,
-            RecordingStatus.recording,
-            RecordingStatus.stopping,
-        ):
-            self.app.notify(
-                "Cannot delete the session while recording is in progress.", severity="error"
-            )
-            return
-        row = next((r for r in st.sessions_catalog if r.id == sid_str), None)
-        title = (row.title.strip() if row else "") or sid_str[:8] + "…"
-        await self.app.push_screen(
-            ConfirmDeleteMeetingModal(title=title, session_id=sid),
-            callback=functools.partial(self._after_sessions_delete_confirm, sid),
-        )
-
-    def _after_sessions_delete_confirm(self, sid: UUID, confirmed: bool | None) -> None:
-        if not confirmed:
-            return
-        self.run_worker(self._execute_sessions_delete(sid), exclusive=True)
-
-    async def _execute_sessions_delete(self, sid: UUID) -> None:
-        app = self.app
-        assert isinstance(app, TranscriberApp)
-        removed = app.container.sessions.delete(sid)
-        if removed:
-            purge_session_artifacts(
-                app.container.settings.ensure_data_dir(),
-                sid,
-                dry_run=False,
-            )
-            self.app.notify("Session deleted.")
-        else:
-            self.app.notify("Session was already removed.", severity="warning")
-        await app.store.dispatch_with_effects(act.SessionsRefreshRequested(at=utc_now()))
+        app.store.dispatch(act.SessionsScreenClosed(at=utc_now()))
+        self.dismiss()
+        app.query_one(TabbedContent).active = "tab-meetings"
+        app.query_one("#meeting-browser", MeetingBrowser).select_session(UUID(sid))
 
     def action_close(self) -> None:
         app = self.app
@@ -751,12 +699,13 @@ class TranscriberApp(App[None]):
     /* ---- Meetings tab ---------------------------------------------------- */
     #meeting-browser { height: 1fr; padding: 1 1 0 1; }
     #meeting-browser-split { height: 1fr; min-height: 8; }
+    #meeting-list-pane { width: 48; min-width: 30; margin-right: 1; }
+    #meeting-filter { margin-bottom: 0; }
     #meeting-sessions-table {
-        width: 48; min-width: 30;
+        width: 1fr; height: 1fr;
         border: round $primary 35%;
         border-title-color: $secondary;
         border-title-style: bold;
-        margin-right: 1;
     }
     #meeting-browser-detail {
         height: 1fr; min-height: 8;

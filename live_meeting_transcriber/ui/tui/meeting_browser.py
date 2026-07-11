@@ -8,7 +8,17 @@ from rich.text import Text
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.widgets import Button, ContentSwitcher, DataTable, Static, Tab, Tabs, TextArea
+from textual.message import Message
+from textual.widgets import (
+    Button,
+    ContentSwitcher,
+    DataTable,
+    Input,
+    Static,
+    Tab,
+    Tabs,
+    TextArea,
+)
 
 from live_meeting_transcriber.application.cleanup_service import purge_session_artifacts
 from live_meeting_transcriber.application.container import Container
@@ -16,6 +26,7 @@ from live_meeting_transcriber.application.session_media import (
     collect_session_media,
     format_session_media_inventory,
 )
+from live_meeting_transcriber.application.session_search import apply_session_query
 from live_meeting_transcriber.application.session_service import SessionService
 from live_meeting_transcriber.application.video_import_service import VideoImportProgress
 from live_meeting_transcriber.domain.models import Summary, TranscriptSegment
@@ -67,6 +78,18 @@ from live_meeting_transcriber.utils.time import utc_now
 _SUMMARIZE_KEY = footer_key("summarize")
 
 
+class MeetingFilterInput(Input):
+    """The Meetings-tab filter box; Escape clears it and hands focus back (U17)."""
+
+    class Cleared(Message):
+        """Posted when the user dismisses the filter with Escape."""
+
+    BINDINGS = [Binding("escape", "dismiss_filter", "Clear filter", show=False)]
+
+    def action_dismiss_filter(self) -> None:
+        self.post_message(self.Cleared())
+
+
 def _format_summary_for_editor(summary: Summary | None) -> str:
     if summary is None:
         return f"— No summary yet. Press {_SUMMARIZE_KEY} to generate. —"
@@ -112,6 +135,9 @@ class MeetingBrowser(Vertical):
         Binding("p", "slide_preview", "Slide preview", show=False, priority=True),
         Binding("ctrl+v", "import_video", "Import video", show=True, priority=True),
         Binding("m", "show_more_menu", "More actions", show=True, priority=True),
+        # U17: `/` jumps to the filter box (non-priority so it still types into the
+        # title/notes/attendees inputs when one of them is focused).
+        Binding("/", "focus_filter", "Filter meetings", show=False),
     ]
 
     def __init__(self, *, container: Container, store: Store) -> None:
@@ -121,6 +147,7 @@ class MeetingBrowser(Vertical):
         self._prefix_suggester = PeoplePrefixSuggester(container.people)
         self._comma_suggester = CommaSeparatedPeopleSuggester(container.people)
         self._selected_session_id: UUID | None = None
+        self._filter_query = ""
         self._segments: list[TranscriptSegment] = []
         self._transcript_row_ids: list[str] = []
         self._speaker_keys: list[str] = []
@@ -145,7 +172,12 @@ class MeetingBrowser(Vertical):
                 yield Button(action.label, id=action.button_id, variant=action.variant)  # type: ignore[arg-type]
             yield Button("More…", id=MORE_BUTTON_ID)
         with Horizontal(id="meeting-browser-split"):
-            yield DataTable(id="meeting-sessions-table", cursor_type="row", zebra_stripes=True)
+            with Vertical(id="meeting-list-pane"):
+                yield MeetingFilterInput(
+                    placeholder="/ filter — text · after:2026-01-31 · before:2026-12-24",
+                    id="meeting-filter",
+                )
+                yield DataTable(id="meeting-sessions-table", cursor_type="row", zebra_stripes=True)
             with Vertical(id="meeting-browser-detail"):
                 yield Static("No meeting selected.", id="meeting-detail-status")
                 yield Tabs(
@@ -239,8 +271,9 @@ class MeetingBrowser(Vertical):
         data_dir = self.container.settings.ensure_data_dir()
         active_session_id = self.store.get_state().current_session_id
         now = utc_now()
+        sessions = apply_session_query(self.container.sessions.list(), self._filter_query)
         table.clear()
-        for s in self.container.sessions.list():
+        for s in sessions:
             is_video = session_is_video_import(data_dir, s.id)
             glyph, style, title, started = meeting_row_cells(
                 s, is_video=is_video, active_session_id=active_session_id, now=now
@@ -251,16 +284,70 @@ class MeetingBrowser(Vertical):
                 Text(started, style="dim"),
                 key=str(s.id),
             )
-        if selected:
-            for i, s in enumerate(self.container.sessions.list()):
-                if str(s.id) == selected:
-                    table.move_cursor(row=i)
-                    break
-        # First-run/empty state: no meetings → guide the user instead of leaving the
-        # detail pane showing a bare "No meeting selected." (U10). A row selection
-        # overwrites this via _load_detail.
-        if table.row_count == 0:
-            self.query_one("#meeting-detail-status", Static).update(MEETINGS_EMPTY_HINT)
+        visible_ids = [str(s.id) for s in sessions]
+        if selected and selected in visible_ids:
+            table.move_cursor(row=visible_ids.index(selected))
+        elif selected:
+            # The selected meeting was filtered out — keep list and detail in sync
+            # (U17): fall to the first visible row, or clear the detail pane.
+            self._selected_session_id = None
+            if table.row_count > 0:
+                table.move_cursor(row=0)
+            else:
+
+                async def _clear_then_hint() -> None:
+                    await self._clear_detail()
+                    self._update_empty_status()
+
+                self.run_worker(_clear_then_hint(), exclusive=True)
+        self._update_empty_status()
+
+    def _update_empty_status(self) -> None:
+        """Empty-table guidance: first-run hint (U10) or an explicit no-match state (U17)."""
+        if self.query_one("#meeting-sessions-table", DataTable).row_count > 0:
+            return
+        status = self.query_one("#meeting-detail-status", Static)
+        if self._filter_query.strip():
+            status.update(
+                f"No meetings match “{self._filter_query.strip()}” — esc clears the filter."
+            )
+        else:
+            status.update(MEETINGS_EMPTY_HINT)
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id != "meeting-filter":
+            return
+        self._filter_query = event.value
+        self.refresh_session_list(preserve_selection=True)
+
+    def on_meeting_filter_input_cleared(self, _event: MeetingFilterInput.Cleared) -> None:
+        filter_input = self.query_one("#meeting-filter", Input)
+        filter_input.value = ""  # triggers Input.Changed → refresh
+        self.query_one("#meeting-sessions-table", DataTable).focus()
+
+    def action_focus_filter(self) -> None:
+        self.query_one("#meeting-filter", Input).focus()
+
+    def select_session(self, session_id: UUID) -> None:
+        """Move the cursor to ``session_id``, clearing the filter if it hides it (U11)."""
+        table = self.query_one("#meeting-sessions-table", DataTable)
+        key = str(session_id)
+
+        def _row_index() -> int | None:
+            for i, row_key in enumerate(table.rows):
+                if row_key.value == key:
+                    return i
+            return None
+
+        idx = _row_index()
+        if idx is None and self._filter_query:
+            self._filter_query = ""
+            self.query_one("#meeting-filter", Input).value = ""
+            self.refresh_session_list()
+            idx = _row_index()
+        if idx is not None:
+            table.move_cursor(row=idx)
+            table.focus()
 
     async def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
         if event.control.id != "meeting-sessions-table":
