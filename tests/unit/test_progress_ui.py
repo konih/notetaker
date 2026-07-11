@@ -90,9 +90,12 @@ def test_finalize_stages_ladder_matches_pipeline_order() -> None:
         ("Loading diarization model on 'cpu' (HF token required)…", "diarize"),
         ("Running speaker diarization…", "diarize"),
         ("Assigning speakers to words…", "diarize"),
-        # Compute is over → what remains is the persist step (no callback fires for it).
+        # Compute is over → what remains is the persist step. "WhisperX pass
+        # complete" is the pipeline's LAST callback, emitted after these on both
+        # the token and no-token paths — it must not read as an earlier stage.
         ("Diarization finished.", "persist"),
         ("Skipping diarization (no HF_TOKEN).", "persist"),
+        ("WhisperX pass complete (128 segment(s)).", "persist"),
     ],
 )
 def test_stage_index_classifies_real_pipeline_messages(message: str, expected_stage: str) -> None:
@@ -107,18 +110,99 @@ def test_stage_index_unknown_or_missing_message_maps_to_load() -> None:
     assert select_finalize_stage_index("???") == 0
 
 
-def test_stage_index_is_monotonic_over_a_full_run() -> None:
-    run = [
-        "Loading full-session WAV into memory…",
-        "Transcribing (this can take several minutes)…",
-        "Aligning word timestamps…",
-        "Running speaker diarization…",
-        "Diarization finished.",
-    ]
+# Every progress string run_whisperx_finalize emits, in true emission order
+# (grep `_progress_step` in offline/whisperx_pipeline.py). Two real paths:
+# HF token + alignment, and the no-token fallback.
+_FULL_RUN_HF = (
+    "Loading full-session WAV into memory…",
+    "Loading Whisper model 'small' on 'cpu' (compute='int8')…",
+    "Transcribing (this can take several minutes)…",
+    "Transcribe done (42 raw segment(s)); unloading model…",
+    "Loading alignment model for language='en' on 'cpu'…",
+    "Aligning word timestamps…",
+    "Alignment finished.",
+    "Loading diarization model on 'cpu' (HF token required)…",
+    "Running speaker diarization…",
+    "Assigning speakers to words…",
+    "Diarization finished.",
+    "WhisperX pass complete (42 segment(s)).",
+)
+_FULL_RUN_NO_TOKEN = (
+    "Loading full-session WAV into memory…",
+    "Loading Whisper model 'small' on 'cpu' (compute='int8')…",
+    "Transcribing (this can take several minutes)…",
+    "Transcribe done (42 raw segment(s)); unloading model…",
+    "Loading alignment model for language='en' on 'cpu'…",
+    "Aligning word timestamps…",
+    "Alignment finished.",
+    "Skipping diarization (no HF_TOKEN).",
+    "WhisperX pass complete (42 segment(s)).",
+)
+
+
+@pytest.mark.parametrize("run", [_FULL_RUN_HF, _FULL_RUN_NO_TOKEN], ids=["hf-token", "no-token"])
+def test_stage_index_is_monotonic_over_a_true_full_run(run: tuple[str, ...]) -> None:
     indices = [select_finalize_stage_index(m) for m in run]
-    assert indices == sorted(indices)
+    assert indices == sorted(indices), list(zip(run, indices, strict=True))
     assert indices[0] == 0
     assert indices[-1] == len(FINALIZE_STAGES) - 1
+
+
+@pytest.mark.parametrize("run", [_FULL_RUN_HF, _FULL_RUN_NO_TOKEN], ids=["hf-token", "no-token"])
+def test_reducer_stage_index_never_moves_backwards_over_a_true_full_run(
+    run: tuple[str, ...],
+) -> None:
+    sid = uuid4()
+    state = reduce(
+        initial_app_state(),
+        act.FinalizeSessionStarted(session_id=sid, title="Weekly sync", at=_NOW),
+    )
+    seen: list[int] = [state.finalize_stage_index]
+    for message in run:
+        state = reduce(
+            state, act.FinalizeProgressUpdated(session_id=sid, stage=message, at=_NOW)
+        )
+        seen.append(state.finalize_stage_index)
+    assert seen == sorted(seen), list(zip(("<start>", *run), seen, strict=True))
+    assert seen[-1] == len(FINALIZE_STAGES) - 1
+
+
+def test_reducer_stage_index_holds_high_water_mark_on_unknown_wording() -> None:
+    # Future pipeline wording drift must degrade to "bar holds", never "bar resets".
+    sid = uuid4()
+    state = reduce(
+        initial_app_state(),
+        act.FinalizeSessionStarted(session_id=sid, title="Weekly sync", at=_NOW),
+    )
+    state = reduce(
+        state,
+        act.FinalizeProgressUpdated(session_id=sid, stage="Running speaker diarization…", at=_NOW),
+    )
+    assert state.finalize_stage_index == 3
+    state = reduce(
+        state, act.FinalizeProgressUpdated(session_id=sid, stage="Wrapping up…", at=_NOW)
+    )
+    assert state.finalize_stage_index == 3, "unrecognized message must not run the bar backwards"
+
+
+def test_reducer_new_job_resets_stage_index() -> None:
+    sid = uuid4()
+    state = reduce(
+        initial_app_state(),
+        act.FinalizeSessionStarted(session_id=sid, title="A", at=_NOW),
+    )
+    state = reduce(
+        state,
+        act.FinalizeProgressUpdated(session_id=sid, stage="Diarization finished.", at=_NOW),
+    )
+    state = reduce(
+        state,
+        act.FinalizeSessionSucceeded(
+            session_id=sid, segment_count=1, live_lines=None, at=_NOW, speakers_labelled=True
+        ),
+    )
+    state = reduce(state, act.FinalizeSessionStarted(session_id=uuid4(), title="B", at=_NOW))
+    assert state.finalize_stage_index == 0, "the next job must start with a fresh bar"
 
 
 # --------------------------------------------------------------------------
@@ -177,6 +261,41 @@ def test_deck_persisted_outcome_has_no_stage_bar() -> None:
     markup = finalize_deck_markup(state)
     assert markup is not None
     assert "▰" not in _plain(markup), "finished job shows the outcome, not a stuck bar"
+
+
+def test_deck_bar_stays_full_through_the_terminal_pass_complete_message() -> None:
+    sid = uuid4()
+    state = reduce(
+        initial_app_state(),
+        act.FinalizeSessionStarted(session_id=sid, title="Weekly sync", at=_NOW),
+    )
+    for message in _FULL_RUN_HF:
+        state = reduce(
+            state, act.FinalizeProgressUpdated(session_id=sid, stage=message, at=_NOW)
+        )
+        markup = finalize_deck_markup(state)
+        assert markup is not None
+    # The last two messages ("Diarization finished.", "WhisperX pass complete…")
+    # both render a full bar — the persist window must not collapse to load.
+    assert "▰▰▰▰▰" in _plain(markup)
+
+
+def test_deck_truncates_long_stage_text_so_queued_count_survives() -> None:
+    sid = uuid4()
+    state = initial_app_state()
+    state = reduce(state, act.FinalizeSessionQueued(session_id=sid, title="A", at=_NOW))
+    state = reduce(state, act.FinalizeSessionStarted(session_id=sid, title="A", at=_NOW))
+    state = reduce(state, act.FinalizeSessionQueued(session_id=uuid4(), title="B", at=_NOW))
+    long_stage = "Loading Whisper model 'large-v3-turbo' on 'cpu' (compute='int8')…"
+    state = reduce(
+        state, act.FinalizeProgressUpdated(session_id=sid, stage=long_stage, at=_NOW)
+    )
+    markup = finalize_deck_markup(state)
+    assert markup is not None
+    plain = _plain(markup)
+    assert "1 queued" in plain
+    assert long_stage not in plain, "raw stage text must be truncated in the deck"
+    assert "Loading Whisper model" in plain, "truncation keeps the informative prefix"
 
 
 # --------------------------------------------------------------------------
