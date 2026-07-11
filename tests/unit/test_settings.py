@@ -50,7 +50,7 @@ def test_log_level_stripped_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_effective_screenshots_source_dir_macos_defaults_to_desktop(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    monkeypatch.setattr("live_meeting_transcriber.config.settings.sys.platform", "darwin")
+    monkeypatch.setattr("live_meeting_transcriber.config.sections.obsidian.sys.platform", "darwin")
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
     s = Settings(openai_api_key="k", database_url="sqlite:////tmp/t.db")
     assert s.effective_screenshots_source_dir() == (tmp_path / "Desktop").resolve()
@@ -59,7 +59,7 @@ def test_effective_screenshots_source_dir_macos_defaults_to_desktop(
 def test_effective_screenshots_source_dir_linux_defaults_to_pictures(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    monkeypatch.setattr("live_meeting_transcriber.config.settings.sys.platform", "linux")
+    monkeypatch.setattr("live_meeting_transcriber.config.sections.obsidian.sys.platform", "linux")
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
     s = Settings(openai_api_key="k", database_url="sqlite:////tmp/t.db")
     assert s.effective_screenshots_source_dir() == (tmp_path / "Pictures" / "Screenshots").resolve()
@@ -68,7 +68,7 @@ def test_effective_screenshots_source_dir_linux_defaults_to_pictures(
 def test_effective_screenshots_source_dir_explicit_override_wins(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    monkeypatch.setattr("live_meeting_transcriber.config.settings.sys.platform", "darwin")
+    monkeypatch.setattr("live_meeting_transcriber.config.sections.obsidian.sys.platform", "darwin")
     custom = tmp_path / "my-shots"
     s = Settings(
         openai_api_key="k",
