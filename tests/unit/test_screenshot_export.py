@@ -6,6 +6,7 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
+from live_meeting_transcriber.application.dual_export import write_dual_export
 from live_meeting_transcriber.application.screenshot_export import (
     export_screenshot_basename,
     list_session_screenshots,
@@ -16,7 +17,7 @@ from live_meeting_transcriber.application.screenshot_export import (
     slide_captured_utc_from_manifest_item,
 )
 from live_meeting_transcriber.domain.models import MeetingSession, TranscriptSegment
-from live_meeting_transcriber.obsidian.meeting_export import write_dual_export
+from live_meeting_transcriber.obsidian.meeting_export import ObsidianMeetingNoteRenderer
 
 
 def test_export_screenshot_basename_deterministic_index(tmp_path: Path) -> None:
@@ -206,8 +207,7 @@ def test_write_dual_export_copies_screenshots(
         segments=[seg],
         summary=None,
         speaker_display=None,
-        obsidian_meetings_dir=meetings,
-        obsidian_meeting_template=tpl,
+        note_renderer=ObsidianMeetingNoteRenderer(meetings_dir=meetings, template_path=tpl),
         screenshots_source_dir=shot_dir,
         obsidian_screenshots_dir=vault / "Images" / "Screenshots",
     )
@@ -361,8 +361,7 @@ def test_write_dual_export_includes_video_slides_without_screenshots_dir(
         segments=[seg],
         summary=None,
         speaker_display=None,
-        obsidian_meetings_dir=None,
-        obsidian_meeting_template=None,
+        note_renderer=ObsidianMeetingNoteRenderer(meetings_dir=None, template_path=None),
         screenshots_source_dir=None,
     )
     text = result.app_path.read_text(encoding="utf-8")

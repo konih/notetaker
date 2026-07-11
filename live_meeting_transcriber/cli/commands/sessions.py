@@ -9,10 +9,12 @@ from uuid import UUID
 
 import typer
 
+from live_meeting_transcriber.application.dual_export import write_dual_export
 from live_meeting_transcriber.application.session_service import SessionService
 from live_meeting_transcriber.cli.deps import get_container
 from live_meeting_transcriber.diarization.labels import normalize_pyannote_speaker_label
-from live_meeting_transcriber.obsidian.meeting_export import ExportCancelledError, write_dual_export
+from live_meeting_transcriber.domain.exceptions import ExportCancelledError
+from live_meeting_transcriber.obsidian.meeting_export import ObsidianMeetingNoteRenderer
 
 
 def sessions(
@@ -118,8 +120,10 @@ def export(
             segments=segments,
             summary=summary,
             speaker_display=spk if spk else None,
-            obsidian_meetings_dir=c.settings.obsidian_meetings_dir,
-            obsidian_meeting_template=c.settings.obsidian_meeting_template,
+            note_renderer=ObsidianMeetingNoteRenderer(
+                meetings_dir=c.settings.obsidian_meetings_dir,
+                template_path=c.settings.obsidian_meeting_template,
+            ),
             screenshots_source_dir=c.settings.effective_screenshots_source_dir(),
             obsidian_screenshots_dir=c.settings.obsidian_screenshots_dir,
             confirm_overwrite=confirm_overwrite,

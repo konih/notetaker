@@ -10,6 +10,10 @@ from uuid import UUID
 import structlog
 
 from live_meeting_transcriber.application.container import Container
+from live_meeting_transcriber.application.dual_export import (
+    prepare_dual_export,
+    write_dual_export,
+)
 from live_meeting_transcriber.application.export_overwrite import export_content_identical
 from live_meeting_transcriber.application.recorder import Recorder
 from live_meeting_transcriber.application.session_service import SessionService
@@ -21,11 +25,8 @@ from live_meeting_transcriber.config.device_prefs import (
 )
 from live_meeting_transcriber.config.settings import Settings
 from live_meeting_transcriber.domain.application_events import ApplicationEvent
-from live_meeting_transcriber.obsidian.meeting_export import (
-    ExportCancelledError,
-    prepare_dual_export,
-    write_dual_export,
-)
+from live_meeting_transcriber.domain.exceptions import ExportCancelledError
+from live_meeting_transcriber.obsidian.meeting_export import ObsidianMeetingNoteRenderer
 from live_meeting_transcriber.ui.bridge import application_events_to_actions
 from live_meeting_transcriber.ui.state import actions as act
 from live_meeting_transcriber.ui.state.model import (
@@ -541,14 +542,17 @@ class TuiController:
             speaker_display = spk if spk else None
             data_dir = self.settings.ensure_data_dir()
             screenshots_source_dir = self.settings.effective_screenshots_source_dir()
+            note_renderer = ObsidianMeetingNoteRenderer(
+                meetings_dir=self.settings.obsidian_meetings_dir,
+                template_path=self.settings.obsidian_meeting_template,
+            )
             prepared = prepare_dual_export(
                 app_base_dir=data_dir,
                 session=session,
                 segments=segments,
                 summary=summary,
                 speaker_display=speaker_display,
-                obsidian_meetings_dir=self.settings.obsidian_meetings_dir,
-                obsidian_meeting_template=self.settings.obsidian_meeting_template,
+                note_renderer=note_renderer,
                 screenshots_source_dir=screenshots_source_dir,
                 obsidian_screenshots_dir=self.settings.obsidian_screenshots_dir,
             )
@@ -571,8 +575,7 @@ class TuiController:
                     segments=segments,
                     summary=summary,
                     speaker_display=speaker_display,
-                    obsidian_meetings_dir=self.settings.obsidian_meetings_dir,
-                    obsidian_meeting_template=self.settings.obsidian_meeting_template,
+                    note_renderer=note_renderer,
                     screenshots_source_dir=screenshots_source_dir,
                     obsidian_screenshots_dir=self.settings.obsidian_screenshots_dir,
                     confirm_overwrite=lambda _: True,
