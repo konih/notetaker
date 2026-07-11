@@ -16,7 +16,6 @@ from textual import events
 from textual.app import App, ComposeResult, SystemCommand
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.content import Content
 from textual.css.query import NoMatches
 from textual.screen import ModalScreen, Screen
 from textual.widget import Widget
@@ -25,7 +24,6 @@ from textual.widgets import (
     DataTable,
     DirectoryTree,
     Footer,
-    Header,
     Input,
     RichLog,
     Select,
@@ -52,10 +50,11 @@ from live_meeting_transcriber.ui.effects.controller import TuiController
 from live_meeting_transcriber.ui.state import actions as act
 from live_meeting_transcriber.ui.state.model import AppState, RecordingStatus, TranscriptLineState
 from live_meeting_transcriber.ui.state.selectors import (
-    build_live_status_lines,
+    build_audio_card_lines,
+    build_pipeline_card_lines,
+    build_session_card_lines,
     select_display_speaker,
     select_errors_compact_summary,
-    select_header_title,
     select_is_recording,
     select_transcript_timestamp,
     select_unacknowledged_errors,
@@ -80,6 +79,7 @@ from live_meeting_transcriber.ui.tui.people_suggesters import (
     CommaSeparatedPeopleSuggester,
     PeoplePrefixSuggester,
 )
+from live_meeting_transcriber.ui.tui.rendering import transcript_segment_text
 from live_meeting_transcriber.ui.tui.settings_edit import (
     PATH_SETTING_SPECS,
     PathKind,
@@ -91,7 +91,9 @@ from live_meeting_transcriber.ui.tui.settings_view import build_settings_section
 from live_meeting_transcriber.ui.tui.slide_preview_helpers import (
     ensure_textual_image_protocol_probe,
 )
+from live_meeting_transcriber.ui.tui.status_deck import StatusDeck
 from live_meeting_transcriber.ui.tui.tab_complete_input import TabCompletableInput
+from live_meeting_transcriber.ui.tui.theme import NOTETAKER_DARK
 from live_meeting_transcriber.utils.time import format_clock, format_local_datetime, utc_now
 
 
@@ -704,45 +706,111 @@ class TranscriberApp(App[None]):
     ]
 
     CSS = """
+    /* ---- global chrome ------------------------------------------------- */
+    Screen { background: $background; }
+    ModalScreen { align: center middle; }
     TabbedContent { height: 1fr; }
-    TabPane { height: 1fr; }
+    TabPane { height: 1fr; padding: 0; }
+    Tabs { background: $panel; }
+    Footer { background: $panel; }
+
+    /* ---- Live tab: hero transcript + card sidebar ----------------------- */
     #tab-live #main-row { height: 1fr; }
-    #sidebar { width: 46; min-width: 46; border: solid $primary; overflow-y: auto; }
-    #transcript { border: solid $accent; min-width: 40; }
-    #live-details { height: auto; margin: 0 0 1 0; padding: 0 1 1 1; border: round $accent; }
-    .field-label { text-style: bold; padding-top: 1; }
+    #sidebar {
+        width: 46; min-width: 46;
+        padding: 1 1 0 1;
+        overflow-y: auto;
+    }
+    .card {
+        height: auto;
+        border: round $primary 35%;
+        border-title-color: $secondary;
+        border-title-style: bold;
+        padding: 0 1;
+        margin-bottom: 1;
+    }
+    #transcript {
+        border: round $accent 45%;
+        border-title-color: $accent;
+        border-title-style: bold;
+        margin: 1 1 0 0;
+        padding: 0 1;
+        min-width: 40;
+    }
+    #transcript.-recording {
+        border: round $error 70%;
+        border-title-color: $error;
+    }
+    #live-details { height: auto; }
+    .field-label { text-style: bold; color: $secondary; padding-top: 1; }
     #live-attendees-summary { padding: 0 0 0 1; }
-    #live-notes { height: 7; min-height: 4; border: solid $boost; }
-    #status { height: auto; padding: 0 1; }
-    #notices { height: auto; padding: 0 1; border-top: solid $boost; text-style: italic; color: $success; }
-    #errors { height: auto; max-height: 20; overflow-y: auto; padding: 0 1; border-top: solid $boost; }
-    #meeting-browser { height: 1fr; }
+    #live-notes { height: 7; min-height: 4; border: tall $primary 20%; }
+    #notices { height: auto; padding: 0 1; text-style: italic; color: $success; }
+    #errors { height: auto; max-height: 20; overflow-y: auto; padding: 0 1; }
+
+    /* ---- Meetings tab ---------------------------------------------------- */
+    #meeting-browser { height: 1fr; padding: 1 1 0 1; }
     #meeting-browser-split { height: 1fr; min-height: 8; }
-    #meeting-sessions-table { width: 38; min-width: 28; }
-    #meeting-browser-detail { height: 1fr; min-height: 8; }
-    #meeting-notes { height: 7; min-height: 4; max-height: 12; }
-    #meeting-summary { height: 10; min-height: 5; max-height: 18; }
-    #meeting-transcript { height: 1fr; min-height: 8; }
+    #meeting-sessions-table {
+        width: 48; min-width: 30;
+        border: round $primary 35%;
+        border-title-color: $secondary;
+        border-title-style: bold;
+        margin-right: 1;
+    }
+    #meeting-browser-detail {
+        height: 1fr; min-height: 8;
+        border: round $primary 35%;
+        border-title-color: $secondary;
+        border-title-style: bold;
+        padding: 0 1;
+    }
+    #detail-tabs { margin-bottom: 1; }
+    #detail-switcher { height: 1fr; }
+    #detail-overview { height: 1fr; }
+    #meeting-notes { height: 7; min-height: 4; max-height: 12; border: tall $primary 20%; }
+    #meeting-summary { height: 1fr; min-height: 8; border: tall $primary 20%; }
+    #meeting-transcript { height: 1fr; min-height: 8; border: tall $primary 20%; }
     .spk-row { height: auto; margin-bottom: 1; }
     .spk-label { width: 14; }
     .dim { text-style: dim; }
-    .settings-dialog { padding: 1 2; width: 90; height: auto; max-height: 90%; background: $surface; border: thick $accent; }
-    .settings-title { text-style: bold; }
+
+    /* ---- modal chrome ------------------------------------------------------ */
+    .settings-dialog {
+        padding: 1 2; width: 90; height: auto; max-height: 90%;
+        background: $surface;
+        border: round $primary;
+        border-title-color: $accent;
+    }
+    .settings-title { text-style: bold; color: $accent; }
     .hint { padding-top: 1; text-style: dim; }
-    .help-dialog { padding: 1 2; width: 76; height: 90%; max-height: 90%; background: $surface; border: thick $accent; }
+    .help-dialog {
+        padding: 1 2; width: 76; height: 90%; max-height: 90%;
+        background: $surface;
+        border: round $primary;
+    }
     .help-scroll { height: 1fr; }
-    #slide-preview-dialog { width: 95%; height: 90%; min-height: 28; max-width: 120; padding: 1 2; background: $surface; border: thick $accent; layout: vertical; overflow: hidden; }
+    #slide-preview-dialog { width: 95%; height: 90%; min-height: 28; max-width: 120; padding: 1 2; background: $surface; border: round $primary; layout: vertical; overflow: hidden; }
     #slide-preview-params { height: auto; max-height: 7; margin-bottom: 1; }
     #slide-preview-status { height: auto; max-height: 4; margin-bottom: 1; overflow-y: auto; }
     #slide-preview-split { height: 1fr; min-height: 12; }
     #slide-candidates-table { width: 1fr; min-width: 28; height: 1fr; min-height: 8; }
-    #slide-image-pane { width: 1fr; min-width: 24; height: 1fr; min-height: 8; border: solid $boost; padding: 0 1; }
+    #slide-image-pane { width: 1fr; min-width: 24; height: 1fr; min-height: 8; border: round $primary 35%; padding: 0 1; }
     #slide-preview-actions { dock: bottom; width: 100%; height: auto; padding-top: 1; background: $surface; }
     #slide-preview-actions Button { margin-right: 1; }
     #slide-preview-hint { dock: bottom; width: 100%; height: auto; padding-top: 1; background: $surface; }
     #sessions-table { height: 20; min-height: 8; }
+
+    /* ---- Logs tab ------------------------------------------------------------ */
     #tab-logs { height: 1fr; }
-    #ui-activity-log { height: 1fr; min-height: 10; border: solid $boost; }
+    #logs-pane { padding: 1 1 0 1; }
+    #ui-activity-log {
+        height: 1fr; min-height: 10;
+        border: round $primary 35%;
+        border-title-color: $secondary;
+        border-title-style: bold;
+        padding: 0 1;
+    }
     """
 
     def __init__(self, *, store: Store, container: Container, controller: TuiController) -> None:
@@ -756,14 +824,6 @@ class TranscriberApp(App[None]):
         # into the fields, and the last-persisted snapshot for change detection on auto-save.
         self._details_loaded_for: UUID | None = None
         self._last_saved_details: tuple[str, str, tuple[str, ...]] | None = None
-
-    def format_title(self, title: str, sub_title: str) -> Content:
-        """Header shows meeting context only — the app name (``title``) is not repeated
-        inside the app (U19). ``self.title`` stays set so app identity remains available
-        for the command palette and terminal title. Falls back to the app name only when
-        there is no context to show.
-        """
-        return Content(sub_title or title)
 
     def get_system_commands(self, screen: Screen[Any]) -> Iterable[SystemCommand]:
         """Keep the overflow actions (hidden from the trimmed footer, U4)
@@ -779,11 +839,11 @@ class TranscriberApp(App[None]):
             )
 
     def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
+        yield StatusDeck(store=self.store)
         with TabbedContent(initial="tab-live"):
             with TabPane("Live", id="tab-live"), Horizontal(id="main-row"):
                 with Vertical(id="sidebar"):
-                    with Vertical(id="live-details"):
+                    with Vertical(id="live-details", classes="card"):
                         yield Static("Title", classes="field-label")
                         yield TabCompletableInput(
                             placeholder="Meeting title", id="live-title", disabled=True
@@ -797,7 +857,9 @@ class TranscriberApp(App[None]):
                         yield Static("", id="live-attendees-summary", classes="dim")
                         yield Static("Notes", classes="field-label")
                         yield TextArea(id="live-notes", disabled=True)
-                    yield Static("", id="status")
+                    yield Static("", id="status-session", classes="card")
+                    yield Static("", id="status-audio", classes="card")
+                    yield Static("", id="status-pipeline", classes="card")
                     yield Static("", id="notices")
                     yield Static("", id="errors")
                 yield RichLog(id="transcript", highlight=True, markup=True)
@@ -829,11 +891,18 @@ class TranscriberApp(App[None]):
         self.push_screen(HelpScreen())
 
     async def on_mount(self) -> None:
+        self.register_theme(NOTETAKER_DARK)
+        self.theme = NOTETAKER_DARK.name
         self.store.subscribe(self._on_state)
         self.query_one(
             "#live-attendees", TabCompletableInput
         ).suggester = CommaSeparatedPeopleSuggester(self.container.people)
-        self.query_one("#live-details").border_title = "Meeting · saves automatically"
+        self.query_one("#live-details").border_title = "meeting · saves automatically"
+        self.query_one("#status-session").border_title = "session"
+        self.query_one("#status-audio").border_title = "audio"
+        self.query_one("#status-pipeline").border_title = "pipeline"
+        self.query_one("#transcript").border_title = "live transcript"
+        self.query_one("#ui-activity-log").border_title = "console"
         self._update_attendees_summary("")
         self._controller.confirm_export_overwrite = self._confirm_export_overwrite
         # Tick the live elapsed-time display once a second while recording. The reducer owns
@@ -864,19 +933,17 @@ class TranscriberApp(App[None]):
         if not select_is_recording(state):
             return
         try:
-            status = self.query_one("#status", Static)
+            self._render_status_cards(state)
         except NoMatches:
             # Main screen not mounted (a modal is up or teardown) — skip; re-renders next tick.
             return
-        status.update(self._render_status(state))
 
     def _on_state(self, state: AppState) -> None:
-        self.sub_title = select_header_title(state)
         try:
-            status = self.query_one("#status", Static)
             notices = self.query_one("#notices", Static)
             err_panel = self.query_one("#errors", Static)
             log = self.query_one("#transcript", RichLog)
+            self._render_status_cards(state)
         except NoMatches:
             # Main screen isn't mounted (app shutting down, or a modal screen is active).
             # State updates dispatched during teardown — e.g. background finalize progress —
@@ -885,7 +952,8 @@ class TranscriberApp(App[None]):
             return
 
         self._sync_live_details(state)
-        status.update(self._render_status(state))
+        # The transcript border shifts to the recording signal color while live.
+        log.set_class(select_is_recording(state), "-recording")
         if state.notices:
             notices.update(
                 Text.from_markup(
@@ -923,9 +991,7 @@ class TranscriberApp(App[None]):
             old_keys and len(new_keys) > len(old_keys) and new_keys[: len(old_keys)] == old_keys
         ):
             for line in state.recent_transcript_segments[len(old_keys) :]:
-                sp = select_display_speaker(state, line.speaker)
-                ts = select_transcript_timestamp(line)
-                log.write(Text.from_markup(f"[dim]{ts}[/] [bold]{sp}[/]\n{line.text}"))
+                log.write(self._transcript_block(state, line))
         elif old_keys != new_keys:
             log.clear()
             if not state.recent_transcript_segments:
@@ -933,14 +999,30 @@ class TranscriberApp(App[None]):
                 # blank pane (U10). Replaced as soon as real segments arrive.
                 log.write(Text.from_markup(LIVE_EMPTY_HINT))
             for line in state.recent_transcript_segments:
-                sp = select_display_speaker(state, line.speaker)
-                ts = select_transcript_timestamp(line)
-                log.write(Text.from_markup(f"[dim]{ts}[/] [bold]{sp}[/]\n{line.text}"))
+                log.write(self._transcript_block(state, line))
         self._last_segment_keys = new_keys
 
-    def _render_status(self, state: AppState) -> Group:
-        lines = build_live_status_lines(state, utc_now())
-        return Group(*[Text.from_markup(x) for x in lines])
+    @staticmethod
+    def _transcript_block(state: AppState, line: TranscriptLineState) -> Text:
+        return transcript_segment_text(
+            timestamp=select_transcript_timestamp(line),
+            speaker_label=select_display_speaker(state, line.speaker),
+            speaker_key=line.speaker,
+            body=line.text,
+        )
+
+    def _render_status_cards(self, state: AppState) -> None:
+        """Render the three sidebar cards (session / audio / pipeline)."""
+        now = utc_now()
+
+        def _group(lines: list[str]) -> Group:
+            return Group(*[Text.from_markup(x) for x in lines])
+
+        self.query_one("#status-session", Static).update(
+            _group(build_session_card_lines(state, now))
+        )
+        self.query_one("#status-audio", Static).update(_group(build_audio_card_lines(state, now)))
+        self.query_one("#status-pipeline", Static).update(_group(build_pipeline_card_lines(state)))
 
     def _render_errors(self, state: AppState) -> Panel | Text:
         # When there is nothing to report, collapse the bordered panel into a

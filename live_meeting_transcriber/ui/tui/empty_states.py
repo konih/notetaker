@@ -13,8 +13,11 @@ from collections.abc import Callable, Sequence
 # Rich-markup hints shown when a surface has no content yet. Each names the
 # concrete next keystroke so a blank pane never leaves the user guessing.
 LIVE_EMPTY_HINT = (
-    "[dim]No transcript yet. Press [/][bold]r[/][dim] to start recording, "
-    "or [/][bold]ctrl+2[/][dim] to browse past meetings.[/]"
+    "\n"
+    "  [bold #7dcfff]◉[/]  [bold]Ready to capture[/]\n"
+    "\n"
+    "  [dim]Press[/] [reverse] r [/reverse] [dim]to start recording this meeting[/]\n"
+    "  [dim]Press[/] [reverse] ctrl+2 [/reverse] [dim]to browse past meetings[/]"
 )
 MEETINGS_EMPTY_HINT = (
     "No meetings yet. Go to the Live tab ([bold]ctrl+1[/]) and press "

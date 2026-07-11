@@ -102,11 +102,19 @@ def build_help_sections(
 
 
 def format_help_markup(sections: tuple[HelpSection, ...]) -> str:
-    """Render the sections as Textual/Rich console markup for a ``Static``."""
+    """Render the sections as Textual/Rich console markup for a ``Static``.
+
+    Keys render as reverse-video "keycaps" aligned per section, so the overlay
+    scans like a keyboard cheat-sheet rather than a text dump.
+    """
     lines: list[str] = []
     for section in sections:
         lines.append(f"[bold]{section.title}[/]")
+        width = max((len(row.keys) for row in section.rows), default=0)
         for row in section.rows:
-            lines.append(f"  [cyan]{row.keys:<9}[/] {row.label}")
+            # Pad *outside* the reverse block so each key renders as a snug
+            # keycap, with the labels still aligned in a column.
+            pad = " " * (width - len(row.keys))
+            lines.append(f"  [reverse] {row.keys} [/reverse]{pad}  {row.label}")
         lines.append("")
     return "\n".join(lines).rstrip()

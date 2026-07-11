@@ -121,7 +121,7 @@ async def test_live_hint_clears_when_first_segment_streams_in() -> None:
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
         transcript = app.query_one("#transcript", RichLog)
-        assert "No transcript yet" in _richlog_text(transcript)
+        assert "Ready to capture" in _richlog_text(transcript)
         seg = TranscriptLineState(
             id="s1",
             session_id=str(uuid4()),

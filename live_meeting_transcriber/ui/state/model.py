@@ -108,6 +108,9 @@ class AppState(BaseModel):
     # Wall-clock time the current_level_meter peak was captured; drives the U13 decay so the
     # meter falls off between per-chunk updates instead of freezing on a stale peak. None when idle.
     last_level_at: datetime | None = None
+    # Recent per-chunk level peaks (oldest → newest, capped), feeding the status-deck
+    # sparkline. Reset when a new recording starts so the graph shows this session only.
+    level_history: tuple[float, ...] = Field(default_factory=tuple)
     # Wall-clock start of the *current* recording segment; drives the live elapsed timer.
     # Set on RecordingStarted (resets on resume), cleared on stop/failure. None when idle.
     recording_started_at: datetime | None = None

@@ -19,10 +19,9 @@ from live_meeting_transcriber.transcription.openai_transcriber import OpenAITran
 from live_meeting_transcriber.ui.tui.meeting_session_helpers import (
     count_preview_candidates,
     count_saved_slides,
-    format_meeting_row_title,
-    format_session_type_label,
     format_slide_detail_note,
     list_preview_candidate_timestamps,
+    meeting_row_cells,
     session_has_slide_source,
     session_is_video_import,
 )
@@ -49,21 +48,51 @@ def test_is_video_import_session_true_with_manifest(tmp_path: Path) -> None:
     assert session_is_video_import(tmp_path, sid) is True
 
 
-def test_format_session_type_label() -> None:
-    assert format_session_type_label(is_video=True) == "▶ Video"
-    assert format_session_type_label(is_video=False) == "● Live"
-
-
-def test_format_meeting_row_title_marks_interrupted_but_not_active() -> None:
+def test_meeting_row_glyph_distinguishes_live_and_video() -> None:
     started = datetime(2026, 1, 1, 9, 0, 0)
-    ended = MeetingSession(title="Standup", started_at=started, ended_at=started)
-    assert format_meeting_row_title(ended) == "Standup"
+    now = datetime(2026, 1, 1, 12, 0, 0)
+    live = MeetingSession(title="Standup", started_at=started, ended_at=started)
+    glyph, style, title, _ = meeting_row_cells(
+        live, is_video=False, active_session_id=None, now=now
+    )
+    assert (glyph, style, title) == ("●", "green", "Standup")
 
+    video = MeetingSession(title="Talk", started_at=started, ended_at=started)
+    glyph, style, _, _ = meeting_row_cells(video, is_video=True, active_session_id=None, now=now)
+    assert (glyph, style) == ("▶", "cyan")
+
+
+def test_meeting_row_marks_interrupted_but_not_active() -> None:
+    # A meeting with no ended_at was interrupted (crash/force-quit) → ⏸ glyph so the
+    # operator can find it and run Speaker ID — unless it is recording right now.
+    started = datetime(2026, 1, 1, 9, 0, 0)
+    now = datetime(2026, 1, 1, 12, 0, 0)
     interrupted = MeetingSession(title="Standup", started_at=started, ended_at=None)
-    assert format_meeting_row_title(interrupted).startswith("⏸ interrupted · Standup")
+    glyph, style, _, _ = meeting_row_cells(
+        interrupted, is_video=False, active_session_id=None, now=now
+    )
+    assert (glyph, style) == ("⏸", "yellow")
 
-    # The session being recorded right now must never be flagged as interrupted.
-    assert format_meeting_row_title(interrupted, active_session_id=interrupted.id) == "Standup"
+    glyph, _, _, _ = meeting_row_cells(
+        interrupted, is_video=False, active_session_id=interrupted.id, now=now
+    )
+    assert glyph == "●"
+
+
+def test_meeting_row_truncates_title_and_humanizes_started() -> None:
+    started = datetime(2026, 1, 1, 9, 0, 0)
+    now = datetime(2026, 1, 1, 12, 0, 0)
+    session = MeetingSession(
+        title="A very long meeting title that would push the date out of view",
+        started_at=started,
+        ended_at=started,
+    )
+    _, _, title, cell = meeting_row_cells(
+        session, is_video=False, active_session_id=None, now=now, tz=None, max_title=24
+    )
+    assert len(title) == 25  # 24 chars + ellipsis
+    assert title.endswith("…")
+    assert cell  # humanized Started cell is present ("today HH:MM" here)
 
 
 def test_session_has_slide_source_with_manifest(tmp_path: Path) -> None:
