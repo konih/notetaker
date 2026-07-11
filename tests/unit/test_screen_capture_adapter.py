@@ -7,10 +7,12 @@ real binary, or macOS-only behavior (unit CI runs on Linux).
 
 from __future__ import annotations
 
+import subprocess
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from live_meeting_transcriber.screencap.cli import ScreencaptureCli
+from live_meeting_transcriber.screencap.cli import ScreencaptureCli, _run_quiet
 
 
 def _which_found(name: str) -> str | None:
@@ -61,6 +63,22 @@ def test_capture_returns_false_when_no_file_written(tmp_path: Path) -> None:
     # e.g. screencapture exited 0 but produced nothing (seen with odd TCC states).
     cap = ScreencaptureCli(which=_which_found, platform="darwin", runner=lambda cmd: 0)
     assert cap.capture(tmp_path / "shot.png") is False
+
+
+def test_capture_returns_false_when_runner_times_out(tmp_path: Path) -> None:
+    # A wedged screencapture (WindowServer stall) must not propagate and hang the
+    # recording stop path — the adapter reports a failed capture instead.
+    def runner(cmd: Sequence[str]) -> int:
+        raise subprocess.TimeoutExpired(cmd=list(cmd), timeout=30)
+
+    cap = ScreencaptureCli(which=_which_found, platform="darwin", runner=runner)
+    assert cap.capture(tmp_path / "shot.png") is False
+
+
+def test_default_runner_enforces_a_timeout() -> None:
+    # The default runner must kill a hung process instead of waiting forever.
+    rc = _run_quiet([sys.executable, "-c", "import time; time.sleep(30)"], timeout_seconds=0.2)
+    assert rc != 0
 
 
 def test_capture_success_writes_png_silently(tmp_path: Path) -> None:

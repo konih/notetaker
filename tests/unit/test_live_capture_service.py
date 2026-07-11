@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from pathlib import Path
@@ -145,6 +146,64 @@ async def test_capture_failure_warns_and_stops_the_loop(tmp_path: Path) -> None:
     assert len(shots) == 1
     assert len(warnings) == 1
     assert "Screen Recording" in warnings[0].message  # points at the TCC permission
+
+
+class _ExplodingScreen:
+    """Capture raises an unexpected error (e.g. disk full) instead of returning False."""
+
+    def availability(self) -> tuple[bool, str | None]:
+        return (True, None)
+
+    def capture(self, output_path: Path) -> bool:
+        raise OSError("No space left on device")
+
+
+@pytest.mark.asyncio
+async def test_unexpected_capture_error_warns_and_stops(tmp_path: Path) -> None:
+    # An OSError must not kill the task silently ("exception was never retrieved")
+    # or leak a non-CancelledError into the stop handler's cancel-await.
+    events: list[ApplicationEvent] = []
+    sid = uuid4()
+    loop = LiveScreenCaptureLoop(
+        screen=_ExplodingScreen(),  # type: ignore[arg-type]
+        data_dir=tmp_path,
+        enabled=True,
+        interval_seconds=60,
+    )
+    await loop.run(session_id=sid, on_application_event=events.append)  # must not raise
+    (event,) = events
+    assert isinstance(event, ScreenCaptureUnavailable)
+    assert "No space left on device" in event.message
+
+
+@pytest.mark.asyncio
+async def test_manifest_write_is_atomic_via_replace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Crash-safety: the manifest lands via temp file + os.replace so a crash
+    # mid-write can never truncate captures.json and orphan prior shots.
+    import live_meeting_transcriber.application.live_capture as lc
+
+    replaced: list[tuple[str, str]] = []
+    real_replace = os.replace
+
+    def spy_replace(src: str | os.PathLike[str], dst: str | os.PathLike[str]) -> None:
+        replaced.append((str(src), str(dst)))
+        real_replace(src, dst)
+
+    monkeypatch.setattr(lc.os, "replace", spy_replace)
+
+    sid = uuid4()
+    with pytest.raises(asyncio.CancelledError):
+        await _loop(tmp_path, FakeScreen(), sleeper=_sleeper_stopping_after(0)).run(
+            session_id=sid, on_application_event=None
+        )
+
+    manifest_path = live_captures_manifest_path(session_audio_dir(tmp_path, sid))
+    assert any(dst == str(manifest_path) for _src, dst in replaced)
+    leftovers = [p for p in manifest_path.parent.iterdir() if p.suffix == ".tmp"]
+    assert leftovers == []
+    assert len(json.loads(manifest_path.read_text())) == 1
 
 
 @pytest.mark.asyncio
