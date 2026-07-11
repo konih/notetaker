@@ -133,3 +133,40 @@ def test_device_reports_explicit_diarize_device(monkeypatch: pytest.MonkeyPatch)
     r = doc.check_device(_settings(whisperx_diarize_device="cuda:0"))
     assert r.ok
     assert "diarization on 'cuda:0'" in r.detail
+
+
+# --- offline ASR engine (F12) --------------------------------------------------
+def test_offline_engine_auto_mlx_reports_engine() -> None:
+    r = doc.check_offline_asr_engine(
+        _settings(offline_asr_engine="auto"),
+        mlx_importable=lambda: True,
+        platform_probe=lambda: ("Darwin", "arm64"),
+    )
+    assert r.ok
+    assert "mlx" in r.detail.lower()
+
+
+def test_offline_engine_auto_whisperx_reports_engine() -> None:
+    r = doc.check_offline_asr_engine(
+        _settings(offline_asr_engine="auto"),
+        mlx_importable=lambda: False,
+        platform_probe=lambda: ("Linux", "x86_64"),
+    )
+    assert r.ok
+    assert "whisperx" in r.detail.lower()
+
+
+def test_offline_engine_explicit_mlx_unavailable_fails_with_remediation() -> None:
+    r = doc.check_offline_asr_engine(
+        _settings(offline_asr_engine="mlx"),
+        mlx_importable=lambda: False,
+        platform_probe=lambda: ("Darwin", "arm64"),
+    )
+    assert not r.ok
+    assert "falling back" in r.detail.lower()
+    assert r.remediation is not None and "uv sync --extra mlx" in r.remediation
+
+
+def test_run_diarization_checks_includes_offline_engine() -> None:
+    results = doc.run_diarization_checks(_settings())
+    assert any(r.name == "Offline ASR engine" for r in results)

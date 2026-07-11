@@ -140,7 +140,26 @@ _FULL_RUN_NO_TOKEN = (
 )
 
 
-@pytest.mark.parametrize("run", [_FULL_RUN_HF, _FULL_RUN_NO_TOKEN], ids=["hf-token", "no-token"])
+# The MLX engine's message set (F12): no wav2vec2 alignment stage, overlap speaker
+# assignment, and an "MLX pass complete" terminal message. Locks the wording so the
+# stage bar keeps reading these as load->transcribe->diarize->persist.
+_FULL_RUN_MLX = (
+    "Loading MLX Whisper model 'mlx-community/whisper-large-v3-turbo' (Apple GPU)…",
+    "Transcribing on the Apple GPU (MLX)…",
+    "Transcribe done (42 raw segment(s)); unloading model…",
+    "Loading diarization model on 'mps' (HF token required)…",
+    "Running speaker diarization…",
+    "Assigning speakers to words (overlap)…",
+    "Diarization finished.",
+    "MLX pass complete (42 segment(s)).",
+)
+
+
+@pytest.mark.parametrize(
+    "run",
+    [_FULL_RUN_HF, _FULL_RUN_NO_TOKEN, _FULL_RUN_MLX],
+    ids=["hf-token", "no-token", "mlx"],
+)
 def test_stage_index_is_monotonic_over_a_true_full_run(run: tuple[str, ...]) -> None:
     indices = [select_finalize_stage_index(m) for m in run]
     assert indices == sorted(indices), list(zip(run, indices, strict=True))

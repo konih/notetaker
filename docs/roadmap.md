@@ -9,6 +9,7 @@ Shipped on `main` (see [`docs/configuration.md`](configuration.md) and [`docs/ar
 - **Preview workflow** — `slides preview` / `slides apply` without re-transcribing
 - **Cleanup** — `cleanup` CLI (dry-run default) and TUI session delete share `CleanupService`
 - **Offline speakers** — `finalize` (WhisperX + pyannote); live `dual_path` stereo hints with faster-whisper
+- **Apple-Silicon GPU finalize** — optional `mlx` extra runs finalize ASR on the Apple GPU via mlx-whisper (~7x faster than cpu/int8), auto-selected on Apple Silicon (`OFFLINE_ASR_ENGINE`); overlap-based speaker attribution + hallucination-on-silence gate; clean WhisperX fallback elsewhere
 - **TUI** — session browser, slide preview with parameter tuning
 - **Live meeting details** — set title, context/notes, attendees, and name detected speakers for the *current* live meeting from the Live tab (`t`); notes pre-fill the summary context
 - **Progress UI** — Speaker ID / finalize shows a stage-progress bar (load → transcribe → align → diarize → persist) in the always-visible status deck; the Live tab's Audio card shows per-chunk transcription progress and a next-chunk countdown

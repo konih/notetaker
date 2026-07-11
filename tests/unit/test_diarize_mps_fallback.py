@@ -26,6 +26,10 @@ from live_meeting_transcriber.offline import whisperx_pipeline as wp
 
 
 def _settings(**overrides: object) -> Settings:
+    # These tests exercise WhisperX-path specifics (its diarize fallback); pin the
+    # engine so OFFLINE_ASR_ENGINE=auto cannot divert to MLX on an Apple-Silicon dev
+    # machine with the mlx extra installed (F12).
+    overrides.setdefault("offline_asr_engine", "whisperx")
     return Settings(**overrides)  # type: ignore[arg-type]
 
 
