@@ -428,7 +428,7 @@ class AudioSourcesScreen(ModalScreen[None]):
 
         def _value_for(current: str | None) -> object:
             names = [name for _label, name in device_opts]
-            return current if current in names else Select.BLANK
+            return current if current in names else Select.NULL
 
         mic_current = state.configured_microphone_source or state.microphone_source
         mic_opts = [("(monitor only — no microphone)", self._MIC_NONE), *device_opts]
@@ -455,10 +455,10 @@ class AudioSourcesScreen(ModalScreen[None]):
             return
 
         mon_val = monitor.value
-        monitor_source = None if mon_val is Select.BLANK else str(mon_val)
+        monitor_source = None if mon_val is Select.NULL else str(mon_val)
 
         mic_val = mic.value
-        if mic_val is Select.BLANK or mic_val == self._MIC_NONE:
+        if mic_val is Select.NULL or mic_val == self._MIC_NONE:
             microphone_source: str | None = None
         else:
             microphone_source = str(mic_val)
