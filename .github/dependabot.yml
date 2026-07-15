@@ -6,6 +6,17 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 10
+    # Held back by whisperx 3.8.5's transitive pins (see agent-context/stories/C6.md).
+    # Verified 2026-07-16: transformers 5.x forces whisperx 3.8.5 -> 3.4.2 (drops torchvision,
+    # downgrades ctranslate2); torch >=2.9 forces whisperx downgrade + removes torchcodec.
+    # whisperx 3.8.5 is the resolver ceiling, so these bumps only regress the diarization stack.
+    # Accept-risk (advisories need loading attacker-controlled model files). REVISIT + drop these
+    # ignores when whisperx supports newer torch/transformers.
+    ignore:
+      - dependency-name: "transformers"
+        versions: [">=5"]
+      - dependency-name: "torch"
+        versions: [">=2.9"]
     groups:
       python-minor:
         patterns:
