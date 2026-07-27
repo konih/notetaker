@@ -34,9 +34,11 @@ FOOTER_ACTIONS: tuple[FooterAction, ...] = (
     FooterAction("x", "stop", "Stop", core=True),
     FooterAction("k", "summarize", "Summarize", core=True, priority=True),
     FooterAction("w", "export_md", "Export", core=True, priority=True),
+    # Audio sources is core again: palette-only overflow made the device picker
+    # undiscoverable (operators concluded the menu was removed entirely).
+    FooterAction("a", "audio_sources", "Audio sources", core=True),
     FooterAction("t", "name_speakers", "Name speakers", core=False),
     FooterAction("s", "settings", "Settings", core=False),
-    FooterAction("a", "audio_sources", "Audio sources", core=False),
     # `j` (jump to a meeting), not `m`: the Meetings tab binds `m` to its
     # More-actions menu (U9), which shadowed a global `m` there so the same key
     # meant two different things depending on the region (U12).
